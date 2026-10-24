@@ -126,7 +126,9 @@ const goHome = async () => {
   for (let i = 0; i < 8; i++) {
     await sleep(1500);
     if (has('Recent jobs') && has('Photos')) return;
-    if (has('Done')) tap('Done', true);
+    // Round 4: leaving an unprinted job asks first; Leave keeps it, as Home did before.
+    if (has('Leave this job?')) tap('Leave', true);
+    else if (has('Done')) tap('Done', true);
     else if (has('Home')) tap('Home', true);
   }
   throw new Error(`Home did not show (screen: ${labels().slice(0, 8).join(' / ')})`);

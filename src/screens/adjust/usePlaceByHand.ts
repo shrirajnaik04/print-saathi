@@ -40,7 +40,7 @@ export function usePlaceByHand(o: {
   enabled: boolean;
   plan: PrintPlan | null;
   job: Job | null;
-  /** The element around the drawn page (its first <figure> is the paper). */
+  /** The strip of drawn pages (round 4): page n's paper is the <figure> in its `.adjust-sheet[data-page=n]`. */
   figure: RefObject<HTMLDivElement>;
   /** The blank space at the page's edges (mm), as the plan keeps it. */
   edgeMm: number;
@@ -122,7 +122,7 @@ export function usePlaceByHand(o: {
       if (!o.enabled || !o.plan || hold.current) return;
       if (e.pointerType === 'mouse' && e.button !== 0) return;
       if ((e.target as HTMLElement).closest('.adjust-handle, .adjust-side')) return;
-      const paperEl = o.figure.current?.querySelector('figure');
+      const paperEl = o.figure.current?.querySelector(`.adjust-sheet[data-page="${page}"] figure`);
       const rect = paperEl?.getBoundingClientRect();
       if (!rect) return;
       const el = e.currentTarget as HTMLElement;
@@ -192,5 +192,6 @@ export function usePlaceByHand(o: {
     void o.save(placeActions(item, { ...s.box }));
   };
 
-  return { lifted, handlers, nudge, placeActions };
+  // A second finger (a pinch to zoom) ends a hold that has not lifted the photo yet.
+  return { lifted, handlers, nudge, placeActions, cancel: end };
 }

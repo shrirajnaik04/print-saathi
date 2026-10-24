@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 import { type IdCardSide, type IdCardSize, validQuad } from '../../core/job/job';
 import { FULL } from '../../core/layout/crop';
 import { moveSideStraight, quadOfBox } from '../../core/layout/quad';
-import { maxCardSets } from '../../core/plan/plan';
+import { CARD_H_MM, CARD_W_MM, maxCardSets } from '../../core/plan/plan';
 import { en } from '../../i18n/en';
 import { fill } from '../../i18n/fill';
 import { passwords } from '../../native/passwords';
@@ -13,12 +13,13 @@ import { Button } from '../../ui/Button';
 import { CropBar } from '../../ui/CropBar';
 import { CropFrame } from '../../ui/CropFrame';
 import { Panel } from '../../ui/Panel';
+import { turnedStyle } from '../../ui/PaperPreview';
 import { SideNudge } from '../../ui/SideNudge';
 import { Tile } from '../../ui/Tile';
 import { TopBar } from '../../ui/TopBar';
 import { JobGone } from '../JobGone';
 import { push, type ScreenProps } from '../types';
-import { forgetAddedChoice, peekAddedChoice } from '../useAddNotice';
+import { forgetAddedChoice, forgetCardSide, noteCardSide, peekAddedChoice, peekCardSide } from '../useAddNotice';
 import { useJob } from '../useJob';
 import { loadSettings, settingsStore } from '../useSettings';
 import { useStraightImages } from '../useStraightImages';
@@ -32,6 +33,23 @@ const DEFAULT_QUAD = [0.2, 0.25, 0.8, 0.25, 0.8, 0.75, 0.2, 0.75];
 
 type Picked = IdCardSide & { sure: boolean };
 
+/**
+ * A card-shaped frame (85.6 : 54 on the photo as shown) in the middle of a photo of shape [aspect] (width ÷ height): 80 %
+ * of its width, or of its height if that is less (owner, round 4: "crop selection frame default to card size").
+ */
+export function cardFrame(aspect: number): number[] {
+  const card = CARD_W_MM / CARD_H_MM;
+  let w = 0.8;
+  let h = (w * aspect) / card;
+  if (h > 0.8) {
+    h = 0.8;
+    w = (h * card) / aspect;
+  }
+  const x = (1 - w) / 2;
+  const y = (1 - h) / 2;
+  return [x, y, x + w, y, x + w, y + h, x, y + h];
+}
+
 /** Corners just outside the photo (a card touching its edge) brought inside it (review m13). */
 const inside = (q: number[]) => q.map((v) => Math.min(1, Math.max(0, v)));
 
@@ -42,7 +60,8 @@ const inside = (q: number[]) => q.map((v) => Math.min(1, Math.max(0, v)));
  * otherwise received order. A photo or PDF page with no card at all gets a starting frame to fix; a locked or damaged
  * file gets nothing.
  */
-export function pickCards(found: CardsInItem[]): Picked[] {
+/** [aspectOf]: a photo's shape, for its card-shaped starting frame when no card is found in it (round 4). */
+export function pickCards(found: CardsInItem[], aspectOf?: (item: number) => number | undefined): Picked[] {
   type Candidate = Picked & { face: boolean };
   const files = [...new Set(found.map((f) => f.index))];
   const all: Candidate[] = [];
@@ -68,8 +87,17 @@ export function pickCards(found: CardsInItem[]): Picked[] {
         sure: c.confidence >= AUTO_ACCEPT,
         face: c.face,
       });
-    if (!chosen.length && it.state === 'ok' && (it.page ?? 0) === 0)
-      all.push({ item: it.index, ...at, quad: DEFAULT_QUAD, turns: 0, sure: false, face: false });
+    if (!chosen.length && it.state === 'ok' && (it.page ?? 0) === 0) {
+      const aspect = it.page === undefined ? aspectOf?.(it.index) : undefined;
+      all.push({
+        item: it.index,
+        ...at,
+        quad: aspect ? cardFrame(aspect) : DEFAULT_QUAD,
+        turns: 0,
+        sure: false,
+        face: false,
+      });
+    }
   }
   const two = all.slice(0, 2);
   if (two.length === 2 && two.filter((c) => c.face).length === 1 && !two[0]?.face) two.reverse();
@@ -95,19 +123,48 @@ export function landscapeQuad(q: number[], aspect: number): number[] {
 /** The straightened image of each card (made by the engine), refreshed when its corners change. */
 export const useCardImages = useStraightImages;
 
+/** The next side after [at] that comes from a photo (it is cropped by hand in turn, owner round 4); -1 if none. */
+const nextPhotoSide = (cards: readonly IdCardSide[], at: number) =>
+  cards.findIndex((c, i) => i > at && c.page === undefined);
+
+/** A straightened card's picture: standing when turned a quarter (its frame then stands too, owner round 4). */
+function CardPicture({ src, turns, alt }: { src: string; turns: number; alt: string }) {
+  const standing = turns % 2 === 1;
+  return (
+    <img
+      src={src}
+      alt={alt}
+      class="card-picture"
+      // Standing: centred in its standing frame and turned (as on the page); lying: turned in place.
+      style={
+        standing
+          ? turnedStyle(turns, CARD_H_MM, CARD_W_MM)
+          : turns
+            ? { transform: `rotate(${turns * 90}deg)` }
+            : undefined
+      }
+    />
+  );
+}
+
 /**
  * Screen 1 of ID card copy (spec Part 2, the approved mockup): the cards found, straightened, Front and Back. Swap,
- * Fix corners and Turn per card; Card copy goes on to "How big?".
+ * Fix edges, Turn left / right and Change photo per card; Card copy goes on to "How big?". Each side from a photo is
+ * first fitted on its own crop screen, front then back (owner, round 4).
  */
 export function CardsFound({ go, params }: ScreenProps) {
   const jobId = String(params?.jobId ?? '');
-  const { job, gone, failed, retry, change, busy, saveFailed } = useJob(jobId);
+  const { job, aspects: shapes, gone, failed, retry, change, busy, saveFailed } = useJob(jobId);
   const [state, setState] = useState<'finding' | 'ready' | 'locked' | 'failed'>('finding');
   const [lockedItem, setLockedItem] = useState<number | null>(null);
   const [attempt, setAttempt] = useState(0);
   // A back side just added from the phone (owner, 2026-10-24): its photo is looked at, and its card goes after the front.
   // It stays noted until its card is saved: leaving while it is looked at and coming back looks again (review I1).
   const [addedBack] = useState(() => peekAddedChoice(jobId));
+  // Change photo (owner, round 4): the side whose photo the photo just added replaces.
+  const [replacing] = useState(() => peekCardSide(jobId));
+  const shapesNow = useRef(shapes);
+  shapesNow.current = shapes;
   const [looking, setLooking] = useState(false);
   const backStarted = useRef(false);
   // The cards as they are now (a look that ends later adds the back to these, never to the ones it started with).
@@ -128,25 +185,74 @@ export function CardsFound({ go, params }: ScreenProps) {
   );
   useEffect(() => {
     const cards = job?.idCard?.cards;
-    if (!job || addedBack === null || !cards || backStarted.current) return;
-    // Already two sides, or the photo is gone: nothing left to look at.
-    if (cards.length !== 1 || !job.items.some((i) => i.index === addedBack)) return forgetAddedChoice();
-    backStarted.current = true;
+    if (!job || !cards || backStarted.current) return;
+    // Change photo closed without a photo: nothing to replace.
+    if (replacing !== null && addedBack === null) return forgetCardSide();
+    if (addedBack === null) return;
     const item = addedBack;
+    if (!job.items.some((i) => i.index === item)) {
+      forgetCardSide();
+      return forgetAddedChoice();
+    }
+    // The photo replaces side [replacing]: its card (or a card-shaped frame) takes that side; the old photo leaves the
+    // job unless the other side uses it; then its crop screen.
+    if (replacing !== null) {
+      const old = cards[replacing];
+      if (!old) {
+        forgetCardSide();
+        return forgetAddedChoice();
+      }
+      backStarted.current = true;
+      setLooking(true);
+      void (async () => {
+        try {
+          const { items } = await PrintEngine.findCards({ jobId, passwords: passwords.forJob(jobId) });
+          if (!open.current) return;
+          const found = pickCards(
+            items.filter((f) => f.index === item),
+            (i) => shapesNow.current.get(i),
+          )[0] ?? { item, quad: cardFrame(shapesNow.current.get(item) ?? 4 / 3), turns: 0 as const, sure: false };
+          const now = latest.current ?? cards;
+          const next = now.map((c, i) => (i === replacing ? found : c));
+          const gone = !next.some((c) => c.item === old.item);
+          const saved = await change({
+            type: 'all',
+            actions: [
+              { type: 'setIdCards', cards: next },
+              ...(gone ? [{ type: 'removeItem' as const, index: old.item }] : []),
+            ],
+          });
+          if (!saved || !open.current) return;
+          forgetAddedChoice();
+          forgetCardSide();
+          go(push('fixcorners', { jobId, at: replacing }));
+        } catch {
+          if (open.current) setState('failed');
+        } finally {
+          if (open.current) setLooking(false);
+        }
+      })();
+      return;
+    }
+    // Already two sides: nothing left to look at.
+    if (cards.length !== 1) return forgetAddedChoice();
+    backStarted.current = true;
     setLooking(true);
     void (async () => {
       try {
         const { items } = await PrintEngine.findCards({ jobId, passwords: passwords.forJob(jobId) });
         if (!open.current) return;
-        // The surest card in the added photo; none found: a starting frame to fix (as for any photo).
-        const back = pickCards(items.filter((f) => f.index === item))[0] ?? {
-          item,
-          quad: DEFAULT_QUAD,
-          turns: 0 as const,
-          sure: false,
-        };
+        // The surest card in the added photo; none found: a card-shaped frame to fit (as for any photo).
+        const back = pickCards(
+          items.filter((f) => f.index === item),
+          (i) => shapesNow.current.get(i),
+        )[0] ?? { item, quad: cardFrame(shapesNow.current.get(item) ?? 4 / 3), turns: 0 as const, sure: false };
         const now = latest.current;
-        if (now?.length === 1 && (await change({ type: 'setIdCards', cards: [...now, back] }))) forgetAddedChoice();
+        if (now?.length === 1 && (await change({ type: 'setIdCards', cards: [...now, back] }))) {
+          forgetAddedChoice();
+          // Its crop screen, as for every side from a photo (owner, round 4).
+          if (open.current) go(push('fixcorners', { jobId, at: now.length, chain: 1 }));
+        }
       } catch {
         if (open.current) setState('failed');
       } finally {
@@ -176,14 +282,17 @@ export function CardsFound({ go, params }: ScreenProps) {
         }
         const { items } = await PrintEngine.findCards({ jobId, passwords: passwords.forJob(jobId) });
         if (!live) return;
-        const picked = pickCards(items);
+        const picked = pickCards(items, (i) => shapesNow.current.get(i));
         if (!picked.length) return setState('failed');
         const saved = await change({ type: 'setIdCards', cards: picked });
         if (!live) return;
         if (!saved) return setState('failed');
         setState('ready');
-        // No card found: straight to Fix corners with a default frame (spec Part 2).
-        if (picked.every((p) => !p.sure) && items.every((i) => i.cards.length === 0))
+        // Each side from a photo on its crop screen in turn, front first (owner, round 4); a PDF's panels are exact,
+        // but a PDF page with none still opens Fix edges on a starting frame (spec Part 2, review I3).
+        const first = nextPhotoSide(picked, -1);
+        if (first >= 0) go(push('fixcorners', { jobId, at: first, chain: 1 }));
+        else if (picked.every((p) => !p.sure) && items.every((i) => i.cards.length === 0))
           go(push('fixcorners', { jobId, at: 0 }));
       } catch {
         if (live) setState('failed');
@@ -197,7 +306,13 @@ export function CardsFound({ go, params }: ScreenProps) {
   const imageOf = useCardImages(jobId, cards);
   const unsure = (cards ?? []).map((c) => c.sure === false);
   // Nothing was found: every card is still the starting frame.
-  const none = !!cards?.length && cards.every((c) => c.sure === false && c.quad.join() === DEFAULT_QUAD.join());
+  const none =
+    !!cards?.length &&
+    cards.every(
+      (c) =>
+        c.sure === false &&
+        (c.quad.join() === DEFAULT_QUAD.join() || c.quad.join() === cardFrame(shapes.get(c.item) ?? 4 / 3).join()),
+    );
   if (gone) return <JobGone go={go} title={t.title} />;
   const heading = state !== 'ready' || !cards ? t.title : none ? t.none : cards.length === 2 ? t.found2 : t.found1;
   return (
@@ -244,9 +359,9 @@ export function CardsFound({ go, params }: ScreenProps) {
                       {unsure[i] ? t.check : `✓ ${t.straightened}`}
                     </span>
                   </div>
-                  <div class="card-shot">
+                  <div class={c.turns % 2 === 1 ? 'card-shot card-standing' : 'card-shot'}>
                     {src ? (
-                      <img src={src} alt={fill(t.imageLabel, { side })} class={c.turns === 2 ? 'turn-2' : undefined} />
+                      <CardPicture src={src} turns={c.turns} alt={fill(t.imageLabel, { side })} />
                     ) : (
                       <span class="thumb-note">{src === null ? t.noPicture : t.making}</span>
                     )}
@@ -263,12 +378,33 @@ export function CardsFound({ go, params }: ScreenProps) {
                     </Button>
                     <Button
                       variant="secondary"
+                      icon="photos"
+                      disabled={busy || looking}
+                      label={`${t.changePhoto} (${side})`}
+                      onClick={() => {
+                        noteCardSide(jobId, i);
+                        go(push('addsource', { jobId, kind: 'side', at: i }));
+                      }}
+                    >
+                      {t.changePhoto}
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      icon="turnLeft"
+                      disabled={busy || looking}
+                      label={`${t.turnLeft} (${side})`}
+                      onClick={() => void change({ type: 'turnIdCard', at: i, by: 3 })}
+                    >
+                      {t.turnLeft}
+                    </Button>
+                    <Button
+                      variant="secondary"
                       icon="turn"
                       disabled={busy || looking}
-                      label={`${t.turn} (${side})`}
-                      onClick={() => void change({ type: 'turnIdCard', at: i })}
+                      label={`${t.turnRight} (${side})`}
+                      onClick={() => void change({ type: 'turnIdCard', at: i, by: 1 })}
                     >
-                      {t.turn}
+                      {t.turnRight}
                     </Button>
                   </div>
                 </li>
@@ -378,11 +514,14 @@ export function FixCorners({ go, params }: ScreenProps) {
   const src = card?.page !== undefined ? pageSrc : srcOf(card?.item ?? -1);
   const nudge = (d: number) => q && setQuad(moveSideStraight(q, side, d));
   const preSrc = card && shown ? preview({ ...card, quad: shown }) : undefined;
+  // Owner, round 4: the side it is, and (fitting each side from a photo in turn) the next side after Done.
+  const title = at === 0 ? t.frontTitle : t.backSideTitle;
+  const next = params?.chain && job?.idCard ? nextPhotoSide(job.idCard.cards, at) : -1;
   return (
     <main class="screen">
-      <TopBar title={t.fixTitle} onBack={() => go({ type: 'back' })} onHome={() => go({ type: 'home' })} />
+      <TopBar title={title} onBack={() => go({ type: 'back' })} onHome={() => go({ type: 'home' })} />
       {saveFailed && <Panel kind="error" title={en.change.saveFailed} />}
-      <p>{t.fixHint}</p>
+      <p>{t.cropHint}</p>
       {q && (
         <CropFrame
           src={src}
@@ -392,16 +531,16 @@ export function FixCorners({ go, params }: ScreenProps) {
           onChange={setQuad}
           side={side}
           onSide={setSide}
-          label={t.fixTitle}
+          label={title}
           sideLabel={c.sideLabel}
           sideNames={c.sideNames}
         />
       )}
       <SideNudge side={side} onSide={setSide} move={nudge} reset={() => setQuad(card?.quad ?? null)} step={STEP} />
       <h2>{t.preview}</h2>
-      <div class="card-shot">
+      <div class={(card?.turns ?? 0) % 2 === 1 ? 'card-shot card-standing' : 'card-shot'}>
         {preSrc ? (
-          <img src={preSrc} alt={t.previewLabel} class={card?.turns === 2 ? 'turn-2' : undefined} />
+          <CardPicture src={preSrc} turns={card?.turns ?? 0} alt={t.previewLabel} />
         ) : (
           <span class="thumb-note">{preSrc === null ? t.noPicture : t.making}</span>
         )}
@@ -411,12 +550,18 @@ export function FixCorners({ go, params }: ScreenProps) {
         tools={[
           { label: c.cancel, icon: 'close', onClick: () => go({ type: 'back' }) },
           { label: c.whole, icon: 'whole', onClick: () => setQuad(quadOfBox(FULL)) },
-          // A card always prints lying flat: one turn, upside down (Phase 14).
+          // Any way round (owner, round 4): a quarter at a time; turned a quarter, the card prints standing.
           {
-            label: c.upsideDown,
+            label: t.turnLeft,
+            icon: 'turnLeft',
+            disabled: busy,
+            onClick: () => void change({ type: 'turnIdCard', at, by: 3 }),
+          },
+          {
+            label: t.turnRight,
             icon: 'turn',
             disabled: busy,
-            onClick: () => void change({ type: 'turnIdCard', at }),
+            onClick: () => void change({ type: 'turnIdCard', at, by: 1 }),
           },
         ]}
         done={{
@@ -426,7 +571,10 @@ export function FixCorners({ go, params }: ScreenProps) {
             if (!q) return;
             // The card always prints lying down, whichever corner the shopkeeper started from (review I4).
             if (quad && !(await change({ type: 'setIdCardQuad', at, quad: landscapeQuad(quad, aspect) }))) return;
-            go({ type: 'back' });
+            // The next side from a photo, in place of this one; else back to the cards.
+            if (next >= 0)
+              go({ type: 'replace', screen: { name: 'fixcorners', params: { jobId, at: next, chain: 1 } } });
+            else go({ type: 'back' });
           },
         }}
       />
@@ -448,7 +596,11 @@ export function CardSize({ go, params }: ScreenProps) {
   if (gone) return <JobGone go={go} title={t.sizeTitle} />;
   const cards = job?.idCard?.cards ?? [];
   const fromPdf = cards.some((c) => c.page !== undefined);
-  const sets = maxCardSets(6, cards.length);
+  const sets = maxCardSets(
+    6,
+    cards.length,
+    cards.some((c) => c.turns % 2 === 1),
+  );
   const all: {
     size: Exclude<IdCardSize, 'custom'>;
     title: string;

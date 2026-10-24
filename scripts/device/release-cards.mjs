@@ -61,6 +61,12 @@ sh(
 );
 r.received = await until(() => has('ID card copy'));
 tap('ID card copy');
+// Round 4: each side from a photo is fitted on its crop screen first (Done keeps the frame the app found).
+for (const side of ['Front of the card', 'Back of the card']) {
+  r[side] = await until(() => has(side));
+  tap('Done');
+  await sleep(1500);
+}
 r.found = await until(() => has('2 ID cards found'));
 await sleep(2000);
 shot('01-release-cards-found');

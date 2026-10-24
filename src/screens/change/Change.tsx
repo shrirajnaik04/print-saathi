@@ -91,6 +91,11 @@ export function Change({ go, params }: ScreenProps) {
           )}
           <ChangeRow label={t.direction} value={directionValue(job)} onClick={() => go(push('direction', { jobId }))} />
           <ChangeRow
+            label={en.paperType.row}
+            value={job.paperType === 'glossy' ? en.paperType.glossy : en.paperType.plain}
+            onClick={() => go(push('papertype', { jobId }))}
+          />
+          <ChangeRow
             label={t.colour}
             value={job.colour === 'bw' ? en.ready.bw : en.ready.colour}
             onClick={() => go(push('colour', { jobId }))}
@@ -120,6 +125,11 @@ export function Change({ go, params }: ScreenProps) {
             onClick={() => go(push('cards', { jobId }))}
           />
           <ChangeRow
+            label={en.paperType.row}
+            value={job.paperType === 'glossy' ? en.paperType.glossy : en.paperType.plain}
+            onClick={() => go(push('papertype', { jobId }))}
+          />
+          <ChangeRow
             label={t.colour}
             value={job.colour === 'bw' ? en.ready.bw : en.ready.colour}
             onClick={() => go(push('colour', { jobId }))}
@@ -140,6 +150,11 @@ export function Change({ go, params }: ScreenProps) {
               job.paper !== 'PHOTO_4x6' ? t.paperA4 : sheet.photoPaper === null ? t.paperA4NotSetUp : t.paperPhoto
             }
             onClick={() => go(push('paperchoice', { jobId }))}
+          />
+          <ChangeRow
+            label={en.paperType.row}
+            value={job.paperType === 'glossy' ? en.paperType.glossy : en.paperType.plain}
+            onClick={() => go(push('papertype', { jobId }))}
           />
           <ChangeRow label={t.direction} value={directionValue(job)} onClick={() => go(push('direction', { jobId }))} />
           {/* On 4×6 photo paper the job always goes as a document (the print service would enlarge a photo): the

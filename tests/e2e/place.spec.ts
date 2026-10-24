@@ -317,6 +317,8 @@ test('a tap where photos overlap picks the one drawn on top, on Adjust and on Re
   await page.mouse.click(top.x - 5, top.y - 5);
   await expect(title(page)).toHaveText('Photo 2 of 4');
   await back(page);
+  // Ready's title shows before its page is drawn (under load): measure the page once it is there.
+  await expect(page.locator('.sheets .paper').first()).toBeVisible();
   const paper = await page.locator('.sheets .paper').first().boundingBox();
   const p2 = await boxOf(page, 2);
   const plan = await lastPlan(page);
@@ -330,6 +332,7 @@ test('Adjust opened by a tap on a photo on Ready shows its side handles (review 
   await page.goto('/?mockIntake=1');
   await button(page, 'One on each page').click();
   await expect(title(page)).toHaveText('Ready to print');
+  await expect(page.locator('.sheets .paper').first()).toBeVisible();
   const paper = await page.locator('.sheets .paper').first().boundingBox();
   if (!paper) throw new Error('no page');
   await page.mouse.click(paper.x + paper.width / 2, paper.y + paper.height / 3);

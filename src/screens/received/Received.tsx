@@ -15,6 +15,7 @@ import { AutoTurnNote } from '../AutoTurnNote';
 import { findBlackEdges, prepareBlackEdges } from '../blackEdges';
 import { Duplicates } from '../Duplicates';
 import { JobGone } from '../JobGone';
+import { noteJob } from '../printedJobs';
 import { stopTurns, turnsFor } from '../rotate';
 import { push, type ScreenProps } from '../types';
 import { loadSettings } from '../useSettings';
@@ -23,7 +24,10 @@ const t = en.received;
 
 /** Saves one change through the single writer (core/job/save.ts); throws if it could not be saved. */
 export const saveJobChange = (job: Job, action: JobAction): Promise<Job> =>
-  saveChange(PrintEngine, job, action, Date.now());
+  saveChange(PrintEngine, job, action, Date.now()).then((saved) => {
+    noteJob(saved);
+    return saved;
+  });
 
 const STATE_TEXT: Partial<Record<ThumbResult['state'], string>> = {
   damaged: t.damaged,
@@ -330,7 +334,8 @@ export function Received({ go, params }: ScreenProps) {
             variant="secondary"
             onClick={() => {
               void PrintEngine.cancelThumbnails({ jobId });
-              go({ type: 'home' });
+              // Cancel is the choice to leave: no "Leave this job?" on top of it (the job waits in Recent jobs).
+              go({ type: 'home', sure: true });
             }}
           >
             {t.cancel}

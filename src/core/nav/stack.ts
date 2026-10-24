@@ -4,11 +4,12 @@ export type NavAction =
   | { type: 'push'; screen: Screen }
   /** Swaps the top screen (Home stays): a step that must not be returned to with Back, e.g. Ready -> Result. */
   | { type: 'replace'; screen: Screen }
-  | { type: 'back' }
+  /** [sure]: the shopkeeper already chose to leave (a Cancel that stops work): no "Leave this job?" question. */
+  | { type: 'back'; sure?: boolean }
   /** Back to the nearest screen called [name] (one Back if there is none), e.g. a choice on Pages → Ready. */
   | { type: 'backTo'; name: string }
   /** Home, or Home with [andOpen] on it (one step: e.g. a merged job's Received with nothing stale under it). */
-  | { type: 'home'; andOpen?: Screen };
+  | { type: 'home'; andOpen?: Screen; sure?: boolean };
 /** Side effect the shell must perform: on Home, Android Back minimises the app (PLAN §D5). */
 export type NavEffect = 'minimise';
 

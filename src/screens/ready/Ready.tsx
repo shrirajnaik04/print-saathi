@@ -7,8 +7,8 @@ import { overlaps } from '../../core/layout/free';
 import { smallestSideMm, WARN_MM } from '../../core/layout/layouts';
 import { blurryItems } from '../../core/plan/blurry';
 import { MAX_SHEETS_PER_PART, splitParts } from '../../core/plan/parts';
-import { buildPlan, type PhotoPaper, planHash } from '../../core/plan/plan';
-import { documentLine, idCardLine, passportLine, summaryLine } from '../../core/plan/summary';
+import { buildPlan, drawnCardScale, type PhotoPaper, planHash } from '../../core/plan/plan';
+import { documentLine, idCardLine, passportLine, summaryLine, withPaperType } from '../../core/plan/summary';
 import { en } from '../../i18n/en';
 import { fill } from '../../i18n/fill';
 import { passwords } from '../../native/passwords';
@@ -24,6 +24,7 @@ import { AutoTurnNote } from '../AutoTurnNote';
 import { pickAt, toPagePoints } from '../adjust/place';
 import { Duplicates } from '../Duplicates';
 import { JobGone } from '../JobGone';
+import { noteJob } from '../printedJobs';
 import { saveJobChange } from '../received/Received';
 import { push, type ScreenProps } from '../types';
 import { useDocs } from '../useDocs';
@@ -138,7 +139,9 @@ export function Ready({ go, params }: ScreenProps) {
         const { job: loaded } = await PrintEngine.loadJob({ id: jobId });
         if (!live) return;
         if (!loaded) return setGone(true);
-        setJob(normalizeJob(loaded));
+        const j = normalizeJob(loaded);
+        noteJob(j);
+        setJob(j);
         const { items } = await PrintEngine.makeThumbnails({ jobId });
         if (live) setThumbs(new Map(items.map((i) => [i.index, i])));
       } catch {
@@ -443,9 +446,33 @@ export function Ready({ go, params }: ScreenProps) {
     } else go(push('adjust', { jobId, item: hit.itemIndex }));
   };
   if (gone) return <JobGone go={go} title={t.title} />;
+  // Glossy photo paper chosen (owner, round 4) for anything but passport photos (they have their own 4×6 reminder).
+  const glossy = job?.paperType === 'glossy' && job.layout !== 'passport';
+  const photoPaperReminder = !!fullPlan && fullPlan.paper.id === 'PHOTO_4x6' && settings.photoPaperReminder;
   return (
     <main class="screen">
-      <TopBar title={t.title} onBack={() => go({ type: 'back' })} onHome={() => go({ type: 'home' })} />
+      <TopBar
+        title={t.title}
+        onBack={() => go({ type: 'back' })}
+        onHome={() => go({ type: 'home' })}
+        aside={
+          // Owner, rounds 3–4: every print starts in colour; one tap at the top, beside the title, prints it in black &
+          // white (and back).
+          job ? (
+            <ColourSwitch
+              compact
+              value={job.colour}
+              disabled={opening}
+              onChange={async (colour) => {
+                const next = await saveJobChange(job, { type: 'setColour', colour }).catch(() => null);
+                // Not saved: it says so (review M1); the switch stays on what will print.
+                if (next) setJob(next);
+                else setNote(en.change.saveFailed);
+              }}
+            />
+          ) : null
+        }
+      />
       {job?.layout === 'document' &&
         [...(docs.items?.values() ?? [])].map((d) =>
           d.state === 'ok' ? null : (
@@ -502,11 +529,14 @@ export function Ready({ go, params }: ScreenProps) {
           <p class="summary">
             {job.layout === 'passport'
               ? passportLine(fullPlan, settings.passport.prices)
-              : job.layout === 'idCard' && job.idCard
-                ? idCardLine(fullPlan, job.idCard.size, job.idCard.scale)
-                : job.layout === 'document'
-                  ? documentLine(fullPlan, pdfItems)
-                  : summaryLine(fullPlan)}
+              : withPaperType(
+                  job.layout === 'idCard' && job.idCard
+                    ? idCardLine(fullPlan, job.idCard.size, drawnCardScale(fullPlan))
+                    : job.layout === 'document'
+                      ? documentLine(fullPlan, pdfItems)
+                      : summaryLine(fullPlan),
+                  glossy,
+                )}
           </p>
           {/* Phase 15: the photos the app turned upright, with Undo (here too: The shopkeeper looks at the print here). */}
           {cardOffer && (
@@ -566,6 +596,8 @@ export function Ready({ go, params }: ScreenProps) {
           {job.layout !== 'passport' && fullPlan.paper.id === 'PHOTO_4x6' && settings.photoPaperReminder && (
             <Panel kind="warn" title={en.passport.loadPaper} />
           )}
+          {/* Glossy photo paper (owner, round 4): a reminder to put it in (the 4×6 reminder already says so). */}
+          {glossy && !photoPaperReminder && <Panel kind="warn" title={en.paperType.load} />}
           {/* 4×6 chosen, but this printer's 4×6 paper is not known: it prints on A4 and says so (gate review I6). */}
           {job.paper === 'PHOTO_4x6' &&
             job.layout !== 'passport' &&
@@ -750,17 +782,6 @@ export function Ready({ go, params }: ScreenProps) {
               );
             })}
           </ol>
-          {/* Owner, round 3: every print starts in colour; one tap here prints this job in black & white (and back). */}
-          <ColourSwitch
-            value={job.colour}
-            disabled={opening}
-            onChange={async (colour) => {
-              const next = await saveJobChange(job, { type: 'setColour', colour }).catch(() => null);
-              // Not saved: it says so (review M1); the switch stays on what will print.
-              if (next) setJob(next);
-              else setNote(en.change.saveFailed);
-            }}
-          />
           <ActionBar>
             {view.state === 'preparing' && (
               <>
@@ -768,8 +789,9 @@ export function Ready({ go, params }: ScreenProps) {
                   {t.preparing} {view.total > 0 && fill(t.progress, { done: view.done, total: view.total })}
                 </p>
                 <progress class="progress" max={view.total || 1} value={view.done} aria-label={t.preparing} />
-                {/* Stops making the file and goes back (leaving Ready cancels the render, PLAN §H2.7). */}
-                <Button variant="secondary" onClick={() => go({ type: 'back' })}>
+                {/* Stops making the file and goes back (leaving Ready cancels the render, PLAN §H2.7): the shopkeeper's
+                    own choice to leave, never asked again (review C2, as Received's Cancel). */}
+                <Button variant="secondary" onClick={() => go({ type: 'back', sure: true })}>
                   {en.received.cancel}
                 </Button>
               </>
@@ -785,7 +807,7 @@ export function Ready({ go, params }: ScreenProps) {
             >
               {parts.length > 1
                 ? fill(t.printPart, { k: partIndex + 1, n: parts.length })
-                : fullPlan.paper.id === 'PHOTO_4x6' && settings.photoPaperReminder
+                : photoPaperReminder || glossy
                   ? en.passport.paperLoaded
                   : t.print}
             </Button>

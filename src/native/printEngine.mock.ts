@@ -161,7 +161,22 @@ export class PrintEngineMock extends WebPlugin implements PrintEnginePlugin {
     this.acked.add(intakeId);
   }
 
-  async saveJob({ job }: { job: object }): Promise<{ saved: boolean }> {
+  /**
+   * Tests only: `?mockOneQueue=1`: like the phone's engine, one thing at a time: reading or saving a job waits for a
+   * print file or pictures being made (review C2: Back must never wait on that).
+   */
+  private line: Promise<unknown> = Promise.resolve();
+  private inLine<T>(f: () => Promise<T>): Promise<T> {
+    if (!new URLSearchParams(globalThis.location?.search ?? '').has('mockOneQueue')) return f();
+    const run = this.line.then(f, f);
+    this.line = run.catch(() => undefined);
+    return run;
+  }
+
+  saveJob(o: { job: object }): Promise<{ saved: boolean }> {
+    return this.inLine(() => this.saveJobNow(o));
+  }
+  private async saveJobNow({ job }: { job: object }): Promise<{ saved: boolean }> {
     const j = job as { id: string; rev: number; quads?: Record<number, number[]> };
     // Tests only: `?mockQuad=1`: photo 1 of a new job has a straightened frame, as a job saved by 1.0.224 could (round 3
     // straightens by hand no more; such frames still open, move by their sides and print).
@@ -179,16 +194,18 @@ export class PrintEngineMock extends WebPlugin implements PrintEnginePlugin {
     return { saved: true };
   }
 
-  async loadJob({ id }: { id: string }): Promise<{ job: object | null }> {
-    return { job: this.jobs.get(id) ?? null };
+  loadJob({ id }: { id: string }): Promise<{ job: object | null }> {
+    return this.inLine(async () => ({ job: this.jobs.get(id) ?? null }));
   }
 
-  async listJobs(): Promise<{ jobs: object[] }> {
-    return { jobs: [...this.jobs.values()] };
+  listJobs(): Promise<{ jobs: object[] }> {
+    return this.inLine(async () => ({ jobs: [...this.jobs.values()] }));
   }
 
-  async deleteJob({ id }: { id: string }): Promise<void> {
-    this.jobs.delete(id);
+  deleteJob({ id }: { id: string }): Promise<void> {
+    return this.inLine(async () => {
+      this.jobs.delete(id);
+    });
   }
 
   /** The browser has no job folders: the files stay where they are. */
@@ -199,7 +216,10 @@ export class PrintEngineMock extends WebPlugin implements PrintEnginePlugin {
 
   private thumbCalls = 0;
 
-  async makeThumbnails({ jobId }: { jobId: string }): Promise<{ items: ThumbResult[] }> {
+  makeThumbnails(o: { jobId: string }): Promise<{ items: ThumbResult[] }> {
+    return this.inLine(() => this.makeThumbnailsNow(o));
+  }
+  private async makeThumbnailsNow({ jobId }: { jobId: string }): Promise<{ items: ThumbResult[] }> {
     this.thumbCalls++;
     // Tests only: `?mockSlowThumbs=<ms>`: the photos take this long to get ready (a slow phone).
     const slow = Number(new URLSearchParams(globalThis.location?.search ?? '').get('mockSlowThumbs') ?? 0);
@@ -233,7 +253,10 @@ export class PrintEngineMock extends WebPlugin implements PrintEnginePlugin {
   }
 
   /** Pretends to make the print file: progress per page, then done (no file exists in the browser). */
-  async renderPlan({
+  renderPlan(o: { jobId: string; planHash: string; plan: PrintPlan }): Promise<RenderResult> {
+    return this.inLine(() => this.renderPlanNow(o));
+  }
+  private async renderPlanNow({
     jobId,
     planHash,
     plan,
@@ -650,7 +673,10 @@ export class PrintEngineMock extends WebPlugin implements PrintEnginePlugin {
    */
   private cardCalls = 0;
 
-  async findCards({ jobId, passwords }: { jobId: string; passwords?: Record<number, string> }) {
+  findCards(o: { jobId: string; passwords?: Record<number, string> }) {
+    return this.inLine(() => this.findCardsNow(o));
+  }
+  private async findCardsNow({ jobId, passwords }: { jobId: string; passwords?: Record<number, string> }) {
     const q = new URLSearchParams(globalThis.location?.search ?? '');
     const mode = q.get('mockCards');
     // Tests: `?mockSlowCards=<ms>` looks slowly; `?mockCardsFail=1` fails the first time only.

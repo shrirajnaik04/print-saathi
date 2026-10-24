@@ -61,6 +61,18 @@ export function idCardLine(plan: PrintPlan, size: 'real' | 'big' | 'sets' | 'pag
   ].join(' · ');
 }
 
+/**
+ * [line] with "Glossy" right before its colour when glossy photo paper was chosen (owner, round 4: a reminder only, so
+ * the plan does not carry it).
+ */
+export function withPaperType(line: string, glossy: boolean): string {
+  if (!glossy) return line;
+  const parts = line.split(' · ');
+  const at = parts.findIndex((p) => p === en.ready.colour || p === en.ready.bw);
+  if (at < 0) return line;
+  return [...parts.slice(0, at), en.paperType.short, ...parts.slice(at)].join(' · ');
+}
+
 /** "3 photos · 3 pages · A4 · Colour · 1 copy": what will print, in the words the shopkeeper uses (PLAN §I-5). */
 export function summaryLine(plan: PrintPlan): string {
   const t = en.ready;

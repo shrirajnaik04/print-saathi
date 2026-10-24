@@ -33,3 +33,19 @@ The owner's requests and their answers to the questions asked, in order. The spe
 | 21 | Bigger preview | "Increase the size of preview … for all categories, just like this app" (Doc Scanner). Question: where do the tools go? Answer: **one row at the bottom** | The page across the screen on every Adjust screen; one sliding row of tools (27) |
 | 22 | Rotate handle | "Allow to rotate images from the image itself, like this" (WPS). Question: how? Answer: **any angle, snaps straight** | A handle above the chosen photo; any angle, snapping within 3°; Tilt buttons (28) |
 | 23 | Building | "Approve, build it all." | Spec and plan in the repository, built to closure; APK, report and a public-repo commit |
+
+## Round 4 (after testing 1.0.239, same day)
+
+| # | Topic | The owner's words or choice | Built as |
+|---|---|---|---|
+| 24 | Colour toggle | "Put this Colour and Black & white at the top, and it should be a toggle, next to Ready to print." Question: which control? Answer: **two-part toggle** | Colour \| B&W in Ready's title line (spec 2026-10-24 round 4, 32a) |
+| 25 | ID card crop | "Let the user see the crop screen for front and back … crop frame default to card size." | The crop screen for every photo side in turn; card-shaped frame when nothing is found (29a) |
+| 26 | Change photo | "If the wrong photo is selected for front or back, we must be able to replace it." | Change photo per side (29b) |
+| 27 | Card turns | "Allow rotating images in all directions in the ID card front and back sections." | Turn left / Turn right; a quarter-turned card prints standing (29c) |
+| 28 | Adjust tools and zoom | "Make the bottom buttons smaller … allow zooming the page in and out." | Compact 56 px tools; Zoom out / Zoom in and pinch, 100–400 % (30a, 30b) |
+| 29 | Leaving a job | "Ask whether they really want to leave the job and discard, or continue working." Question: which choices? Answer: **Keep working / Leave / Delete** | "Leave this job?" (31a) |
+| 30 | Exit from Home | "When going back from the home page, ask: stay in the app or exit." | "Close PrintSaathi?" Stay / Close the app (31b) |
+| 31 | Home | "Remove 'Customer sent files on WhatsApp?' from Home." | Removed (Help keeps the steps) (31c) |
+| 32 | Paper type | "Where is the paper type selection? Normal, glossy …" Question: Android cannot set it — what should it do? Answer: **reminder only** | Paper type Plain / Glossy on Change; glossy reminder on Ready (32b) |
+| 33 | Pages | "Allow scrolling through all the pages in the edit preview." Answer: Ready already does; on Adjust **show next and previous page sideways**, without disturbing the page | Pages side by side on Adjust, ‹ › beside the page number (30c) |
+| 34 | Building | "Approve, build it all." | Spec and plan in the repository, built to closure; APK, report and a public-repo commit |

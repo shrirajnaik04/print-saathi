@@ -69,6 +69,19 @@ const tap = async (t) => {
   }
   throw new Error(`"${t}" not reachable`);
 };
+/** Home from a job: leaving an unprinted job asks first (round 4); Leave keeps it, as Home did before. */
+const goHome = async () => {
+  await tap('Home');
+  await sleep(1200);
+  if (!has('Leave this job?')) return;
+  const b = xml()
+    .split('<node ')
+    .find((x) => /(?:text|content-desc)="Leave"/.test(x))
+    ?.match(/bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"/)
+    ?.slice(1)
+    .map(Number);
+  if (b) sh('input', 'tap', String((b[0] + b[2]) >> 1), String((b[1] + b[3]) >> 1));
+};
 const shot = async (name) => {
   await sleep(1200);
   writeFileSync(path.join(outDir, `${name}.png`), adb(serial, ['exec-out', 'screencap', '-p'], { binary: true }));
@@ -245,7 +258,7 @@ result.checks.passportOneMmBiggerExactly = Math.abs(p0[0] - 36) <= 0.3 && Math.a
 sh('input', 'keyevent', 'KEYCODE_HOME');
 sh('am', 'start', '-n', `${PKG}/.MainActivity`);
 await until('Home or a screen', () => has('Home') || has('Recent jobs'));
-if (!has('Recent jobs')) await tap('Home');
+if (!has('Recent jobs')) await goHome();
 await until('Home', () => has('Recent jobs'));
 await tap('Aadhaar & ID cards');
 await until('card source', () => has('Where is the card?'));
@@ -276,7 +289,7 @@ adb(serial, ['push', localPhoto, devPhoto]);
 sh('am', 'broadcast', '-a', 'android.intent.action.MEDIA_SCANNER_SCAN_FILE', '-d', `file://${devPhoto}`);
 await sleep(2000);
 await until('Where is the card? again', () => has('Where is the card?'));
-await tap('Home');
+await goHome();
 await until('Home', () => has('Recent jobs'));
 await tap('Photos Choose');
 await until('the photo picker', () =>

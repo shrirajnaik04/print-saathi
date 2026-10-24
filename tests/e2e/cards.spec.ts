@@ -7,13 +7,21 @@ const lastPlan = (page: Page) => page.evaluate(() => (globalThis as { __lastPlan
 const button = (page: Page, name: string | RegExp) =>
   page.getByRole('button', { name, exact: typeof name === 'string' });
 const title = (page: Page) => page.locator('main h1');
+/** Owner, round 4: each side from a photo is fitted on its crop screen first (Front, then Back); Done on each. */
+const throughCrops = async (page: Page, n: 1 | 2) => {
+  for (const name of ['Front of the card', 'Back of the card'].slice(0, n)) {
+    await expect(title(page)).toHaveText(name);
+    await button(page, 'Done').click();
+  }
+  await expect(title(page)).toHaveText('ID card copy');
+};
 
 test('two card photos → ID card copy → Card copy → Real card size → Ready, both cards at exactly 85.6 × 54 mm', async ({
   page,
 }) => {
   await page.goto('/?mockIntake=2');
   await button(page, 'ID card copy').click();
-  await expect(title(page)).toHaveText('ID card copy');
+  await throughCrops(page, 2);
   await expect(page.getByRole('heading', { name: '2 ID cards found' })).toBeVisible();
   await expect(page.locator('.card-found .badge-label')).toHaveText(['Front', 'Back']);
   await expect(page.getByText('✓ Straightened')).toHaveCount(2);
@@ -41,6 +49,7 @@ test('the card with a face is the front; Swap front and back swaps them in the p
   // The mock puts the face on the first photo's card; with both cards in one photo, the face is on the second card.
   await page.goto('/?mockIntake=1&mockCards=both');
   await button(page, 'ID card copy').click();
+  await throughCrops(page, 2);
   await expect(page.getByRole('heading', { name: '2 ID cards found' })).toBeVisible();
   await button(page, 'Card copy').click();
   await button(page, /^Real card size/).click();
@@ -61,8 +70,9 @@ test('Fix edges: Next side and the arrows move the chosen side by 1 %; Done keep
 }) => {
   await page.goto('/?mockIntake=2');
   await button(page, 'ID card copy').click();
+  await throughCrops(page, 2);
   await button(page, 'Fix edges (Front)').click();
-  await expect(title(page)).toHaveText('Fix the edges');
+  await expect(title(page)).toHaveText('Front of the card');
   await expect(page.getByText('Side 1 of 4: top')).toBeVisible();
   await button(page, 'Down').click(); // the top side, both its corners
   await button(page, 'Next side').click();
@@ -90,7 +100,7 @@ test('Fix edges: Next side and the arrows move the chosen side by 1 %; Done keep
 test('no card found: says so and opens Fix edges on a starting frame', async ({ page }) => {
   await page.goto('/?mockIntake=1&mockCards=none');
   await button(page, 'ID card copy').click();
-  await expect(title(page)).toHaveText('Fix the edges');
+  await expect(title(page)).toHaveText('Front of the card');
   await button(page, 'Done').click();
   await expect(page.getByRole('heading', { name: "Couldn't find the card's edges" })).toBeVisible();
   await expect(page.getByText('Check the edges')).toBeVisible();
@@ -99,6 +109,7 @@ test('no card found: says so and opens Fix edges on a starting frame', async ({ 
 test('a card found but not surely: shown with "Check the edges"', async ({ page }) => {
   await page.goto('/?mockIntake=2&mockCards=low');
   await button(page, 'ID card copy').click();
+  await throughCrops(page, 2);
   await expect(page.getByText('Check the edges')).toHaveCount(2);
 });
 
@@ -129,7 +140,7 @@ test('the Aadhaar tile asks where the card is: the gallery for photos, the file 
   await expect(title(page)).toHaveText('Where is the card?');
   await button(page, /^Photos of the card/).click();
   await expect.poll(from).toBe('gallery');
-  await expect(title(page)).toHaveText('ID card copy');
+  await throughCrops(page, 2);
 });
 
 test('the file manager choice brings an e-Aadhaar PDF to its cards (owner)', async ({ page }) => {
@@ -158,6 +169,7 @@ test('a locked e-Aadhaar from Home asks to unlock first, then finds its two card
 test('Many copies fills the sheet with front and back sets and cut lines', async ({ page }) => {
   await page.goto('/?mockIntake=2');
   await button(page, 'ID card copy').click();
+  await throughCrops(page, 2);
   await button(page, 'Card copy').click();
   await button(page, /^Many copies/).click();
   await expect(page.getByText('ID card · many copies · A4 · Colour · 1 copy')).toBeVisible();
@@ -171,6 +183,7 @@ test('Many copies fills the sheet with front and back sets and cut lines', async
 test('Many copies: no Adjust, and tapping the sheet never opens it (the copies are kept)', async ({ page }) => {
   await page.goto('/?mockIntake=2');
   await button(page, 'ID card copy').click();
+  await throughCrops(page, 2);
   await button(page, 'Card copy').click();
   await button(page, /^Many copies/).click();
   await expect(page.getByText('ID card · many copies · A4 · Colour · 1 copy')).toBeVisible();
@@ -219,13 +232,14 @@ test('a PDF with no card panels opens Fix edges on a starting frame, never a dea
   await page.goto('/?mockPdfAt=1');
   await button(page, /^Aadhaar & ID cards/).click();
   await button(page, /^e-Aadhaar PDF or file/).click();
-  await expect(title(page)).toHaveText('Fix the edges');
+  await expect(title(page)).toHaveText('Front of the card');
 });
 
 test('Try again looks for the cards again (review I3)', async ({ page }) => {
   await page.goto('/?mockIntake=2&mockCardsFail=1');
   await button(page, 'ID card copy').click();
   await button(page, 'Try again').click();
+  await throughCrops(page, 2);
   await expect(page.getByRole('heading', { name: '2 ID cards found' })).toBeVisible();
 });
 
@@ -244,6 +258,7 @@ test('Back while the cards are looked for: nothing is saved behind the shopkeepe
 test('"Check the edges" stays with its card through Swap (review I6)', async ({ page }) => {
   await page.goto('/?mockIntake=2&mockCards=mixed');
   await button(page, 'ID card copy').click();
+  await throughCrops(page, 2);
   await expect(page.locator('.card-found .card-state')).toHaveText(['✓ Straightened', 'Check the edges']);
   await button(page, 'Swap front and back').click();
   await expect(page.locator('.card-found .card-state')).toHaveText(['Check the edges', '✓ Straightened']);
@@ -252,6 +267,7 @@ test('"Check the edges" stays with its card through Swap (review I6)', async ({ 
 test('Fix edges: the straightened preview changes when a side moves (review m17)', async ({ page }) => {
   await page.goto('/?mockIntake=2');
   await button(page, 'ID card copy').click();
+  await throughCrops(page, 2);
   await button(page, 'Fix edges (Front)').click();
   const img = page.getByRole('img', { name: 'The card, straightened' });
   await expect(img).toBeVisible();
@@ -358,10 +374,13 @@ test('Undo on Ready puts the photo back and the print follows', async ({ page })
 test('one side found: Add the back side from the gallery gives front then back on one page', async ({ page }) => {
   await page.goto('/?mockIntake=1&mockPickN=1');
   await button(page, 'ID card copy').click();
+  await throughCrops(page, 1);
   await expect(page.getByText('Only the front will print.')).toBeVisible();
   await button(page, 'Add the back side').click();
   await expect(title(page)).toHaveText('Where is the back side?');
   await button(page, /From the gallery/).click();
+  await expect(title(page)).toHaveText('Back of the card');
+  await button(page, 'Done').click();
   await expect(title(page)).toHaveText('ID card copy');
   await expect(page.locator('.card-found')).toHaveCount(2);
   await expect(page.locator('.card-found .badge-label')).toHaveText(['Front', 'Back']);
@@ -379,11 +398,14 @@ test('one side found: Add the back side from the gallery gives front then back o
 test('one side found: Add the back side works when the card finder is as slow as a phone', async ({ page }) => {
   await page.goto('/?mockIntake=1&mockPickN=1&mockSlowCards=600');
   await button(page, 'ID card copy').click();
+  await throughCrops(page, 1);
   await expect(page.getByText('Only the front will print.')).toBeVisible();
   await button(page, 'Add the back side').click();
   await button(page, /From the gallery/).click();
   await expect(title(page)).toHaveText('ID card copy');
-  await expect(page.locator('.card-found')).toHaveCount(2, { timeout: 8000 });
+  await expect(title(page)).toHaveText('Back of the card', { timeout: 8000 });
+  await button(page, 'Done').click();
+  await expect(page.locator('.card-found')).toHaveCount(2);
   await expect(page.locator('.card-found .badge-label')).toHaveText(['Front', 'Back']);
   await expect(page.getByText('Only the front will print.')).toHaveCount(0);
 });
@@ -393,6 +415,7 @@ test('one side found: Add the back side works when the card finder is as slow as
 test('while the back photo is looked at, it says so and Card copy waits; the back is added', async ({ page }) => {
   await page.goto('/?mockIntake=1&mockPickN=1&mockSlowCards=1500');
   await button(page, 'ID card copy').click();
+  await throughCrops(page, 1);
   await expect(page.getByText('Only the front will print.')).toBeVisible();
   await button(page, 'Add the back side').click();
   await button(page, /From the gallery/).click();
@@ -400,14 +423,18 @@ test('while the back photo is looked at, it says so and Card copy waits; the bac
   await expect(page.getByRole('status')).toHaveText('Looking for the card on the back photo…');
   await expect(button(page, 'Card copy')).toBeDisabled();
   await expect(button(page, 'Fix edges (Front)')).toBeDisabled();
-  await expect(button(page, 'Turn upside down (Front)')).toBeDisabled();
-  await expect(page.locator('.card-found')).toHaveCount(2, { timeout: 8000 });
+  await expect(button(page, 'Turn right (Front)')).toBeDisabled();
+  await expect(button(page, 'Change photo (Front)')).toBeDisabled();
+  await expect(title(page)).toHaveText('Back of the card', { timeout: 8000 });
+  await button(page, 'Done').click();
+  await expect(page.locator('.card-found')).toHaveCount(2);
   await expect(button(page, 'Card copy')).toBeEnabled();
 });
 
 test('leaving while the back photo is looked at and coming in again still adds the back', async ({ page }) => {
   await page.goto('/?mockIntake=1&mockPickN=1&mockSlowCards=1500');
   await button(page, 'ID card copy').click();
+  await throughCrops(page, 1);
   await expect(page.getByText('Only the front will print.')).toBeVisible();
   await button(page, 'Add the back side').click();
   await button(page, /From the gallery/).click();
@@ -415,13 +442,16 @@ test('leaving while the back photo is looked at and coming in again still adds t
   await button(page, 'Back').click();
   await expect(title(page)).not.toHaveText('ID card copy');
   await button(page, 'ID card copy').click();
-  await expect(page.locator('.card-found')).toHaveCount(2, { timeout: 8000 });
+  await expect(title(page)).toHaveText('Back of the card', { timeout: 8000 });
+  await button(page, 'Done').click();
+  await expect(page.locator('.card-found')).toHaveCount(2);
   await expect(page.locator('.card-found .badge-label')).toHaveText(['Front', 'Back']);
 });
 
 test('two sides: Print front only leaves the front alone; Undo brings the back again', async ({ page }) => {
   await page.goto('/?mockIntake=2');
   await button(page, 'ID card copy').click();
+  await throughCrops(page, 2);
   await expect(page.locator('.card-found')).toHaveCount(2);
   await button(page, 'Print front only').click();
   await expect(page.locator('.card-found')).toHaveCount(1);
@@ -431,4 +461,166 @@ test('two sides: Print front only leaves the front alone; Undo brings the back a
   await button(page, 'Card copy').click();
   await button(page, /^Real card size/).click();
   await expect.poll(async () => (await lastPlan(page))?.pages[0]?.placements.length).toBe(1);
+});
+
+// ---- Owner, round 4 ----
+// "When selecting front and back side … let the user see the crop screen … crop selection frame default to card size."
+test('two card photos: "Front of the card", Done, "Back of the card", Done, then the cards screen', async ({
+  page,
+}) => {
+  await page.goto('/?mockIntake=2');
+  await button(page, 'ID card copy').click();
+  await expect(title(page)).toHaveText('Front of the card');
+  await expect(page.getByText("Move the side bars onto the card's edges, then tap Done.")).toBeVisible();
+  await button(page, 'Done').click();
+  await expect(title(page)).toHaveText('Back of the card');
+  await button(page, 'Done').click();
+  await expect(title(page)).toHaveText('ID card copy');
+  await expect(page.locator('.card-found .badge-label')).toHaveText(['Front', 'Back']);
+});
+
+test('a photo with no card found starts with a card-shaped frame', async ({ page }) => {
+  await page.goto('/?mockIntake=1&mockCards=none');
+  await button(page, 'ID card copy').click();
+  await expect(title(page)).toHaveText('Front of the card');
+  const b = await page.locator('.scan-lines polygon').boundingBox();
+  if (!b) throw new Error('no frame');
+  expect(b.width / b.height).toBeCloseTo(85.6 / 54, 1);
+});
+
+test('a PDF (e-Aadhaar) goes straight to the cards screen: its panels are exact', async ({ page }) => {
+  await page.goto('/?mockIntake=1&mockPdfAt=1&mockAadhaar=1');
+  await button(page, 'ID card copy').click();
+  await expect(title(page)).toHaveText('ID card copy');
+  await expect(page.getByRole('heading', { name: '2 ID cards found' })).toBeVisible();
+});
+
+// "If accidentally the wrong photo is selected in front or back, we must be able to replace the photo."
+test('Change photo on the front: gallery, its crop screen, Done: the front is the new photo', async ({ page }) => {
+  await page.goto('/?mockIntake=2&mockPickN=1');
+  await button(page, 'ID card copy').click();
+  await button(page, 'Done').click();
+  await button(page, 'Done').click();
+  await expect(title(page)).toHaveText('ID card copy');
+  await button(page, 'Change photo (Front)').click();
+  await expect(title(page)).toHaveText('Where is the new photo?');
+  await button(page, /From the gallery/).click();
+  await expect(title(page)).toHaveText('Front of the card', { timeout: 8000 });
+  await button(page, 'Done').click();
+  await expect(title(page)).toHaveText('ID card copy');
+  await expect(page.locator('.card-found')).toHaveCount(2);
+  await button(page, 'Card copy').click();
+  await button(page, /^Real card size/).click();
+  await expect(title(page)).toHaveText('Ready to print');
+  await expect.poll(async () => (await lastPlan(page))?.pages[0]?.placements.map((p) => p.itemIndex)).toEqual([3, 2]);
+});
+
+test('Change photo with the picker closed: nothing changes and no crop screen opens', async ({ page }) => {
+  await page.goto('/?mockIntake=2&mockPick=0');
+  await button(page, 'ID card copy').click();
+  await button(page, 'Done').click();
+  await button(page, 'Done').click();
+  await button(page, 'Change photo (Back)').click();
+  await button(page, /From the gallery/).click();
+  await expect(title(page)).toHaveText('Where is the new photo?');
+  await button(page, 'Back').click();
+  await expect(title(page)).toHaveText('ID card copy');
+  await page.waitForTimeout(600);
+  await expect(title(page)).toHaveText('ID card copy');
+  await expect(page.locator('.card-found')).toHaveCount(2);
+});
+
+// "Allow rotating images in all directions in the ID card front and back sections, not just turn upside down."
+test('Turn right stands the card up (the print too); Turn left lays it down again', async ({ page }) => {
+  await page.goto('/?mockIntake=2');
+  await button(page, 'ID card copy').click();
+  await button(page, 'Done').click();
+  await button(page, 'Done').click();
+  await button(page, 'Turn right (Front)').click();
+  await expect(page.locator('.card-found').first().locator('.card-shot')).toHaveClass(/card-standing/);
+  await button(page, 'Card copy').click();
+  await button(page, /^Real card size/).click();
+  await expect(title(page)).toHaveText('Ready to print');
+  await expect
+    .poll(async () => {
+      const b = (await lastPlan(page))?.pages[0]?.placements[0]?.box;
+      return b ? b.h > b.w : null;
+    })
+    .toBe(true);
+  await button(page, 'Change').click();
+  await button(page, /^ID card copy/).click();
+  await button(page, 'Turn left (Front)').click();
+  await expect(page.locator('.card-found').first().locator('.card-shot')).not.toHaveClass(/card-standing/);
+  await button(page, 'Card copy').click();
+  await button(page, /^Real card size/).click();
+  await expect
+    .poll(async () => {
+      const b = (await lastPlan(page))?.pages[0]?.placements[0]?.box;
+      return b ? b.w > b.h : null;
+    })
+    .toBe(true);
+});
+
+// Whole-branch review C1 (round 4): the back's crop screen opened with the front's frame (the screen was kept for the
+// next side), and Done saved it onto the back.
+test("a front fitted by hand never carries over to the back's crop screen", async ({ page }) => {
+  const backQuad = async (fitFront: boolean) => {
+    await page.goto('/?mockIntake=2');
+    await button(page, 'ID card copy').click();
+    await expect(title(page)).toHaveText('Front of the card');
+    if (fitFront) {
+      await button(page, 'Down').click();
+      await button(page, 'Next side').click();
+      await button(page, 'Right').click();
+    }
+    await button(page, 'Done').click();
+    await expect(title(page)).toHaveText('Back of the card');
+    // A new screen: it starts from its own first side, and the screen reader is told where it is.
+    await expect(page.getByText('Side 1 of 4: top')).toBeVisible();
+    await expect(title(page)).toBeFocused();
+    await button(page, 'Done').click();
+    await expect(page.getByRole('heading', { name: '2 ID cards found' })).toBeVisible();
+    await button(page, 'Card copy').click();
+    await button(page, /^Real card size/).click();
+    await expect(title(page)).toHaveText('Ready to print');
+    await expect.poll(async () => (await lastPlan(page))?.pages[0]?.placements.length).toBe(2);
+    const placements = (await lastPlan(page))?.pages[0]?.placements ?? [];
+    return { front: placements[0]?.quad, back: placements[1]?.quad };
+  };
+  const untouched = await backQuad(false);
+  const fitted = await backQuad(true);
+  expect(fitted.front).not.toEqual(untouched.front);
+  expect(fitted.back).toEqual(untouched.back);
+});
+
+// Whole-branch review I2 (round 4): two cards standing on Big size were said to be "101 %" (from their width), and
+// Bigger made them smaller (110 %).
+test('standing cards on Big size: Adjust says their real share (about 160 %), Bigger cannot grow them, Ready agrees', async ({
+  page,
+}) => {
+  await page.goto('/?mockIntake=2');
+  await button(page, 'ID card copy').click();
+  await throughCrops(page, 2);
+  await button(page, 'Turn right (Front)').click();
+  await button(page, 'Turn right (Back)').click();
+  await button(page, 'Card copy').click();
+  await button(page, /^Big size/).click();
+  await expect(title(page)).toHaveText('Ready to print');
+  await button(page, 'Adjust cards').click();
+  await expect(page.locator('.adjust-size')).toHaveText(/^1[56]\d %/);
+  await expect(button(page, 'Bigger')).toBeDisabled();
+  const big = Number((await page.locator('.adjust-size').innerText()).match(/^(\d+) %/)?.[1]);
+  await button(page, 'Smaller').click();
+  // 10 points less (± 1: the screen rounds to a whole per cent).
+  await expect(page.locator('.adjust-size')).toHaveText(new RegExp(`^(${big - 11}|${big - 10}|${big - 9}) %`));
+  // Bigger grows them back up to the most that fits, and no further.
+  for (let i = 0; i < 4 && (await button(page, 'Bigger').isEnabled()); i++) {
+    await button(page, 'Bigger').click();
+    await page.waitForTimeout(150);
+  }
+  await expect(button(page, 'Bigger')).toBeDisabled();
+  await expect(page.locator('.adjust-size')).toHaveText(new RegExp(`^${big} %`));
+  await button(page, 'Done').click();
+  await expect(title(page)).toHaveText('Ready to print');
+  await expect(page.getByText(new RegExp(`ID card · ${big} %`))).toBeVisible();
 });

@@ -8,18 +8,18 @@ import { problemMessages } from './core/intake/messages';
 import { receivingDone, receivingNow, setReceiving } from './core/intake/receiving';
 import { intakeRunner } from './core/intake/runner';
 import { normalizeJob } from './core/job/job';
+import { exitsApp, leftJob } from './core/nav/guard';
 import { restoreStack, saveStack } from './core/nav/persist';
 import { initialStack, type NavAction, navigate } from './core/nav/stack';
 import { en } from './i18n/en';
 import { passwords } from './native/passwords';
 import { PrintEngine } from './native/printEngine';
-import { Change } from './screens/change/Change';
-import { Colour, Copies, Direction, Layout, Pages, PaperChoice, Quality } from './screens/change/Choices';
 import { Help } from './screens/help/Help';
 import { Welcome } from './screens/help/Welcome';
 import { Home } from './screens/home/Home';
 import { Photos, PhotoTools } from './screens/photos/Photos';
 import { forgetRemoved } from './screens/photos/undo';
+import { seenPrinted } from './screens/printedJobs';
 import { Problem } from './screens/problem/Problem';
 import { Ready } from './screens/ready/Ready';
 import { Received } from './screens/received/Received';
@@ -28,6 +28,7 @@ import { Recent } from './screens/recent/Recent';
 import { Result } from './screens/result/Result';
 import type { ScreenProps } from './screens/types';
 import { loadSettings } from './screens/useSettings';
+import { ConfirmSheet } from './ui/ConfirmSheet';
 import { lazyScreen } from './ui/lazyScreen';
 
 // Off the start path (startup JS budget, PLAN §C): these load the first time they open, or in the background soon
@@ -54,6 +55,17 @@ const PassportCustom = lazyScreen(() => groups().then((m) => m.PassportCustom));
 const CropPhoto = lazyScreen(() => import('./screens/photos/CropPhoto').then((m) => m.CropPhoto));
 const AddSource = lazyScreen(() => import('./screens/add/AddSource').then((m) => m.AddSource));
 const Adjust = lazyScreen(() => import('./screens/adjust/Adjust').then((m) => m.Adjust));
+const PaperType = lazyScreen(() => import('./screens/change/PaperType').then((m) => m.PaperType));
+// Change and its one-question screens follow Ready: loaded when first opened (startup JS budget, PLAN §C).
+const choices = () => import('./screens/change/Choices');
+const Change = lazyScreen(() => import('./screens/change/Change').then((m) => m.Change));
+const Colour = lazyScreen(() => choices().then((m) => m.Colour));
+const Copies = lazyScreen(() => choices().then((m) => m.Copies));
+const Direction = lazyScreen(() => choices().then((m) => m.Direction));
+const Layout = lazyScreen(() => choices().then((m) => m.Layout));
+const Pages = lazyScreen(() => choices().then((m) => m.Pages));
+const PaperChoice = lazyScreen(() => choices().then((m) => m.PaperChoice));
+const Quality = lazyScreen(() => choices().then((m) => m.Quality));
 // Screens that only follow another one (black edges found; files arriving during a job): loaded when needed, so the
 // first screen stays within the startup budget (PLAN §C, 60 KB).
 const BlackEdges = lazyScreen(() => import('./screens/edges/BlackEdges').then((m) => m.BlackEdges));
@@ -157,6 +169,7 @@ const SCREENS: Record<string, (p: ScreenProps) => preact.JSX.Element> = {
   paperchoice: PaperChoice,
   direction: Direction,
   quality: Quality,
+  papertype: PaperType,
   welcome: Welcome,
   receiving: Receiving,
   cropphoto: CropPhoto,
@@ -238,7 +251,17 @@ export function App() {
   };
   // Which way the next screen moves in (Phase 13 motion): forward for a new screen, back for Back, a fade otherwise.
   const enterDir = useRef<'forward' | 'back' | 'fade'>('fade');
-  const go = (action: NavAction) => {
+  // A question before leaving an unprinted job or closing the app (owner, round 4); any move closes it.
+  const [ask, setAskState] = useState<{ kind: 'leave'; jobId: string; action: NavAction } | { kind: 'exit' } | null>(
+    null,
+  );
+  const askNow = useRef<typeof ask>(null);
+  const setAsk = (a: typeof ask) => {
+    askNow.current = a;
+    setAskState(a);
+  };
+  const goNow = (action: NavAction) => {
+    if (askNow.current) setAsk(null);
     const dir =
       action.type === 'push' ? 'forward' : action.type === 'back' || action.type === 'backTo' ? 'back' : 'fade';
     const before = stackRef.current[stackRef.current.length - 1];
@@ -252,18 +275,54 @@ export function App() {
       after &&
       after.name === before.name &&
       after.params.jobId === before.params.jobId &&
-      // Another share is a new question with its own state (review I2), never the old one updated.
-      after.name !== 'newfiles'
+      // Another share is a new question with its own state (review I2), never the old one updated; the next ID card
+      // side is its own crop screen, never the side before with its frame (review C1, round 4).
+      after.name !== 'newfiles' &&
+      after.name !== 'fixcorners'
     )
       entryIds.set(after, entryId(before));
     // Only a new screen gets an entrance: a screen updated in place keeps its class, so nothing replays (review I1).
     // Back on Home minimises the app: nothing slides (review M9).
     if (!before || !after || entryId(after) !== entryId(before))
       enterDir.current = r.effect === 'minimise' ? 'fade' : dir;
-    if (r.effect === 'minimise' && Capacitor.isNativePlatform()) void NativeApp.minimizeApp();
+    if (r.effect === 'minimise') {
+      if (Capacitor.isNativePlatform()) void NativeApp.minimizeApp();
+      if (import.meta.env.MODE === 'e2e') {
+        const g = globalThis as { __closedApp?: number };
+        g.__closedApp = (g.__closedApp ?? 0) + 1;
+      }
+    }
     // At once, not at the next render: two steps in a row (safe start: Home, then Problem) build on each other.
     stackRef.current = r.stack;
     setStack(r.stack);
+  };
+  // The shopkeeper's own moves (screens, Android Back): Back while a question shows answers it safely; Back on Home asks
+  // before closing the app; leaving an unprinted job's screens asks first (a printed or vanished job does not).
+  const go = (action: NavAction) => {
+    if (askNow.current) {
+      // The question is modal: only Android Back reaches here from the shopkeeper, and answers Keep working. Any other
+      // step is the screen's own, made when its work finished (a print sent → its result; a PDF looked at → Ready):
+      // it goes on, and the question gives way (review I1).
+      if (action.type === 'back') return setAsk(null);
+      return goNow(action);
+    }
+    if (exitsApp(stackRef.current, action)) return setAsk({ kind: 'exit' });
+    const jobId = leftJob(stackRef.current, action);
+    if (!jobId) return goNow(action);
+    // Decided at once, never waiting on the engine's one queue (review C2): a job seen printed just goes; any other is
+    // asked about now. One this run has not seen yet is also read in the background: printed or gone, it just goes.
+    const printed = seenPrinted(jobId);
+    if (printed) return goNow(action);
+    const question = { kind: 'leave' as const, jobId, action };
+    setAsk(question);
+    if (printed === undefined)
+      void PrintEngine.loadJob({ id: jobId })
+        .then(({ job }) => normalizeJob(job))
+        .catch(() => null)
+        .then((job) => {
+          if (askNow.current !== question) return; // answered meanwhile
+          if (!job || job.printedAt) goNow(action);
+        });
   };
 
   // Android Back = in-app Back on every screen; on Home it minimises (PLAN §D5). Works with predictive back.
@@ -292,13 +351,13 @@ export function App() {
       const shown = stackRef.current[stackRef.current.length - 1];
       // After a crash loop new files are still kept as jobs, but nothing opens by itself (PLAN §D5).
       if (!open) {
-        if (shown?.name === 'receiving') go({ type: 'back' });
+        if (shown?.name === 'receiving') goNow({ type: 'back' });
         return;
       }
       const last = jobs[jobs.length - 1];
       // Cancelled while receiving: what arrived waits in Recent jobs; nothing opens by itself (PLAN §D2).
       if (last && cancelled.has(last.id) && jobs.every((j) => cancelled.has(j.id))) {
-        if (shown?.name === 'receiving') go({ type: 'back' });
+        if (shown?.name === 'receiving') goNow({ type: 'back' });
         return;
       }
       // Add photos / Add files (owner, 2026-10-24): files chosen to add to the job on screen join it at once, without
@@ -332,8 +391,8 @@ export function App() {
         if (added.length) sessionStorage.setItem('ps.addChoose', JSON.stringify({ jobId: target.id, item: added[0] }));
         window.dispatchEvent(new CustomEvent('ps-job-changed', { detail: { jobId: target.id, added } }));
         // Receiving and "Where are the photos?" give way to the screen Add was pressed on.
-        if (stackRef.current[stackRef.current.length - 1]?.name === 'receiving') go({ type: 'back' });
-        if (stackRef.current[stackRef.current.length - 1]?.name === 'addsource') go({ type: 'back' });
+        if (stackRef.current[stackRef.current.length - 1]?.name === 'receiving') goNow({ type: 'back' });
+        if (stackRef.current[stackRef.current.length - 1]?.name === 'addsource') goNow({ type: 'back' });
         return;
       }
       // The receiving screen gives way to what arrived (never stays under it).
@@ -361,14 +420,14 @@ export function App() {
         // Over Result the open job was just printed: adding would print its files again (review I3).
         const printed = top?.name === 'result' || top?.params.printed === true;
         // Receiving gives way to the question; an open question is replaced by the bigger one.
-        if (onTop?.name === 'receiving' && top?.name === 'newfiles') go({ type: 'back' });
-        go({
+        if (onTop?.name === 'receiving' && top?.name === 'newfiles') goNow({ type: 'back' });
+        goNow({
           type: top?.name === 'newfiles' || onTop?.name === 'receiving' ? 'replace' : 'push',
           screen: { name: 'newfiles', params: { jobId: openId, newJobIds, printed } },
         });
       } else if (last)
         // Chosen on Home for passport photos (PLAN §J0): Received goes straight on to the passport photo.
-        go({
+        goNow({
           type: step,
           screen: {
             name: 'received',
@@ -381,24 +440,24 @@ export function App() {
           },
         });
       else if (empty.length)
-        go({ type: step, screen: { name: 'problem', params: { lines: empty.flatMap(problemMessages) } } });
+        goNow({ type: step, screen: { name: 'problem', params: { lines: empty.flatMap(problemMessages) } } });
     });
     void (async () => {
       let safeStart = false;
       try {
         safeStart = (await PrintEngine.getStartInfo()).safeStart;
         if (safeStart) {
-          go({ type: 'home' });
-          go({ type: 'push', screen: { name: 'problem', params: { lines: [en.problem.safeStart] } } });
+          goNow({ type: 'home' });
+          goNow({ type: 'push', screen: { name: 'problem', params: { lines: [en.problem.safeStart] } } });
           void PrintEngine.ackSafeStart();
         } else {
           // A print that was in flight when the app was closed: say what happened to it first (PLAN §D4).
           const s = await PrintEngine.printStatus();
           // A test page goes back to its own screen: it is never shown as a customer job.
           if (s.state !== 'none' && s.state !== 'inDialog' && s.kind && s.kind !== 'job')
-            go({ type: 'push', screen: { name: 'testpage', params: { kind: s.kind, state: s.state } } });
+            goNow({ type: 'push', screen: { name: 'testpage', params: { kind: s.kind, state: s.state } } });
           else if (s.state !== 'none' && s.state !== 'inDialog' && s.jobId)
-            go({
+            goNow({
               type: 'push',
               screen: {
                 name: 'result',
@@ -424,7 +483,7 @@ export function App() {
       setTimeout(() => {
         const top = stackRef.current[stackRef.current.length - 1];
         if (receivingNow()?.intakeId === p.intakeId && top?.name !== 'receiving' && top?.name !== 'problem')
-          go({ type: 'push', screen: { name: 'receiving', params: {} } });
+          goNow({ type: 'push', screen: { name: 'receiving', params: {} } });
       }, 1000);
     });
     const ready = PrintEngine.addListener('intakeReady', async ({ intakeId, repeat }) => {
@@ -437,7 +496,7 @@ export function App() {
           top &&
           ((top.params.jobId === intakeId && JOB_SCREEN_NAMES.has(top.name)) ||
             (top.name === 'newfiles' && (top.params.newJobIds as string[] | undefined)?.includes(intakeId)));
-        if (job && !showing) go({ type: 'push', screen: { name: 'received', params: { jobId: intakeId } } });
+        if (job && !showing) goNow({ type: 'push', screen: { name: 'received', params: { jobId: intakeId } } });
         return;
       }
       void runner.request().catch(() => {});
@@ -446,7 +505,7 @@ export function App() {
     const failed = PrintEngine.addListener('intakeFailed', ({ intakeId }) => {
       receivingDone(intakeId);
       const top = stackRef.current[stackRef.current.length - 1];
-      go({
+      goNow({
         type: top?.name === 'receiving' ? 'replace' : 'push',
         screen: { name: 'problem', params: { lines: [en.problem.receiveFailed] } },
       });
@@ -486,7 +545,7 @@ export function App() {
       h1.tabIndex = -1;
       h1.focus({ preventScroll: true });
     }
-  }, [stack.length, top.name]);
+  }, [stack.length, entryId(top)]);
 
   const Screen = SCREENS[top.name] ?? Problem;
   return (
@@ -497,6 +556,38 @@ export function App() {
       <div key={entryId(top)} class={`screen-host enter-${enterDir.current}`}>
         <Screen go={goFrom(top)} params={top.params} />
       </div>
+      {ask?.kind === 'leave' && (
+        <ConfirmSheet
+          title={en.leave.title}
+          line={en.leave.line}
+          onDismiss={() => setAsk(null)}
+          choices={[
+            { label: en.leave.keep, kind: 'primary', onChoose: () => setAsk(null) },
+            { label: en.leave.leave, kind: 'secondary', onChoose: () => goNow(ask.action) },
+            {
+              label: en.leave.delete,
+              kind: 'danger',
+              onChoose: () => {
+                // Home first: the job's screens close at once (their engine work stops; a second tap lands on Home,
+                // never on PRINT), then the job is deleted (review M1).
+                const { jobId } = ask;
+                goNow({ type: 'home' });
+                void PrintEngine.deleteJob({ id: jobId }).catch(() => {});
+              },
+            },
+          ]}
+        />
+      )}
+      {ask?.kind === 'exit' && (
+        <ConfirmSheet
+          title={en.exit.title}
+          onDismiss={() => setAsk(null)}
+          choices={[
+            { label: en.exit.stay, kind: 'primary', onChoose: () => setAsk(null) },
+            { label: en.exit.close, kind: 'secondary', onChoose: () => goNow({ type: 'back' }) },
+          ]}
+        />
+      )}
       {/* Black & white previews: Rec.601 grey, the same weights the print file uses (PLAN §F4, gate review F4). */}
       <svg width="0" height="0" aria-hidden="true" style={{ position: 'absolute' }}>
         <filter id="rec601" color-interpolation-filters="sRGB">

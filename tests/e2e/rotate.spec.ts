@@ -191,6 +191,8 @@ test('document pages, passport photos and ID cards keep Turn: no rotate handle, 
   await none();
   await page.goto('/?mockIntake=2');
   await button(page, 'ID card copy').click();
+  await button(page, 'Done').click(); // the front's crop screen (owner, round 4)
+  await button(page, 'Done').click(); // the back's crop screen (owner, round 4)
   await button(page, 'Card copy').click();
   await button(page, /^Real card size/).click();
   await button(page, 'Adjust cards').click();

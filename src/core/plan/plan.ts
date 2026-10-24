@@ -446,10 +446,24 @@ const CARD_TOP_MM = 20;
 const CARD_GAP_MM = 10;
 const SET_GAP_MM = 5;
 
-/** How many sets fit on A4 with [edgeMm] clear at every edge: rows of front and back (or of two single cards). */
-export function maxCardSets(edgeMm: number, sides: number): number {
-  const rows = Math.max(1, Math.floor((297 - 2 * edgeMm + SET_GAP_MM) / (CARD_H_MM + SET_GAP_MM)));
+/**
+ * How many sets fit on A4 with [edgeMm] clear at every edge: rows of front and back (or of two single cards); a row is
+ * as tall as a standing card when one is turned a quarter ([standing], owner round 4).
+ */
+export function maxCardSets(edgeMm: number, sides: number, standing = false): number {
+  const rowH = standing ? CARD_W_MM : CARD_H_MM;
+  const rows = Math.max(1, Math.floor((297 - 2 * edgeMm + SET_GAP_MM) / (rowH + SET_GAP_MM)));
   return sides >= 2 ? rows : rows * 2;
+}
+
+/**
+ * A card's size on paper (mm) at [scale] of the real card: lying, 85.6 × 54; turned a quarter it stands, 54 × 85.6
+ * (vertical ID cards, owner round 4).
+ */
+export function cardBox(turns: number, scale = 1): { w: number; h: number } {
+  return turns % 2 === 1
+    ? { w: CARD_H_MM * scale, h: CARD_W_MM * scale }
+    : { w: CARD_W_MM * scale, h: CARD_H_MM * scale };
 }
 
 /** The thin cut lines around a box (its outline). */
@@ -470,6 +484,15 @@ function outline(b: Box) {
  * - sets: real-size sets (front left, back right) in rows 5 mm apart, as many as asked and fit, cut lines;
  * - page: the whole e-Aadhaar page, fitted inside the edges.
  */
+/**
+ * The cards' size as drawn in an ID card [plan], as a share of the real card: a card's long side over 85.6 mm, standing
+ * or lying; a chosen size the plan held down to what fits is the size that prints (review I2, round 4).
+ */
+export function drawnCardScale(plan: PrintPlan): number {
+  const b = plan.pages[0]?.placements[0]?.box;
+  return b ? Math.max(b.w, b.h) / (CARD_W_MM * MM) : 1;
+}
+
 export function idCardPlan(job: Job, edgeMm: number, docs: ReadonlyMap<number, PdfFacts> = new Map()): PrintPlan {
   const choice = job.idCard as NonNullable<Job['idCard']>;
   const style: StyleId = styleOf(job) === 'ocv' ? 'bw' : styleOf(job);
@@ -493,6 +516,22 @@ export function idCardPlan(job: Job, edgeMm: number, docs: ReadonlyMap<number, P
     placements,
     ...(guides && guides.length ? { guides } : {}),
   });
+  // Each card's own shape (a card turned a quarter stands), one under another at [scale], centred across, from [top] mm.
+  const sizes = choice.cards.map((c) => cardBox(c.turns));
+  const widest = Math.max(...sizes.map((s) => s.w));
+  const sumH = sizes.reduce((t, s) => t + s.h, 0);
+  const gaps = CARD_GAP_MM * (sides - 1);
+  const fit = Math.min((wMm - 2 * edgeMm) / widest, (hMm - 2 * edgeMm - gaps) / sumH);
+  const stack = (scale: number, top: number): Box[] => {
+    let y = top;
+    return sizes.map((s) => {
+      const w = s.w * scale;
+      const h = s.h * scale;
+      const b = { x: ((wMm - w) / 2) * MM, y: y * MM, w: w * MM, h: h * MM };
+      y += h + CARD_GAP_MM;
+      return b;
+    });
+  };
   let pages: PrintPlan['pages'];
   if (choice.size === 'page' && choice.cards[0]?.page !== undefined) {
     const c = choice.cards[0];
@@ -505,20 +544,8 @@ export function idCardPlan(job: Job, edgeMm: number, docs: ReadonlyMap<number, P
     pages = [page([{ itemIndex: c.item, pdfPage: c.page, crop: { x: 0, y: 0, w: 1, h: 1 }, turns: 0, style, box }])];
   } else if (choice.size === 'custom') {
     // Adjust (owner, 2026-10-23): both cards at the chosen share of the real size, as large as fits, with cut lines.
-    const fit = Math.min(
-      (wMm - 2 * edgeMm) / CARD_W_MM,
-      (hMm - 2 * edgeMm - CARD_GAP_MM * (sides - 1)) / (CARD_H_MM * sides),
-    );
     const scale = Math.min(choice.scale ?? 1, fit);
-    const w = CARD_W_MM * scale;
-    const h = CARD_H_MM * scale;
-    const top = (hMm - (h * sides + CARD_GAP_MM * (sides - 1))) / 2;
-    const boxes = choice.cards.map((_, i) => ({
-      x: ((wMm - w) / 2) * MM,
-      y: (top + i * (h + CARD_GAP_MM)) * MM,
-      w: w * MM,
-      h: h * MM,
-    }));
+    const boxes = stack(scale, (hMm - (sumH * scale + gaps)) / 2);
     pages = [
       page(
         boxes.map((b, i) => card(i, b)),
@@ -526,33 +553,33 @@ export function idCardPlan(job: Job, edgeMm: number, docs: ReadonlyMap<number, P
       ),
     ];
   } else if (choice.size === 'big') {
-    const scale = Math.min(
-      2,
-      (wMm - 2 * edgeMm) / CARD_W_MM,
-      (hMm - 2 * edgeMm - CARD_GAP_MM * (sides - 1)) / (CARD_H_MM * sides),
-    );
-    const w = CARD_W_MM * scale;
-    const h = CARD_H_MM * scale;
-    const top = (hMm - (h * sides + CARD_GAP_MM * (sides - 1))) / 2;
-    pages = [
-      page(
-        choice.cards.map((_, i) =>
-          card(i, { x: ((wMm - w) / 2) * MM, y: (top + i * (h + CARD_GAP_MM)) * MM, w: w * MM, h: h * MM }),
-        ),
-      ),
-    ];
+    const scale = Math.min(2, fit);
+    const boxes = stack(scale, (hMm - (sumH * scale + gaps)) / 2);
+    pages = [page(boxes.map((b, i) => card(i, b)))];
   } else if (choice.size === 'sets') {
-    const max = maxCardSets(edgeMm, sides);
+    const max = maxCardSets(
+      edgeMm,
+      sides,
+      sizes.some((s) => s.h > s.w),
+    );
     const sets = Math.min(max, Math.max(1, choice.sets));
-    // Slots in reading order, two to a row: front and back of each set, or two single cards.
+    // Slots in reading order, two to a row: front and back of each set, or two single cards. A row is as tall as its
+    // taller card; each card sits in the middle of it.
     const order = Array.from({ length: sides >= 2 ? sets * 2 : sets }, (_, k) => (sides >= 2 ? k % 2 : 0));
-    const left = (wMm - (2 * CARD_W_MM + SET_GAP_MM)) / 2;
-    const boxes = order.map((_, k) => ({
-      x: (left + (k % 2) * (CARD_W_MM + SET_GAP_MM)) * MM,
-      y: (edgeMm + Math.floor(k / 2) * (CARD_H_MM + SET_GAP_MM)) * MM,
-      w: CARD_W_MM * MM,
-      h: CARD_H_MM * MM,
-    }));
+    const pair = [sizes[0], sizes[sides >= 2 ? 1 : 0]] as { w: number; h: number }[];
+    const [a, b] = pair as [{ w: number; h: number }, { w: number; h: number }];
+    const rowH = Math.max(a.h, b.h);
+    const left = (wMm - (a.w + SET_GAP_MM + b.w)) / 2;
+    const boxes = order.map((_, k) => {
+      const s = k % 2 === 0 ? a : b;
+      const rowTop = edgeMm + Math.floor(k / 2) * (rowH + SET_GAP_MM);
+      return {
+        x: (k % 2 === 0 ? left : left + a.w + SET_GAP_MM) * MM,
+        y: (rowTop + (rowH - s.h) / 2) * MM,
+        w: s.w * MM,
+        h: s.h * MM,
+      };
+    });
     pages = [
       page(
         order.map((i, k) => card(i, boxes[k] as Box)),
@@ -560,13 +587,7 @@ export function idCardPlan(job: Job, edgeMm: number, docs: ReadonlyMap<number, P
       ),
     ];
   } else {
-    const top = Math.max(edgeMm, CARD_TOP_MM);
-    const boxes = choice.cards.map((_, i) => ({
-      x: ((wMm - CARD_W_MM) / 2) * MM,
-      y: (top + i * (CARD_H_MM + CARD_GAP_MM)) * MM,
-      w: CARD_W_MM * MM,
-      h: CARD_H_MM * MM,
-    }));
+    const boxes = stack(1, Math.max(edgeMm, CARD_TOP_MM));
     pages = [
       page(
         boxes.map((b, i) => card(i, b)),

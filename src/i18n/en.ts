@@ -19,8 +19,6 @@ export const en = {
     documents: 'Documents & PDF',
     cards: 'Aadhaar & ID cards',
     chooseFromPhone: 'Choose from phone',
-    hintTitle: 'Customer sent files on WhatsApp?',
-    hintSteps: ['In WhatsApp, select the files.', 'Tap Share.', 'Choose PrintSaathi.'],
     recent: 'Recent jobs',
     lead: 'What should we print?',
     owner: 'For the shop owner',
@@ -177,6 +175,8 @@ export const en = {
     bw: 'Black & white',
     /** The Colour | Black & white switch under the preview (owner, round 3). */
     printIn: 'Print in',
+    /** Beside the title (owner, round 4): screen readers still hear "Black & white". */
+    bwShort: 'B&W',
     a4: 'A4',
     landscape: 'Landscape',
     print: 'PRINT',
@@ -420,6 +420,31 @@ export const en = {
     done: 'Done',
     yesNextPart: 'Yes, print part {k} of {n}',
   },
+  /** Owner, round 4: which paper is in the printer (a reminder only: Android lets no app set it). */
+  paperType: {
+    row: 'Paper type',
+    title: 'Which paper is in the printer?',
+    plain: 'Plain paper',
+    plainHelp: 'Everyday printing paper',
+    glossy: 'Glossy photo paper',
+    glossyHelp: 'Shiny photo paper: you will be reminded to put it in',
+    short: 'Glossy',
+    load: 'Put glossy photo paper in the printer.',
+  },
+  /** Owner, round 4: leaving a job that is not printed yet. */
+  leave: {
+    title: 'Leave this job?',
+    line: 'It stays in Recent jobs, so you can finish it later.',
+    keep: 'Keep working',
+    leave: 'Leave',
+    delete: 'Delete this job',
+  },
+  /** Owner, round 4: Android Back on Home. */
+  exit: {
+    title: 'Close PrintSaathi?',
+    stay: 'Stay',
+    close: 'Close the app',
+  },
   adjust: {
     title: 'Adjust',
     photoOf: 'Photo {n} of {total}',
@@ -442,7 +467,16 @@ export const en = {
     smaller: 'Smaller',
     bigger: 'Bigger',
     turn: 'Turn',
+    /** The ‹ › beside "Page n of N" (round 4): which page shows in the middle (the tools' Previous / Next page choose). */
+    showPrevious: 'Show previous page',
+    showNext: 'Show next page',
+    /** Zoom (round 4): the page drawn bigger, to work on a small photo precisely (the print does not change). */
+    zoomIn: 'Zoom in',
+    zoomOut: 'Zoom out',
+    zoomShown: 'Page {n} of {total} · {z} %',
     tiltLeft: 'Tilt left',
+    /** The compact tool row (owner, round 4): two lines at most. */
+    swapSides: 'Swap sides',
     tiltRight: 'Tilt right',
     degrees: '{n}°',
     crop: 'Crop',
@@ -607,6 +641,14 @@ export const en = {
     next: 'Card copy',
     oneSide: 'Only the front will print.',
     addBack: 'Add the back side',
+    /** Owner, round 4: crop each side, change its photo, turn it any way. */
+    frontTitle: 'Front of the card',
+    backSideTitle: 'Back of the card',
+    cropHint: "Move the side bars onto the card's edges, then tap Done.",
+    changePhoto: 'Change photo',
+    changeTitle: 'Where is the new photo?',
+    turnLeft: 'Turn left',
+    turnRight: 'Turn right',
     lookingBack: 'Looking for the card on the back photo…',
     frontOnly: 'Print front only',
     backTitle: 'Where is the back side?',

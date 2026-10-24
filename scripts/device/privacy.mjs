@@ -40,6 +40,12 @@ const tap = (text) => {
   if (!m) throw new Error(`no "${text}" on screen`);
   sh('input', 'tap', String((+m[1] + +m[3]) >> 1), String((+m[2] + +m[4]) >> 1));
 };
+/** Home from a job: leaving an unprinted job asks first (round 4); Leave keeps it, as Home did before. */
+const goHome = async () => {
+  tap('Home');
+  await sleep(1200);
+  if (has('Leave this job?')) tap('Leave');
+};
 const until = async (what, test, ms = 30_000) => {
   const t0 = Date.now();
   while (Date.now() - t0 < ms) {
@@ -91,7 +97,7 @@ await until('Home', () => has('Recent jobs'));
 const tags = [`old${Date.now()}`];
 await share(tags[0]);
 const oldJob = jobs()[0];
-tap('Home'); // the first job is no longer open
+await goHome(); // the first job is no longer open
 await until('Home', () => has('PrintSaathi'));
 tags.push(`open${Date.now()}`);
 await share(tags[1]);
@@ -115,13 +121,13 @@ r.retention = {
 //     disk protect the job on screen. Android closes the app in the background (am kill: the scheduled job stays;
 //     force-stop would cancel it), both jobs are made 2 days old, and the daily job is forced to run now.
 // Two fresh jobs: one left (Home), one on screen; both are made old only once the process is gone.
-tap('Home');
+await goHome();
 await until('Home', () => has('PrintSaathi'));
 const known = new Set(jobs());
 tags.push(`left${Date.now()}`);
 await share(tags[2]);
 const leftJob = jobs().find((j) => !known.has(j));
-tap('Home');
+await goHome();
 await until('Home', () => has('PrintSaathi'));
 tags.push(`cold${Date.now()}`);
 await share(tags[3]);

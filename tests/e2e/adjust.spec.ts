@@ -6,6 +6,7 @@ const button = (page: Page, name: string | RegExp) =>
   page.getByRole('button', { name, exact: typeof name === 'string' });
 const title = (page: Page) => page.locator('main h1');
 type Plan = {
+  rev?: number;
   pages: { orientation: string; placements: { itemIndex: number; turns: number; box: { w: number; h: number } }[] }[];
 };
 const lastPlan = (page: Page) => page.evaluate(() => (globalThis as { __lastPlan?: Plan }).__lastPlan);
@@ -228,6 +229,8 @@ test('passport: Adjust passport photo makes every photo 1 mm bigger at a time, k
 test('ID cards: Adjust cards makes both cards bigger in 10 % steps and turns the chosen one', async ({ page }) => {
   await page.goto('/?mockIntake=2');
   await button(page, 'ID card copy').click();
+  await button(page, 'Done').click(); // the front's crop screen (owner, round 4)
+  await button(page, 'Done').click(); // the back's crop screen (owner, round 4)
   await button(page, 'Card copy').click();
   await button(page, /^Real card size/).click();
   await expect(title(page)).toHaveText('Ready to print');
@@ -248,7 +251,7 @@ test('ID cards: Adjust cards makes both cards bigger in 10 % steps and turns the
         (globalThis as { __lastPlan?: DocPlan }).__lastPlan?.pages[0]?.placements.map((p) => p.turns),
       ),
     )
-    .toEqual([0, 2]);
+    .toEqual([0, 1]); // Turn is a quarter turn now (owner, round 4: cards turn any way round)
 });
 
 // Owner, 2026-10-24 ("Allow to resize. Resizes must be allowed for all sections that have photos in the preview"):
@@ -267,6 +270,8 @@ const dragCorner = async (page: Page, dx: number, dy: number) => {
 test('ID cards: dragging the round corner out makes the cards bigger, in the steps Bigger takes', async ({ page }) => {
   await page.goto('/?mockIntake=2');
   await button(page, 'ID card copy').click();
+  await button(page, 'Done').click(); // the front's crop screen (owner, round 4)
+  await button(page, 'Done').click(); // the back's crop screen (owner, round 4)
   await button(page, 'Card copy').click();
   await button(page, /^Real card size/).click();
   await button(page, 'Adjust cards').click();
@@ -324,6 +329,8 @@ const kinds: Record<string, (page: Page) => Promise<void>> = {
   cards: async (page) => {
     await page.goto('/?mockIntake=2');
     await button(page, 'ID card copy').click();
+    await button(page, 'Done').click(); // the front's crop screen (owner, round 4)
+    await button(page, 'Done').click(); // the back's crop screen (owner, round 4)
     await button(page, 'Card copy').click();
     await button(page, /^Real card size/).click();
     await button(page, 'Adjust cards').click();
@@ -332,6 +339,19 @@ const kinds: Record<string, (page: Page) => Promise<void>> = {
 
 test.describe('a big preview on a phone (owner, round 3)', () => {
   test.use({ viewport: { width: 360, height: 800 } });
+  // Owner, round 4: "make the bottom buttons in edit preview small, they are too big consuming a lot of space".
+  for (const [kind, open] of Object.entries(kinds))
+    test(`Adjust ${kind}: the tools are compact (56-64 px), the row at most 80 px tall`, async ({ page }) => {
+      await open(page);
+      const row = page.locator('.actionbar .tool-row');
+      await expect(row).toBeVisible();
+      const heights = await row.locator('.btn').evaluateAll((els) => els.map((e) => e.getBoundingClientRect().height));
+      for (const h of heights) {
+        expect(h).toBeGreaterThanOrEqual(56 - 0.5);
+        expect(h).toBeLessThanOrEqual(64.5); // two lines of words at most
+      }
+      expect((await row.boundingBox())?.height ?? 999).toBeLessThanOrEqual(80);
+    });
   for (const [kind, open] of Object.entries(kinds))
     test(`Adjust ${kind}: the page is at least 90 % of the screen's width; the tools are one sliding row above Done`, async ({
       page,
@@ -381,5 +401,349 @@ test.describe('held sideways (800 × 360)', () => {
     const grid = await page.locator('.adjust-body .tool-grid').boundingBox();
     const paper = await page.locator('.adjust-paper figure').boundingBox();
     expect((grid?.x ?? 0) >= (paper?.x ?? 0) + (paper?.width ?? 0) - 1).toBe(true);
+  });
+});
+
+// Owner, round 4: "when it's page 2 of 2 … allow to scroll through all the pages … see all pages content in preview
+// edit": the pages side by side, the next and previous showing at the sides, ‹ › beside "Page n of N".
+test.describe('pages side by side (owner, round 4)', () => {
+  test.use({ viewport: { width: 412, height: 915 } });
+  const twoPages = async (page: Page) => {
+    await page.goto('/?mockIntake=2');
+    await button(page, 'One on each page').click();
+    await expect(title(page)).toHaveText('Ready to print');
+    await button(page, 'Adjust photos').click();
+    await expect(title(page)).toHaveText('Photo 1 of 2');
+  };
+  const label = (page: Page) => page.locator('.adjust-page');
+  test("a two-page job shows page 2's edge beside page 1", async ({ page }) => {
+    await twoPages(page);
+    await expect(label(page)).toHaveText(/^Page 1 of 2/);
+    const strip = await page.locator('.adjust-strip').boundingBox();
+    const next = await page.locator('.adjust-sheet[data-page="1"]').boundingBox();
+    if (!strip || !next) throw new Error('no strip or page 2');
+    const showing = strip.x + strip.width - next.x;
+    expect(showing).toBeGreaterThanOrEqual(4);
+    expect(showing).toBeLessThanOrEqual(40);
+  });
+  const centred = async (page: Page, n: number) => {
+    const strip = await page.locator('.adjust-strip').boundingBox();
+    const sheet = await page.locator(`.adjust-sheet[data-page="${n}"]`).boundingBox();
+    return Math.abs((sheet?.x ?? 0) + (sheet?.width ?? 0) / 2 - ((strip?.x ?? 0) + (strip?.width ?? 0) / 2));
+  };
+  test('Show next page and sliding sideways over the photo each bring page 2 to the middle, its photo chosen', async ({
+    page,
+  }) => {
+    await twoPages(page);
+    await button(page, 'Show next page').click();
+    await expect(label(page)).toHaveText(/^Page 2 of 2/);
+    // Said aloud (TalkBack) when ‹ › or a swipe moves the pages.
+    await expect(label(page)).toHaveAttribute('aria-live', 'polite');
+    // The tools never change a photo out of sight: at rest on page 2, its photo is the chosen one.
+    await expect(title(page)).toHaveText('Photo 2 of 2');
+    await button(page, 'Show previous page').click();
+    await expect(label(page)).toHaveText(/^Page 1 of 2/);
+    await expect(title(page)).toHaveText('Photo 1 of 2');
+    // Sideways over the photo itself (a finger's swipe is proven on the phone: headless Chromium does not scroll for a
+    // synthesized touch, device smoke round 4).
+    const photo = await page.locator('.adjust-sheet[data-page="0"] .adjust-pick').boundingBox();
+    if (!photo) throw new Error('no photo on page 1');
+    await page.mouse.move(photo.x + photo.width / 2, photo.y + photo.height / 2);
+    await page.mouse.wheel(300, 0);
+    await expect(label(page)).toHaveText(/^Page 2 of 2/);
+    await expect(title(page)).toHaveText('Photo 2 of 2');
+    await expect.poll(() => centred(page, 1)).toBeLessThan(3);
+  });
+  // Device finding (round-4 smoke, API 35): one quick flick slid from page 1 to page 4. A page at a time.
+  test('a big fling moves one page, never past it', async ({ page }) => {
+    await page.goto('/?mockIntake=6');
+    await button(page, 'One on each page').click();
+    await button(page, 'Adjust photos').click();
+    await expect(title(page)).toHaveText('Photo 1 of 6');
+    // A slide aimed four pages on (as a fling is; headless Chromium's wheel does not keep to snap stops, the phone's
+    // finger does: round-4 smoke).
+    await page.locator('.adjust-strip').evaluate((e) => e.scrollBy({ left: 4 * e.clientWidth }));
+    await expect(label(page)).toHaveText(/^Page 2 of 6/);
+    await expect(title(page)).toHaveText('Photo 2 of 6');
+    await page.waitForTimeout(600);
+    await expect(label(page)).toHaveText(/^Page 2 of 6/);
+  });
+  test('a tap on another photo on page 2 chooses it; Next photo brings its page to the middle', async ({ page }) => {
+    await page.goto('/?mockIntake=4');
+    await button(page, 'Use more pages').click();
+    await button(page, 'Change').click();
+    await page.getByRole('button', { name: /^Pages/ }).click();
+    await page.getByRole('button', { name: /^2 pages/ }).click();
+    await expect(title(page)).toHaveText('Ready to print');
+    await button(page, 'Adjust photos').click();
+    await expect(title(page)).toHaveText('Photo 1 of 4');
+    await button(page, 'Next photo').click();
+    await expect(label(page)).toHaveText(/^Page 1 of 2/);
+    await button(page, 'Next photo').click();
+    await expect(title(page)).toHaveText('Photo 3 of 4');
+    await expect(label(page)).toHaveText(/^Page 2 of 2/);
+    await expect.poll(() => centred(page, 1)).toBeLessThan(3);
+    await page.locator('.adjust-sheet[data-page="1"] .adjust-pick[data-item="4"]').click();
+    await expect(title(page)).toHaveText('Photo 4 of 4');
+    await expect(label(page)).toHaveText(/^Page 2 of 2/);
+  });
+  test("the turn handle of a photo at a page's top is whole (the strip does not cut it)", async ({ page }) => {
+    await twoPages(page);
+    const box = await page.locator('.adjust-rotate').boundingBox();
+    if (!box) throw new Error('no turn handle');
+    // The round dot's top half, where a finger presses it: the handle is there, not cut off by the strip.
+    const hit = await page.evaluate(
+      ([x, y]) => (document.elementFromPoint(x, y) as HTMLElement | null)?.className ?? '',
+      [box.x + box.width / 2, box.y + 16],
+    );
+    expect(hit).toContain('adjust-rotate');
+  });
+  // Owner: "see all pages content in preview edit": a document's pages show their pictures; a long job draws only the
+  // page in the middle and its neighbours (never every page's pictures at once, PLAN §P).
+  const pictured = (page: Page) =>
+    page
+      .locator('.adjust-sheet')
+      .evaluateAll((els) => els.map((e) => e.querySelectorAll('img[src]:not([src=""])').length > 0));
+  test("a document's pages show their pictures, the next one when it comes to the middle", async ({ page }) => {
+    await page.goto('/?mockIntake=1&mockPdfAt=1');
+    await button(page, 'Adjust pages').click();
+    await expect(title(page)).toHaveText('Page 1 of 3');
+    await expect.poll(() => pictured(page)).toEqual([true, true, false]);
+    await button(page, 'Show next page').click();
+    await expect(title(page)).toHaveText('Page 2 of 3');
+    await expect.poll(() => pictured(page)).toEqual([true, true, true]);
+  });
+  test('a long job draws only the page in the middle and its neighbours', async ({ page }) => {
+    await page.goto('/?mockIntake=5');
+    await button(page, 'One on each page').click();
+    await button(page, 'Adjust photos').click();
+    await expect(title(page)).toHaveText('Photo 1 of 5');
+    await expect.poll(() => pictured(page)).toEqual([true, true, false, false, false]);
+    await button(page, 'Show next page').click();
+    await button(page, 'Show next page').click();
+    await expect(label(page)).toHaveText(/^Page 3 of 5/);
+    await expect.poll(() => pictured(page)).toEqual([false, true, true, true, false]);
+  });
+  test('one page: no ‹ ›', async ({ page }) => {
+    await page.goto('/?mockIntake=4');
+    await button(page, 'All on one page').click();
+    await button(page, 'Adjust photos').click();
+    await expect(title(page)).toHaveText('Photo 1 of 4');
+    await expect(button(page, 'Show next page')).toHaveCount(0);
+    await expect(label(page)).toHaveText(/^Page 1 of 1/);
+  });
+});
+
+// Owner, round 4: "allow making the page to zoom in and zoom out so that we can even work on smaller images precisely".
+test.describe('zoom (owner, round 4)', () => {
+  test.use({ viewport: { width: 412, height: 915 } });
+  const label = (page: Page) => page.locator('.adjust-page');
+  const paperW = async (page: Page) => (await page.locator('.adjust-paper figure').boundingBox())?.width ?? 0;
+  test('Zoom out / Zoom in are the first two tools on every kind, 56 px or more; 100 % to start', async ({ page }) => {
+    for (const open of [
+      () => openAdjust(page, 'One on each page', 2),
+      async () => {
+        await page.goto('/?mockIntake=1&mockPdfAt=1');
+        await button(page, 'Adjust pages').click();
+        await expect(title(page)).toHaveText('Page 1 of 3');
+      },
+    ]) {
+      await open();
+      const tools = page.locator('.actionbar .tool-row .btn');
+      await expect(tools.nth(0)).toHaveAccessibleName('Zoom out');
+      await expect(tools.nth(1)).toHaveAccessibleName('Zoom in');
+      for (const i of [0, 1]) {
+        const b = await tools.nth(i).boundingBox();
+        expect(Math.min(b?.width ?? 0, b?.height ?? 0)).toBeGreaterThanOrEqual(56 - 0.5);
+      }
+      await expect(button(page, 'Zoom out')).toBeDisabled();
+    }
+  });
+  test('Zoom in twice: the page is twice as wide, the label says 200 %, it slides both ways; Zoom out twice: 100 %', async ({
+    page,
+  }) => {
+    await openAdjust(page, 'One on each page', 2);
+    const w = await paperW(page);
+    const stripH = (await page.locator('.adjust-strip').boundingBox())?.height ?? 0;
+    await button(page, 'Zoom in').click();
+    await expect(label(page)).toHaveText('Page 1 of 2 · 150 %');
+    await button(page, 'Zoom in').click();
+    await expect(label(page)).toHaveText('Page 1 of 2 · 200 %');
+    await expect.poll(async () => Math.abs((await paperW(page)) - 2 * w)).toBeLessThan(2);
+    // The strip keeps its height; the page slides inside it both ways.
+    expect(Math.abs(((await page.locator('.adjust-strip').boundingBox())?.height ?? 0) - stripH)).toBeLessThan(1);
+    expect(
+      await page
+        .locator('.adjust-strip')
+        .evaluate((e) => [e.scrollWidth > e.clientWidth + 10, e.scrollHeight > e.clientHeight + 10]),
+    ).toEqual([true, true]);
+    // Only the page in the middle shows while zoomed.
+    await expect(page.locator('.adjust-sheet[data-page="1"]')).toBeHidden();
+    await button(page, 'Zoom out').click();
+    await button(page, 'Zoom out').click();
+    await expect(label(page)).toHaveText('Page 1 of 2');
+    await expect.poll(async () => Math.abs((await paperW(page)) - w)).toBeLessThan(2);
+    await expect(button(page, 'Zoom out')).toBeDisabled();
+    await expect(page.locator('.adjust-sheet[data-page="1"]')).toBeVisible();
+  });
+  test('zoomed, a page keeps its shape, standing or lying sideways', async ({ page }) => {
+    const A4 = 841.89 / 595.28;
+    const shape = async () => {
+      const b = await page.locator('.adjust-paper figure').boundingBox();
+      return (b?.width ?? 0) / (b?.height ?? 1);
+    };
+    for (const sideways of [false, true]) {
+      await page.goto('/?mockIntake=2');
+      await button(page, 'One on each page').click();
+      if (sideways) {
+        await button(page, 'Change').click();
+        await page.getByRole('button', { name: /^Paper direction/ }).click();
+        await page.getByRole('button', { name: /^Landscape/ }).click();
+        await expect(title(page)).toHaveText('Ready to print');
+      }
+      await button(page, 'Adjust photos').click();
+      await expect(title(page)).toHaveText('Photo 1 of 2');
+      const want = sideways ? A4 : 1 / A4;
+      expect(Math.abs((await shape()) - want)).toBeLessThan(0.01);
+      for (const z of ['150', '200', '300']) {
+        await button(page, 'Zoom in').click();
+        await expect(label(page)).toHaveText(`Page 1 of 2 · ${z} %`);
+        await expect.poll(async () => Math.abs((await shape()) - want)).toBeLessThan(0.01);
+      }
+    }
+  });
+  test('Zoom in stops at 400 %', async ({ page }) => {
+    await openAdjust(page, 'One on each page', 2);
+    for (let i = 0; i < 4; i++) await button(page, 'Zoom in').click();
+    await expect(label(page)).toHaveText('Page 1 of 2 · 400 %');
+    await expect(button(page, 'Zoom in')).toBeDisabled();
+  });
+  test('on a one-page job the zoom is said aloud too', async ({ page }) => {
+    await openAdjust(page);
+    await button(page, 'Zoom in').click();
+    await expect(label(page)).toHaveText('Page 1 of 1 · 150 %');
+    await expect(label(page)).toHaveAttribute('aria-live', 'polite');
+  });
+  // Review Focus 4: drags while zoomed work in page points.
+  test('at 200 % a corner drag of 40 px shrinks the photo half as much as at 100 %', async ({ page }) => {
+    const MM = 72 / 25.4;
+    const longCm = (t: string) =>
+      Math.max(
+        ...(t
+          .match(/([\d.]+) × ([\d.]+) cm/)
+          ?.slice(1)
+          .map(Number) ?? [0]),
+      );
+    const shrink = async (zoomed: boolean) => {
+      await openAdjust(page);
+      const perPt = (await paperW(page)) / 595.2756;
+      if (zoomed) {
+        await button(page, 'Zoom in').click();
+        await button(page, 'Zoom in').click();
+        await expect(label(page)).toHaveText(/· 200 %$/);
+      }
+      const before = longCm(await sizeText(page));
+      const handle = page.locator('.adjust-handle');
+      await handle.scrollIntoViewIfNeeded();
+      const b = await handle.boundingBox();
+      if (!b) throw new Error('no handle');
+      await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2);
+      await page.mouse.down();
+      await page.mouse.move(b.x + b.width / 2 - 40, b.y + b.height / 2 - 40, { steps: 8 });
+      await page.mouse.up();
+      await expect.poll(async () => longCm(await sizeText(page))).not.toBe(before);
+      return { mm: (before - longCm(await sizeText(page))) * 10, perPt };
+    };
+    const at100 = await shrink(false);
+    const at200 = await shrink(true);
+    // 40 px at 100 % is 40 ÷ (px per pt) points; at 200 % half that (± 1 mm: the size line rounds to a millimetre).
+    expect(Math.abs(at100.mm - 40 / at100.perPt / MM)).toBeLessThanOrEqual(1);
+    expect(Math.abs(at200.mm - 40 / (2 * at100.perPt) / MM)).toBeLessThanOrEqual(1);
+  });
+  // Review Focus 4 (whole-branch review M4: only the corner was tested): press and hold, then drag, at 200 %.
+  test('at 200 % press and hold, then a 40 px drag, moves the photo half as far on the page as at 100 %', async ({
+    page,
+  }) => {
+    await openAdjust(page);
+    for (let i = 0; i < 3; i++) await button(page, 'Smaller').click();
+    const perPt = (await paperW(page)) / 595.2756;
+    const xOf = async () =>
+      (
+        (await lastPlan(page)) as { pages: { placements: { itemIndex: number; box: { x: number } }[] }[] } | undefined
+      )?.pages
+        .flatMap((pg) => pg.placements)
+        .find((x) => x.itemIndex === 1)?.box.x ?? Number.NaN;
+    await button(page, 'Done').click();
+    await expect(title(page)).toHaveText('Ready to print');
+    await expect.poll(xOf).not.toBeNaN();
+    const before = await xOf();
+    await button(page, 'Adjust photos').click();
+    await expect(title(page)).toHaveText('Photo 1 of 4');
+    await button(page, 'Zoom in').click();
+    await button(page, 'Zoom in').click();
+    await expect(label(page)).toHaveText(/· 200 %$/);
+    const pick = page.locator('.adjust-pick[data-item="1"]');
+    await pick.scrollIntoViewIfNeeded();
+    const b = await pick.boundingBox();
+    if (!b) throw new Error('no photo');
+    await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2);
+    await page.mouse.down();
+    await page.waitForTimeout(600);
+    await page.mouse.move(b.x + b.width / 2 + 40, b.y + b.height / 2, { steps: 10 });
+    await page.mouse.up();
+    const rev = (await lastPlan(page))?.rev ?? -1;
+    await button(page, 'Done').click();
+    await expect(title(page)).toHaveText('Ready to print');
+    await expect.poll(async () => (await lastPlan(page))?.rev ?? -1).toBeGreaterThan(rev);
+    // 40 px at 200 % is 40 ÷ (2 × px per pt at 100 %) points, give or take the 2 mm snap to a guide.
+    expect(Math.abs((await xOf()) - before - 40 / (2 * perPt))).toBeLessThanOrEqual(2 * (72 / 25.4) + 0.5);
+  });
+  test('zoomed, ‹ › still move the pages and choose the photo on the page shown', async ({ page }) => {
+    await openAdjust(page, 'One on each page', 2);
+    await button(page, 'Zoom in').click();
+    await button(page, 'Show next page').click();
+    await expect(label(page)).toHaveText('Page 2 of 2 · 150 %');
+    await expect(title(page)).toHaveText('Photo 2 of 2');
+    await expect(page.locator('.adjust-sheet[data-page="1"]')).toBeVisible();
+    await expect(page.locator('.adjust-sheet[data-page="0"]')).toBeHidden();
+  });
+  test('a fresh Adjust starts at 100 %', async ({ page }) => {
+    await openAdjust(page, 'One on each page', 2);
+    await button(page, 'Zoom in').click();
+    await expect(label(page)).toHaveText(/· 150 %$/);
+    await button(page, 'Done').click();
+    await expect(title(page)).toHaveText('Ready to print');
+    await button(page, 'Adjust photos').click();
+    await expect(label(page)).toHaveText('Page 1 of 2');
+  });
+  test.describe('two fingers', () => {
+    test.use({ hasTouch: true });
+    test('pinching the page zooms it in; no photo is lifted or moved', async ({ page }) => {
+      await openAdjust(page, 'One on each page', 2);
+      const w = await paperW(page);
+      const p = await page.locator('.adjust-paper figure').boundingBox();
+      if (!p) throw new Error('no page');
+      const cdp = await page.context().newCDPSession(page);
+      const cx = p.x + p.width / 2;
+      const cy = p.y + p.height / 2;
+      const touch = (type: string, d: number) =>
+        cdp.send('Input.dispatchTouchEvent', {
+          type,
+          touchPoints:
+            type === 'touchEnd'
+              ? []
+              : [
+                  { x: cx - d, y: cy, id: 1 },
+                  { x: cx + d, y: cy, id: 2 },
+                ],
+        });
+      await touch('touchStart', 30);
+      for (const d of [40, 50, 60]) await touch('touchMove', d);
+      await page.waitForTimeout(700); // longer than a press and hold: still no photo lifted
+      await touch('touchEnd', 0);
+      await expect(label(page)).toHaveText('Page 1 of 2 · 200 %');
+      await expect.poll(async () => (await paperW(page)) / w).toBeGreaterThan(1.9);
+      await expect(page.locator('.adjust-lifted')).toHaveCount(0);
+    });
   });
 });

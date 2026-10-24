@@ -646,3 +646,45 @@ describe('Print front only (review, 2026-10-24)', () => {
     expect(jobReducer(sized, { type: 'setIdCards', cards: [front] }, 4).idCard?.scale).toBe(1.5);
   });
 });
+
+// Owner, round 4: "where is the paper type selection? normal paper / glossy paper". A reminder only (Android lets no app
+// set it): the job keeps the choice; anything else in an old or broken file reads as plain paper.
+describe('paper type', () => {
+  it('glossy is kept, plain clears it, anything else reads as plain', () => {
+    const j = jobFromIntake('job1', intake, 1000);
+    expect(j.paperType).toBeUndefined();
+    const g = jobReducer(j, { type: 'setPaperType', paperType: 'glossy' }, 2000);
+    expect(g.paperType).toBe('glossy');
+    expect(g.rev).toBe(j.rev + 1);
+    expect(jobReducer(g, { type: 'setPaperType', paperType: 'glossy' }, 3000)).toBe(g);
+    expect(jobReducer(g, { type: 'setPaperType', paperType: 'plain' }, 3000).paperType).toBeUndefined();
+    expect(normalizeJob({ ...g, paperType: 'matte' })?.paperType).toBeUndefined();
+    expect(normalizeJob(g)?.paperType).toBe('glossy');
+  });
+});
+
+// Owner, round 4: ID card sides turn a quarter at a time (Turn left / Turn right).
+describe('ID card quarter turns', () => {
+  const q = [0.1, 0.1, 0.6, 0.12, 0.58, 0.45, 0.12, 0.43];
+  const card = () =>
+    jobReducer(jobFromIntake('job1', intake, 1000), { type: 'setIdCards', cards: [{ item: 1, quad: q, turns: 0 }] }, 2);
+  it('Turn right four times brings a card back; Turn left is three right', () => {
+    let j = card();
+    const seen: number[] = [];
+    for (let i = 0; i < 4; i++) {
+      j = jobReducer(j, { type: 'turnIdCard', at: 0, by: 1 }, 3 + i);
+      seen.push(j.idCard?.cards[0]?.turns ?? -1);
+    }
+    expect(seen).toEqual([1, 2, 3, 0]);
+    expect(jobReducer(card(), { type: 'turnIdCard', at: 0, by: 3 }, 9).idCard?.cards[0]?.turns).toBe(3);
+  });
+  it('quarter turns are kept (saved and loaded); anything else reads as 0; an old half turn stays', () => {
+    const j = jobReducer(card(), { type: 'setIdCards', cards: [{ item: 1, quad: q, turns: 1 }] }, 3);
+    expect(j.idCard?.cards[0]?.turns).toBe(1);
+    expect(normalizeJob(j)?.idCard?.cards[0]?.turns).toBe(1);
+    const bad = { ...j, idCard: { ...j.idCard, cards: [{ item: 1, quad: q, turns: 7 }] } };
+    expect(normalizeJob(bad)?.idCard?.cards[0]?.turns).toBe(0);
+    const half = { ...j, idCard: { ...j.idCard, cards: [{ item: 1, quad: q, turns: 2 }] } };
+    expect(normalizeJob(half)?.idCard?.cards[0]?.turns).toBe(2);
+  });
+});

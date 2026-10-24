@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { landscapeQuad, pickCards } from './Cards';
+import { cardFrame, landscapeQuad, pickCards } from './Cards';
 
 const q1 = [0.1, 0.1, 0.6, 0.12, 0.58, 0.45, 0.12, 0.43];
 const q2 = [0.15, 0.52, 0.85, 0.52, 0.85, 0.92, 0.15, 0.92];
@@ -105,5 +105,29 @@ describe('corners set by hand always print the card lying down (review I4)', () 
     expect([...q].sort()).toEqual([...standing].sort());
     // A card lying down is left as it is.
     expect(landscapeQuad(q1, 4 / 3)).toEqual(q1);
+  });
+});
+
+// Owner, round 4: "crop selection frame default to card size": a photo with no card found starts with a card-shaped
+// frame (85.6 : 54 on the photo as shown), centred, 80 % of the photo's width, or of its height if that is less.
+describe('the card-shaped starting frame', () => {
+  const shape = (q: number[], aspect: number) => (((q[2] ?? 0) - (q[0] ?? 0)) * aspect) / ((q[5] ?? 0) - (q[1] ?? 0));
+  it('on a 4:3 photo: 80 % wide, card-shaped, centred', () => {
+    const q = cardFrame(4 / 3);
+    expect(shape(q, 4 / 3)).toBeCloseTo(85.6 / 54, 3);
+    expect((q[2] ?? 0) - (q[0] ?? 0)).toBeCloseTo(0.8, 6);
+    expect(((q[0] ?? 0) + (q[2] ?? 0)) / 2).toBeCloseTo(0.5, 6);
+    expect(((q[1] ?? 0) + (q[5] ?? 0)) / 2).toBeCloseTo(0.5, 6);
+  });
+  it('on a tall photo: still 80 % wide; on a very wide one: 80 % high', () => {
+    expect((cardFrame(0.5)[2] ?? 0) - (cardFrame(0.5)[0] ?? 0)).toBeCloseTo(0.8, 6);
+    const wide = cardFrame(3);
+    expect((wide[5] ?? 0) - (wide[1] ?? 0)).toBeCloseTo(0.8, 6);
+    expect(shape(wide, 3)).toBeCloseTo(85.6 / 54, 3);
+  });
+  it('a photo with no card gets it (its shape known), clockwise from the top-left', () => {
+    const [c] = pickCards([{ index: 1, state: 'ok', cards: [] }], () => 4 / 3);
+    expect(c?.quad).toEqual(cardFrame(4 / 3));
+    expect(c?.sure).toBe(false);
   });
 });

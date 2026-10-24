@@ -223,6 +223,12 @@ const pickNewest = async () => {
   if (confirm) tapAt(confirm);
 };
 
+/** Round 4: the side's crop screen, if it shows (it does for every side from a photo): Done keeps the found frame. */
+const throughCrop = async (name) => {
+  await until(name, () => has(name) || /ID cards? found/.test(labels().join('|')), 60_000);
+  if (has(name)) await tap('Done');
+};
+
 const result = { serial, checks: {} };
 sh('pm', 'clear', PKG);
 sh('rm -f /sdcard/Pictures/ps-r3-*.jpg');
@@ -241,6 +247,8 @@ await tap('Aadhaar & ID cards');
 await until('Where is the card?', () => has('Where is the card?'));
 await tap('Photos of the card');
 await pickNewest();
+// Round 4: each side from a photo is fitted on its crop screen first.
+await throughCrop('Front of the card');
 await until('the front', () => has('1 ID card found') || has('2 ID cards found') || has("Couldn't find"), 60_000);
 result.front = labels().find((l) => /ID cards? found|Couldn't find/.test(l));
 result.oneSideNote = has('Only the front will print.');
@@ -250,6 +258,7 @@ await tapAbovePinned('Add the back side', 'Card copy');
 await until('Where is the back side?', () => has('Where is the back side?'));
 await tap('From the gallery');
 await pickNewest();
+await throughCrop('Back of the card');
 await until('the back too', () => has('2 ID cards found'), 60_000).catch(() => {});
 result.afterBack = labels().find((l) => /ID cards? found|Couldn't find/.test(l));
 await shot('03-front-and-back');
@@ -265,7 +274,8 @@ await sleep(1500);
 const startsIn = jobJson().colour;
 await shot('04-ready-colour');
 let before = newestPrint();
-await tap('Black & white');
+// Round 4: beside the title the half reads "B&W" (Android names it by that text).
+await tap(has('B&W') ? 'B&W' : 'Black & white');
 await waitNewFile(before);
 const bw = jobJson().colour;
 // Ready's line names it (grey pixels themselves: PlanRenderDeviceTest "a black and white print holds only grey pixels").

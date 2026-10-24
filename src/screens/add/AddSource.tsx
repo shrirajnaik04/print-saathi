@@ -18,8 +18,10 @@ const t = en.add;
 export function AddSource({ go, params }: ScreenProps) {
   const jobId = String(params?.jobId ?? '');
   const docs = params?.kind === 'documents';
-  // An ID card's back side (owner, 2026-10-24): one photo, which the cards screen then looks at.
-  const back = params?.kind === 'back';
+  // An ID card's back side (owner, 2026-10-24), or a new photo for one side (Change photo, round 4): one photo, which
+  // the cards screen then looks at.
+  const side = params?.kind === 'side';
+  const back = params?.kind === 'back' || side;
   const [note, setNote] = useState<string | null>(null);
   // One picker at a time: a second quick tap must not open a second one (as on Home).
   const picking = useRef(false);
@@ -45,7 +47,7 @@ export function AddSource({ go, params }: ScreenProps) {
   return (
     <main class="screen">
       <TopBar
-        title={back ? en.cards.backTitle : docs ? t.titleFiles : t.titlePhotos}
+        title={side ? en.cards.changeTitle : back ? en.cards.backTitle : docs ? t.titleFiles : t.titlePhotos}
         onBack={() => go({ type: 'back' })}
         onHome={() => go({ type: 'home' })}
       />

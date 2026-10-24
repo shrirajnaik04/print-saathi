@@ -373,6 +373,20 @@ Please also note: how many of your real card photos were found without Fix corne
 | Z6 | Adjust on photos, a PDF page, a passport sheet and an ID card copy, on your phone | The page is big (edge to edge); the tools are one row at the bottom that slides sideways; Done is always there | ☐ ☐ |
 | Z7 | Adjust a photo: press the round handle above it and move your finger around the photo; let go. Then Tilt left / Tilt right; print | The photo turns with your finger and shows the angle (e.g. "10°"); near straight it clicks straight; Tilt left / right turn it 1° a tap; it prints at that angle, as sharp as before, inside the margins | ☐ ☐ |
 
+## §AA ID card crop and turns, Change photo, smaller tools and zoom, pages side by side, the two questions, colour at the top, paper type (Phases 29–32) — 25 min
+
+| # | What to do | What to check | Result |
+|---|---|---|---|
+| AA1 | Any job → Ready to print | **Colour \| B&W** sits next to the title "Ready to print". One tap on B&W turns the preview grey; one tap on Colour turns it back | ☐ ☐ |
+| AA2 | Home → Aadhaar & ID cards → Photos of the card → pick the front photo, then add the back photo (a real card photographed at the counter) | Each side opens its own crop screen first ("Front of the card", then "Back of the card"), with a card-shaped frame. Move the side bars onto the card's edges, tap Done: "2 ID cards found" | ☐ ☐ |
+| AA3 | On the cards screen: **Change photo (Front)** → From the gallery → another photo | Its crop screen opens; after Done, the new photo is the front and the back is unchanged. Closing the gallery without choosing changes nothing | ☐ ☐ |
+| AA4 | A card that stands up (a vertical ID): **Turn right** or **Turn left** on it → Card copy → Real card size → print | It turns a quarter each tap, both ways; it prints standing, 5.4 × 8.56 cm by the ruler, the other side lying as before | ☐ ☐ |
+| AA5 | Adjust on photos, a PDF page, a passport sheet and an ID card | The tools at the bottom are smaller (about the size of a fingertip) and still easy to tap. **Zoom in** / **Zoom out** make the page bigger and smaller (100 % to 400 %, shown as "Page 1 of 2 · 200 %"); two fingers on the page zoom too; while zoomed a finger moves the page; dragging a corner while zoomed is finer | ☐ ☐ |
+| AA6 | Adjust on a job with 2 or more pages | The edge of the next page shows at the side. A sideways swipe, or **‹ ›** beside "Page 1 of 2", brings the next page to the middle and chooses its first photo; the tools then change what you see | ☐ ☐ |
+| AA7 | In any job, tap **Home** or the phone's Back where it would leave the job; then on Home press the phone's Back | "Leave this job?": Keep working stays, Leave goes to Home (the job is in Recent jobs), Delete this job removes it. On Home: "Close PrintSaathi?": Stay keeps the app, Close the app closes it | ☐ ☐ |
+| AA8 | Home | No "Customer sent files on WhatsApp?" card; Help still explains sharing from WhatsApp | ☐ ☐ |
+| AA9 | Change → **Paper type** → Glossy photo paper → print on glossy paper on the Brother | A yellow line says "Put glossy photo paper in the printer."; the button says PAPER LOADED — PRINT. On Android's print screen, choose the glossy paper setting yourself (Android cannot set it) | ☐ ☐ |
+
 ## Decisions only you can make
 
 | Topic | Choice | My recommendation |

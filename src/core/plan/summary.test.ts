@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { jobFromIntake, jobReducer } from '../job/job';
 import { buildPlan } from './plan';
-import { passportLine, summaryLine } from './summary';
+import { passportLine, summaryLine, withPaperType } from './summary';
 
 const intake = (n: number) =>
   ({
@@ -76,5 +76,22 @@ describe('the summary names the paper (Phase 10c)', () => {
   it('4×6 photo paper for photos on photo paper', () => {
     const j = { ...jobFromIntake('j', intake(2), 1), paper: 'PHOTO_4x6' as const };
     expect(summaryLine(buildPlan(j, aspects(2), { wMils: 4000, hMils: 6000, edgeMm: 4 }))).toContain('4×6 photo paper');
+  });
+});
+
+// Owner, round 4: glossy photo paper is named in Ready's line, before the colour.
+describe('paper type in the line', () => {
+  it('Glossy goes right before the colour', () => {
+    expect(withPaperType('3 photos · 3 pages · A4 · Colour · 1 copy', true)).toBe(
+      '3 photos · 3 pages · A4 · Glossy · Colour · 1 copy',
+    );
+    expect(withPaperType('2 photos · 2 pages · A4 · Black & white · 1 copy', true)).toBe(
+      '2 photos · 2 pages · A4 · Glossy · Black & white · 1 copy',
+    );
+  });
+  it('plain paper leaves the line as it is', () => {
+    expect(withPaperType('3 photos · 3 pages · A4 · Colour · 1 copy', false)).toBe(
+      '3 photos · 3 pages · A4 · Colour · 1 copy',
+    );
   });
 });

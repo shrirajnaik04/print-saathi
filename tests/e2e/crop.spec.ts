@@ -179,15 +179,18 @@ test('Cancel saves nothing', async ({ page }) => {
   expect((await first(page))?.quad).toBeUndefined();
 });
 
-test('Fix edges (ID cards) uses the same frame: Upside down, and the straightened card below', async ({ page }) => {
+// Owner, round 4: the front's crop screen opens by itself; Turn left / Turn right (any way round) in its bar.
+test('the ID card crop screen uses the same frame: Turn left / Turn right, and the straightened card below', async ({
+  page,
+}) => {
   await page.goto('/?mockIntake=2');
   await button(page, 'ID card copy').click();
-  await button(page, 'Fix edges (Front)').click();
-  await expect(title(page)).toHaveText('Fix the edges');
+  await expect(title(page)).toHaveText('Front of the card');
   await expect(page.locator('.scan-corner')).toHaveCount(0);
   await expect(page.locator('.scan-side')).toHaveCount(4);
-  for (const name of ['Cancel', 'Whole photo', 'Upside down', 'Done']) await expect(button(page, name)).toBeVisible();
-  await expect(button(page, 'Turn left')).toHaveCount(0);
+  for (const name of ['Cancel', 'Whole photo', 'Turn left', 'Turn right', 'Done'])
+    await expect(button(page, name)).toBeVisible();
+  await expect(button(page, 'Upside down')).toHaveCount(0);
   await expect(page.getByRole('img', { name: 'The card, straightened' })).toBeVisible();
 });
 

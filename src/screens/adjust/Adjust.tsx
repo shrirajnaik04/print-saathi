@@ -6,12 +6,13 @@ import { overlaps, type Side, sideCrop, sideCropQuad } from '../../core/layout/f
 import type { Box } from '../../core/layout/onePerPage';
 import { passportSize } from '../../core/layout/passport';
 import { angleOf, ownBox, shownDegrees, snap } from '../../core/layout/tilt';
-import { allDocPages, CARD_W_MM, type Placement, type PrintPlan } from '../../core/plan/plan';
+import { allDocPages, drawnCardScale, type Placement, type PrintPlan } from '../../core/plan/plan';
 import { CUSTOM_MAX_MM, CUSTOM_MIN_MM } from '../../core/settings/settings';
 import { en } from '../../i18n/en';
 import { fill } from '../../i18n/fill';
 import { ActionBar } from '../../ui/ActionBar';
 import { Button } from '../../ui/Button';
+import { Icon } from '../../ui/Icon';
 import { Panel } from '../../ui/Panel';
 import { PaperPreview } from '../../ui/PaperPreview';
 import { TopBar } from '../../ui/TopBar';
@@ -27,6 +28,7 @@ import { usePlanPaper } from '../usePlanPaper';
 import { useStraightImages } from '../useStraightImages';
 import { cmText, findItem, itemsInPlan, longMm, ownLongMm, pageSize } from './place';
 import { usePlaceByHand } from './usePlaceByHand';
+import { nextZoom, ZOOM_MAX, ZOOM_MIN } from './zoom';
 
 const t = en.adjust;
 const MM = 72 / 25.4;
@@ -91,7 +93,71 @@ export function Adjust({ go, params }: ScreenProps) {
     /** The photo's tilt (radians clockwise): its sides on screen. */
     tilt: number;
   } | null>(null);
+  // The strip of pages (owner, round 4: every page side by side); a page's paper is its sheet's <figure>.
   const figure = useRef<HTMLDivElement>(null);
+  const paperOf = (n: number) =>
+    figure.current?.querySelector<HTMLElement>(`.adjust-sheet[data-page="${n}"] figure`) ?? null;
+  // The page in the middle of the strip (the one "Page n of N" names), and moving the strip to a page.
+  const [shown, setShown] = useState(0);
+  const reduced = useMatches('(prefers-reduced-motion: reduce)');
+  // A move the app makes (‹ ›, a photo chosen on another page) names its page at once, never the pages it slides past,
+  // and never chooses on the way (under load a slide can pause longer than the wait for rest). A finger, the wheel or
+  // a key on the strip takes over from it.
+  const aimAt = useRef<number | null>(null);
+  const settling = useRef<ReturnType<typeof setTimeout>>();
+  const settleNow = useRef(() => {});
+  const nearest = (strip: HTMLElement) => {
+    const mid = strip.scrollLeft + strip.clientWidth / 2;
+    let best = 0;
+    let gap = Number.POSITIVE_INFINITY;
+    for (const el of Array.from(strip.querySelectorAll<HTMLElement>('.adjust-sheet'))) {
+      const d = Math.abs(el.offsetLeft + el.offsetWidth / 2 - mid);
+      if (d < gap) {
+        gap = d;
+        best = Number(el.dataset.page ?? 0);
+      }
+    }
+    return best;
+  };
+  const showPage = (n: number, smooth = true) => {
+    const strip = figure.current;
+    const sheet = strip?.querySelector<HTMLElement>(`.adjust-sheet[data-page="${n}"]`);
+    if (!strip || !sheet) return;
+    setShown(n);
+    // Zoomed, only that page shows (and where the strip already is): nothing slides.
+    if (zoomNow.current > 1) return;
+    const left = sheet.offsetLeft + sheet.offsetWidth / 2 - strip.clientWidth / 2;
+    if (Math.abs(strip.scrollLeft - left) < 1) return;
+    clearTimeout(settling.current);
+    aimAt.current = left;
+    strip.scrollTo({ left, behavior: smooth && !reduced ? 'smooth' : 'auto' });
+  };
+  // Moved by the shopkeeper, the strip at rest (no scroll for 150 ms; a WebView before Chrome 114 has no scrollend)
+  // settles on its page.
+  const onStripScroll = () => {
+    const strip = figure.current;
+    if (!strip || zoomNow.current > 1) return;
+    if (aimAt.current !== null) {
+      if (Math.abs(strip.scrollLeft - aimAt.current) < 1) aimAt.current = null;
+      return;
+    }
+    setShown(nearest(strip));
+    clearTimeout(settling.current);
+    settling.current = setTimeout(() => settleNow.current(), 150);
+  };
+  useEffect(() => () => clearTimeout(settling.current), []);
+  useEffect(() => {
+    const el = figure.current;
+    if (!el) return;
+    const takeOver = () => {
+      aimAt.current = null;
+    };
+    const events = ['touchstart', 'wheel', 'keydown'] as const;
+    for (const ev of events) el.addEventListener(ev, takeOver, { passive: true });
+    return () => {
+      for (const ev of events) el.removeEventListener(ev, takeOver);
+    };
+  }, [figure.current]);
   // A side of the chosen photo being dragged to crop it (Word's crop, owner 2026-10-24), and what it would make.
   const sideDrag = useRef<{
     id: number;
@@ -186,7 +252,7 @@ export function Adjust({ go, params }: ScreenProps) {
   // side handles show only where a photo is big enough on screen (review I5).
   const [paperPx, setPaperPx] = useState(0);
   useLayoutEffect(() => {
-    const el = figure.current?.querySelector('figure');
+    const el = paperOf(where?.page ?? 0);
     if (!el) return;
     const measure = () => setPaperPx(el.getBoundingClientRect().width);
     measure();
@@ -205,6 +271,151 @@ export function Adjust({ go, params }: ScreenProps) {
     save: (actions) => change({ type: 'all', actions }),
   });
   const covering = useMemo(() => (kind === 'photos' && plan ? overlaps(plan) : []), [plan, kind]);
+  // The chosen photo's page comes to the middle of the strip when the choice moves to another page.
+  const placedOn = where?.page ?? 0;
+  const firstShow = useRef(true);
+  useLayoutEffect(() => {
+    if (!plan) return;
+    showPage(placedOn, !firstShow.current);
+    firstShow.current = false;
+  }, [placedOn, !!plan, plan?.pages.length]);
+  // At rest on a page without the chosen photo (a swipe, ‹ ›), the first photo on it is chosen: the tools never change
+  // a photo out of sight. Copies (passport photos, ID card sets) are changed all at once, so they keep their choice.
+  const chooseOn = (n: number) => {
+    const first = targets.find((x) => x.page === n)?.key;
+    if (first !== undefined && where?.page !== n && !byHand.lifted && !drag.current) setChosen(first);
+  };
+  settleNow.current = () => {
+    const strip = figure.current;
+    if (!strip || aimAt.current !== null) return;
+    const n = nearest(strip);
+    setShown(n);
+    chooseOn(n);
+    // The keyboard stays on the page in the middle (the page it was on has slid away).
+    const was = document.activeElement;
+    if (was instanceof HTMLElement && was.matches('.adjust-sheet figure') && strip.contains(was)) {
+      queueMicrotask(() => paperOf(n)?.focus({ preventScroll: true }));
+    }
+  };
+  // Pages drawn with their pictures: the one in the middle, its neighbours and the chosen one's (a long job never holds
+  // every page's pictures at once, PLAN §P). A document's pages ask the engine for theirs (one at a time, never twice).
+  const drawnPage = (n: number) => Math.abs(n - shown) <= 1 || n === where?.page;
+  useEffect(() => {
+    if (!plan || job?.layout !== 'document') return;
+    docs.want(
+      plan.pages.flatMap((p, n) =>
+        drawnPage(n)
+          ? p.placements.flatMap((x) => (x.pdfPage !== undefined ? [{ item: x.itemIndex, page: x.pdfPage }] : []))
+          : [],
+      ),
+    );
+  }, [plan, shown, where?.page]);
+  // Zoom (owner, round 4): the page in the middle drawn bigger (100 % to 400 %) to work on a small photo precisely; the
+  // strip keeps its height and the page slides inside it both ways. Every drag reads the page's size on screen as it
+  // starts, so it works in page points at any zoom (Review Focus 4). 100 % when Adjust opens and when the screen
+  // changes size (the sizes measured at 100 % no longer hold).
+  const [zoom, setZoom] = useState(1);
+  const zoomNow = useRef(1);
+  const zoomWas = useRef(1);
+  const zoomBase = useRef<{ widths: number[]; height: number } | null>(null);
+  const zoomAnchor = useRef<{ u: number; v: number; x: number; y: number } | null>(null);
+  /** Zoom to [z], keeping the point [at] (the fingers; else the middle of the page in view) where it is. */
+  const zoomTo = (z: number, at?: { x: number; y: number }) => {
+    const strip = figure.current;
+    const paperEl = paperOf(shown);
+    const next = Math.round(Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, z)) * 100) / 100;
+    if (!strip || !paperEl || next === zoomNow.current) return;
+    if (zoomNow.current === 1)
+      zoomBase.current = {
+        widths: Array.from(
+          strip.querySelectorAll<HTMLElement>('.adjust-sheet figure'),
+          (f) => f.getBoundingClientRect().width,
+        ),
+        height: strip.getBoundingClientRect().height,
+      };
+    const r = paperEl.getBoundingClientRect();
+    const s = strip.getBoundingClientRect();
+    const cs = getComputedStyle(strip);
+    const top = s.top + Number.parseFloat(cs.paddingTop);
+    const bottom = s.bottom - Number.parseFloat(cs.paddingBottom);
+    const x = at?.x ?? (Math.max(r.left, s.left) + Math.min(r.right, s.right)) / 2;
+    const y = at?.y ?? (Math.max(r.top, top) + Math.min(r.bottom, bottom)) / 2;
+    zoomAnchor.current = { u: (x - r.left) / r.width, v: (y - r.top) / r.height, x, y };
+    zoomNow.current = next;
+    setZoom(next);
+  };
+  const zoomToNow = useRef(zoomTo);
+  zoomToNow.current = zoomTo;
+  useLayoutEffect(() => {
+    const strip = figure.current;
+    const a = zoomAnchor.current;
+    zoomAnchor.current = null;
+    if (!strip || zoom === zoomWas.current) return;
+    zoomWas.current = zoom;
+    if (zoom === 1) {
+      zoomBase.current = null;
+      strip.scrollTop = 0;
+      showPage(shown, false);
+      return;
+    }
+    const r = paperOf(shown)?.getBoundingClientRect();
+    if (!r || !a) return;
+    strip.scrollLeft += r.left + a.u * r.width - a.x;
+    strip.scrollTop += r.top + a.v * r.height - a.y;
+  }, [zoom]);
+  useEffect(() => {
+    const reset = () => {
+      if (zoomNow.current === 1) return;
+      zoomNow.current = 1;
+      setZoom(1);
+    };
+    window.addEventListener('resize', reset);
+    return () => window.removeEventListener('resize', reset);
+  }, []);
+  // Two fingers on the page zoom it about the point between them; they never place a photo.
+  const byHandNow = useRef(byHand);
+  byHandNow.current = byHand;
+  useEffect(() => {
+    const el = figure.current;
+    if (!el) return;
+    let start: { d: number; z: number } | null = null;
+    const two = (t: TouchList) => {
+      const a = t[0];
+      const b = t[1];
+      return a && b
+        ? {
+            d: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY),
+            x: (a.clientX + b.clientX) / 2,
+            y: (a.clientY + b.clientY) / 2,
+          }
+        : null;
+    };
+    const down = (e: TouchEvent) => {
+      const f = e.touches.length === 2 ? two(e.touches) : null;
+      if (!f || byHandNow.current.lifted) return;
+      byHandNow.current.cancel();
+      start = { d: f.d || 1, z: zoomNow.current };
+    };
+    const move = (e: TouchEvent) => {
+      const f = start && e.touches.length === 2 ? two(e.touches) : null;
+      if (!start || !f) return;
+      if (e.cancelable) e.preventDefault();
+      zoomToNow.current((start.z * f.d) / start.d, { x: f.x, y: f.y });
+    };
+    const up = (e: TouchEvent) => {
+      if (e.touches.length < 2) start = null;
+    };
+    el.addEventListener('touchstart', down, { passive: true });
+    el.addEventListener('touchmove', move, { passive: false });
+    el.addEventListener('touchend', up);
+    el.addEventListener('touchcancel', up);
+    return () => {
+      el.removeEventListener('touchstart', down);
+      el.removeEventListener('touchmove', move);
+      el.removeEventListener('touchend', up);
+      el.removeEventListener('touchcancel', up);
+    };
+  }, [figure.current]);
   // A wide screen held sideways (tablets, a phone in landscape): the tools sit beside the page (the CSS breakpoint).
   const wide = useMatches(WIDE_SIDEWAYS);
   // The one shown first stays the chosen one: moving it never swaps the screen to another.
@@ -249,12 +460,11 @@ export function Adjust({ go, params }: ScreenProps) {
     where && job ? (job.docScale?.[`${where.placement.itemIndex}:${where.placement.pdfPage ?? 0}`] ?? 1) : 1;
   const passport = job?.passport;
   const pSize = passport ? passportSize(passport) : undefined;
-  const cardScale =
-    job?.idCard?.size === 'custom'
-      ? (job.idCard.scale ?? 1)
-      : job?.idCard?.size === 'big' && where
-        ? where.placement.box.w / (CARD_W_MM * MM)
-        : 1;
+  // The cards' size as they print (a standing card's long side is its height; a chosen size held down to what fits is
+  // what prints, review I2). Bigger cannot grow cards already as big as fits: Big size, or a chosen size held down.
+  const cardScale = plan && (job?.idCard?.size === 'custom' || job?.idCard?.size === 'big') ? drawnCardScale(plan) : 1;
+  const cardsAtMost =
+    job?.idCard?.size === 'big' || (job?.idCard?.size === 'custom' && (job.idCard.scale ?? 1) > cardScale + 0.005);
   const passportBy = (mm: number) => {
     if (!passport || !pSize) return;
     const w = pSize.wMm + mm;
@@ -369,7 +579,7 @@ export function Adjust({ go, params }: ScreenProps) {
   finishNow.current = finishDrag;
   const startDrag = (e: PointerEvent) => {
     if (drag.current && !drag.current.el.isConnected) finishDrag();
-    const rect = figure.current?.querySelector('figure')?.getBoundingClientRect();
+    const rect = paperOf(where?.page ?? 0)?.getBoundingClientRect();
     const scaled = where ? scaledBy(where.placement) : null;
     if (!job || !plan || !where || !rect || drag.current || !scaled) return;
     e.preventDefault();
@@ -407,7 +617,7 @@ export function Adjust({ go, params }: ScreenProps) {
   // The round handle above the chosen photo (owner, round 3: WPS's): move the finger around the photo's centre and it
   // turns to follow, clicking straight within 3°; lifting the finger saves (placed by hand: on top, as other changes).
   const startTurn = (e: PointerEvent) => {
-    const rect = figure.current?.querySelector('figure')?.getBoundingClientRect();
+    const rect = paperOf(where?.page ?? 0)?.getBoundingClientRect();
     // Not while a change is being saved (a turn started then would start from the old angle, review M4).
     if (!plan || !where || !rect || sel === null || turnDrag.current || busy || turningNow.current) return;
     e.preventDefault();
@@ -447,7 +657,7 @@ export function Adjust({ go, params }: ScreenProps) {
   // it back; what is left keeps its print size. On release the cut and the new size (and place, if placed by hand) are
   // saved as one change.
   const startSide = (side: Side, placement: Placement) => (e: PointerEvent) => {
-    const rect = figure.current?.querySelector('figure')?.getBoundingClientRect();
+    const rect = paperOf(where?.page ?? 0)?.getBoundingClientRect();
     if (!plan || !where || !rect || sideDrag.current) return;
     e.preventDefault();
     e.stopPropagation();
@@ -519,16 +729,21 @@ export function Adjust({ go, params }: ScreenProps) {
     const deg = (p.tilt?.deg ?? 0) + turning.angle - angleOf(p.turns, p.tilt?.deg ?? 0);
     return { ...p, tilt: { deg, w: own.w, h: own.h } };
   };
-  const drawn = (
-    page && lifted && liftedPlacement
-      ? [...page.placements.filter((p) => p !== liftedPlacement), { ...liftedPlacement, box: lifted.box }]
-      : (page?.placements ?? [])
-  ).map((p) => withTurn(withCut(p)));
+  // Page [n] as drawn: on the chosen photo's page, the photo held, cut or turned is drawn as the finger has it.
+  const drawnOn = (n: number) => {
+    const pg = plan?.pages[n];
+    return (
+      n === where?.page && page && lifted && liftedPlacement
+        ? [...page.placements.filter((p) => p !== liftedPlacement), { ...liftedPlacement, box: lifted.box }]
+        : (pg?.placements ?? [])
+    ).map((p) => withTurn(withCut(p)));
+  };
   // The places to touch keep their order (moving the held one in the page would end its drag); the lifted one is
   // only drawn on top (its class).
-  const touchable = (page?.placements ?? []).map((p) =>
-    lifted && p === liftedPlacement ? { ...p, box: lifted.box } : withTurn(withCut(p)),
-  );
+  const touchableOn = (n: number) =>
+    (plan?.pages[n]?.placements ?? []).map((p) =>
+      lifted && p === liftedPlacement ? { ...p, box: lifted.box } : withTurn(withCut(p)),
+    );
   // Side handles only where the photo is big enough on screen to hold them apart (96 px along that side).
   const pxPerPt = paperPx && plan && where ? paperPx / pageSize(plan, where.page).w : 0;
   const numberOf = (item: number) => keys.indexOf(item) + 1;
@@ -545,10 +760,10 @@ export function Adjust({ go, params }: ScreenProps) {
   const cover = covering[0];
   const size = where && plan ? pageSize(plan, where.page) : undefined;
   const pct = (v: number, of: number) => `${(100 * v) / of}%`;
-  const keyOf = (p: Placement): number | null => {
+  const keyOf = (p: Placement, n: number): number | null => {
     if (kind === 'photos') return p.itemIndex;
     if (kind === 'passport') return 0;
-    if (kind === 'pages') return where?.page ?? null;
+    if (kind === 'pages') return n;
     const k = job?.idCard?.cards.findIndex((c) => c.item === p.itemIndex && sameQuad(c.quad, p.quad)) ?? -1;
     return k >= 0 ? k : null;
   };
@@ -612,6 +827,13 @@ export function Adjust({ go, params }: ScreenProps) {
   // Every tool for this kind, once: in the bottom row on a phone, beside the page when held sideways (round 3).
   const tools = (
     <>
+      {/* Zoom first, on every kind (owner, round 4). */}
+      <Button variant="secondary" icon="zoomOut" disabled={zoom <= ZOOM_MIN} onClick={() => zoomTo(nextZoom(zoom, -1))}>
+        {t.zoomOut}
+      </Button>
+      <Button variant="secondary" icon="zoomIn" disabled={zoom >= ZOOM_MAX} onClick={() => zoomTo(nextZoom(zoom, 1))}>
+        {t.zoomIn}
+      </Button>
       {kind === 'photos' && (
         <>
           <Button
@@ -844,7 +1066,7 @@ export function Adjust({ go, params }: ScreenProps) {
           <Button
             variant="secondary"
             icon="plus"
-            disabled={busy || cardScale >= 2 - 1e-9}
+            disabled={busy || cardScale >= 2 - 1e-9 || cardsAtMost}
             onClick={() => void change({ type: 'setIdCardScale', scale: cardScale + 0.1 })}
           >
             {t.bigger}
@@ -853,7 +1075,7 @@ export function Adjust({ go, params }: ScreenProps) {
             variant="secondary"
             icon="turn"
             disabled={busy}
-            onClick={() => void change({ type: 'turnIdCard', at: sel })}
+            onClick={() => void change({ type: 'turnIdCard', at: sel, by: 1 })}
           >
             {t.turn}
           </Button>
@@ -867,7 +1089,7 @@ export function Adjust({ go, params }: ScreenProps) {
               disabled={busy}
               onClick={() => void change({ type: 'swapIdCards' })}
             >
-              {en.cards.swap}
+              {t.swapSides}
             </Button>
           )}
           {prevNext([t.previousCard, t.nextCard])}
@@ -927,132 +1149,195 @@ export function Adjust({ go, params }: ScreenProps) {
       <div class="adjust-body">
         {plan && where && page && size && (
           <div class="adjust-stage">
-            <p class="adjust-page">{fill(en.ready.pageLabel, { n: where.page + 1, total: plan.pages.length })}</p>
+            <div class="adjust-pagebar">
+              {plan.pages.length > 1 && (
+                <button
+                  type="button"
+                  class="adjust-pagebtn"
+                  aria-label={t.showPrevious}
+                  disabled={shown <= 0}
+                  onClick={() => {
+                    showPage(shown - 1);
+                    chooseOn(shown - 1);
+                  }}
+                >
+                  <Icon name="back" />
+                </button>
+              )}
+              <p class="adjust-page" aria-live="polite">
+                {zoom > 1
+                  ? fill(t.zoomShown, { n: shown + 1, total: plan.pages.length, z: Math.round(zoom * 100) })
+                  : fill(en.ready.pageLabel, { n: shown + 1, total: plan.pages.length })}
+              </p>
+              {plan.pages.length > 1 && (
+                <button
+                  type="button"
+                  class="adjust-pagebtn"
+                  aria-label={t.showNext}
+                  disabled={shown >= plan.pages.length - 1}
+                  onClick={() => {
+                    showPage(shown + 1);
+                    chooseOn(shown + 1);
+                  }}
+                >
+                  <Icon name="next" />
+                </button>
+              )}
+            </div>
             {lifted && (
               <p role="status" class="adjust-moving">
                 {fill(t.moving, { n: numberOf(lifted.item) })}
               </p>
             )}
-            <div ref={figure} class="adjust-paper" style={{ '--paper-aspect': `${size.w / size.h}` }}>
-              <PaperPreview
-                wPt={size.w}
-                hPt={size.h}
-                placements={drawn}
-                srcOf={(item, pdfPage) => (pdfPage !== undefined ? docs.srcOfPage(item, pdfPage) : srcOf(item))}
-                srcOfPlacement={srcOfPlacement}
-                label={fill(en.ready.pageLabel, { n: where.page + 1, total: plan.pages.length })}
-                grey={plan.colour === 'bw'}
-              >
-                {touchable.map((p, i) => {
-                  const k = keyOf(p);
-                  const selected = k !== null && k === sel;
-                  // A photo turned to any angle: its handles on its own frame, turned with it (WPS), over the others.
-                  const own = p.tilt ? ownBox(p) : null;
-                  const handles = (
-                    <>
-                      {kind === 'photos' &&
-                        selected &&
-                        !lifted &&
-                        !p.tilt &&
-                        k !== null &&
-                        (['l', 'r', 't', 'b'] as const)
-                          .filter((s) => (s === 'l' || s === 'r' ? p.box.h : p.box.w) * pxPerPt >= 96)
-                          .map((s) => (
-                            <span
-                              key={s}
-                              class={`adjust-side adjust-side-${s}${nearEdge(p)[s] ? ' adjust-in' : ''}`}
-                              onPointerDown={startSide(s, where.placement)}
-                              onPointerMove={moveSide}
-                              onPointerUp={endSide}
-                              onPointerCancel={endSide}
-                              onLostPointerCapture={endSide}
-                            />
-                          ))}
-                      {resizable &&
-                        selected &&
-                        (p === where.placement || (kind === 'photos' && (cut?.item === k || turning?.item === k))) && (
-                          <span
-                            class={`adjust-handle${nearEdge(p).r || nearEdge(p).b ? ' adjust-in' : ''}`}
-                            onPointerDown={startDrag}
-                            onPointerMove={moveDrag}
-                            onPointerUp={endDrag}
-                            onPointerCancel={endDrag}
-                            onLostPointerCapture={endDrag}
-                          />
-                        )}
-                      {kind === 'photos' &&
-                        selected &&
-                        !lifted &&
-                        !cut &&
-                        (p === where.placement || turning?.item === k) && (
-                          <span class="adjust-rotate" onPointerDown={startTurn} />
-                        )}
-                    </>
-                  );
-                  return (
-                    <span
-                      key={kind === 'photos' && k !== null ? `pick-${k}` : `pick-at${i}`}
-                      class={`adjust-pick${selected && !own ? ' adjust-selected' : ''}${lifted && lifted.item === k ? ' adjust-lifted' : ''}`}
-                      {...(kind === 'photos' && k !== null
-                        ? { 'data-item': k, ...byHand.handlers(k, where.page) }
-                        : {})}
-                      style={{
-                        left: pct(p.box.x, size.w),
-                        top: pct(p.box.y, size.h),
-                        width: pct(p.box.w, size.w),
-                        height: pct(p.box.h, size.h),
-                      }}
-                      aria-hidden="true"
-                      onClick={() => k !== null && setChosen(k)}
-                      onContextMenu={(e) => e.preventDefault()}
-                    >
-                      {own && p.tilt && selected ? (
-                        <span
-                          class={`adjust-tilt${lifted ? '' : ' adjust-selected'}`}
-                          style={{
-                            left: pct(own.x - p.box.x, p.box.w),
-                            top: pct(own.y - p.box.y, p.box.h),
-                            width: pct(own.w, p.box.w),
-                            height: pct(own.h, p.box.h),
-                            transform: `rotate(${p.tilt.deg}deg)`,
-                          }}
-                        >
-                          {handles}
-                        </span>
-                      ) : (
-                        handles
-                      )}
-                    </span>
-                  );
-                })}
-                {/* The angle while the round handle turns the photo: on its centre, clear of the finger. */}
-                {turning && !turning.lifted && (
-                  <span
-                    class="adjust-degrees"
-                    role="status"
+            {/* Every page side by side (owner, round 4): the chosen photo's page in the middle, the next and previous
+                showing at the sides; a sideways swipe or ‹ › moves one page. The keyboard stops on the page in the
+                middle (arrow keys slide them). */}
+            <div
+              ref={figure}
+              class={`adjust-strip${plan.pages.length > 1 ? '' : ' adjust-strip-one'}${zoom > 1 ? ' adjust-zoomed' : ''}`}
+              style={zoom > 1 && zoomBase.current ? { height: `${zoomBase.current.height}px` } : undefined}
+              onScroll={onStripScroll}
+            >
+              {plan.pages.map((_, n) => {
+                const sz = pageSize(plan, n);
+                const onWhere = n === where.page;
+                return (
+                  <div
+                    key={n}
+                    class={`adjust-sheet${onWhere ? ' adjust-paper' : ''}${n === shown ? ' adjust-shown' : ''}`}
+                    data-page={n}
                     style={{
-                      left: pct(where.placement.box.x + where.placement.box.w / 2, size.w),
-                      top: pct(where.placement.box.y + where.placement.box.h / 2, size.h),
+                      '--paper-aspect': `${sz.w / sz.h}`,
+                      ...(zoom > 1 && n === shown && zoomBase.current
+                        ? {
+                            width: `${(zoomBase.current.widths[n] ?? Math.max(...zoomBase.current.widths)) * zoom}px`,
+                          }
+                        : {}),
                     }}
                   >
-                    {fill(t.degrees, { n: shownDegrees(turning.angle) })}
-                  </span>
-                )}
-                {/* Word-like guides while a photo is moved: the line it snapped to. */}
-                {lifted?.guides.map((g) => (
-                  <span
-                    key={`${g.x1},${g.y1},${g.x2},${g.y2}`}
-                    class="adjust-guide"
-                    style={{
-                      left: pct(g.x1, size.w),
-                      top: pct(g.y1, size.h),
-                      width: g.x1 === g.x2 ? '1px' : pct(g.x2 - g.x1, size.w),
-                      height: g.y1 === g.y2 ? '1px' : pct(g.y2 - g.y1, size.h),
-                    }}
-                    aria-hidden="true"
-                  />
-                ))}
-              </PaperPreview>
+                    <PaperPreview
+                      wPt={sz.w}
+                      hPt={sz.h}
+                      placements={drawnPage(n) ? drawnOn(n) : []}
+                      srcOf={(item, pdfPage) => (pdfPage !== undefined ? docs.srcOfPage(item, pdfPage) : srcOf(item))}
+                      srcOfPlacement={srcOfPlacement}
+                      label={fill(en.ready.pageLabel, { n: n + 1, total: plan.pages.length })}
+                      grey={plan.colour === 'bw'}
+                      focusable={plan.pages.length > 1 && n === shown}
+                    >
+                      {(drawnPage(n) ? touchableOn(n) : []).map((p, i) => {
+                        const k = keyOf(p, n);
+                        const selected = k !== null && k === sel;
+                        // A photo turned to any angle: its handles on its own frame, turned with it (WPS), over the others.
+                        const own = p.tilt ? ownBox(p) : null;
+                        const handles = (
+                          <>
+                            {kind === 'photos' &&
+                              selected &&
+                              !lifted &&
+                              !p.tilt &&
+                              k !== null &&
+                              (['l', 'r', 't', 'b'] as const)
+                                .filter((s) => (s === 'l' || s === 'r' ? p.box.h : p.box.w) * pxPerPt >= 96)
+                                .map((s) => (
+                                  <span
+                                    key={s}
+                                    class={`adjust-side adjust-side-${s}${nearEdge(p)[s] ? ' adjust-in' : ''}`}
+                                    onPointerDown={startSide(s, where.placement)}
+                                    onPointerMove={moveSide}
+                                    onPointerUp={endSide}
+                                    onPointerCancel={endSide}
+                                    onLostPointerCapture={endSide}
+                                  />
+                                ))}
+                            {resizable &&
+                              selected &&
+                              (p === where.placement ||
+                                (kind === 'photos' && (cut?.item === k || turning?.item === k))) && (
+                                <span
+                                  class={`adjust-handle${nearEdge(p).r || nearEdge(p).b ? ' adjust-in' : ''}`}
+                                  onPointerDown={startDrag}
+                                  onPointerMove={moveDrag}
+                                  onPointerUp={endDrag}
+                                  onPointerCancel={endDrag}
+                                  onLostPointerCapture={endDrag}
+                                />
+                              )}
+                            {kind === 'photos' &&
+                              selected &&
+                              !lifted &&
+                              !cut &&
+                              (p === where.placement || turning?.item === k) && (
+                                <span class="adjust-rotate" onPointerDown={startTurn} />
+                              )}
+                          </>
+                        );
+                        return (
+                          <span
+                            key={kind === 'photos' && k !== null ? `pick-${k}` : `pick-at${i}`}
+                            class={`adjust-pick${selected && !own ? ' adjust-selected' : ''}${lifted && lifted.item === k ? ' adjust-lifted' : ''}`}
+                            {...(kind === 'photos' && k !== null ? { 'data-item': k, ...byHand.handlers(k, n) } : {})}
+                            style={{
+                              left: pct(p.box.x, sz.w),
+                              top: pct(p.box.y, sz.h),
+                              width: pct(p.box.w, sz.w),
+                              height: pct(p.box.h, sz.h),
+                            }}
+                            aria-hidden="true"
+                            onClick={() => k !== null && setChosen(k)}
+                            onContextMenu={(e) => e.preventDefault()}
+                          >
+                            {own && p.tilt && selected ? (
+                              <span
+                                class={`adjust-tilt${lifted ? '' : ' adjust-selected'}`}
+                                style={{
+                                  left: pct(own.x - p.box.x, p.box.w),
+                                  top: pct(own.y - p.box.y, p.box.h),
+                                  width: pct(own.w, p.box.w),
+                                  height: pct(own.h, p.box.h),
+                                  transform: `rotate(${p.tilt.deg}deg)`,
+                                }}
+                              >
+                                {handles}
+                              </span>
+                            ) : (
+                              handles
+                            )}
+                          </span>
+                        );
+                      })}
+                      {/* The angle while the round handle turns the photo: on its centre, clear of the finger. */}
+                      {onWhere && turning && !turning.lifted && (
+                        <span
+                          class="adjust-degrees"
+                          role="status"
+                          style={{
+                            left: pct(where.placement.box.x + where.placement.box.w / 2, size.w),
+                            top: pct(where.placement.box.y + where.placement.box.h / 2, size.h),
+                          }}
+                        >
+                          {fill(t.degrees, { n: shownDegrees(turning.angle) })}
+                        </span>
+                      )}
+                      {/* Word-like guides while a photo is moved: the line it snapped to. */}
+                      {onWhere &&
+                        lifted?.guides.map((g) => (
+                          <span
+                            key={`${g.x1},${g.y1},${g.x2},${g.y2}`}
+                            class="adjust-guide"
+                            style={{
+                              left: pct(g.x1, size.w),
+                              top: pct(g.y1, size.h),
+                              width: g.x1 === g.x2 ? '1px' : pct(g.x2 - g.x1, size.w),
+                              height: g.y1 === g.y2 ? '1px' : pct(g.y2 - g.y1, size.h),
+                            }}
+                            aria-hidden="true"
+                          />
+                        ))}
+                    </PaperPreview>
+                  </div>
+                );
+              })}
             </div>
             <p class="adjust-size">{sizeText}</p>
           </div>

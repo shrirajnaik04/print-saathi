@@ -14,6 +14,9 @@ const VIEWPORTS = [
 ];
 const TEXT = [100, 130, 160, 200];
 /** Another WhatsApp share arrives now (the mock's test hook). */
+// Owner, round 4: leaving an unprinted job asks "Leave this job?"; these tests leave it.
+const leave = (page: import('@playwright/test').Page) =>
+  page.getByRole('dialog', { name: 'Leave this job?' }).getByRole('button', { name: 'Leave', exact: true }).click();
 const shareAgain = (page: import('@playwright/test').Page, n: number) =>
   page.evaluate((k) => (globalThis as { __mockShare?: (n: number) => void }).__mockShare?.(k), n);
 // Every screen the shopkeeper can reach; Problem has no button yet, so the e2e build opens it by route (?screen=, e2e only).
@@ -34,8 +37,8 @@ const SCREENS: Record<string, Reach> = {
   tests: { url: '/?screen=tests' },
   // A share of 7 mock photos (landscape ones, a duplicate) opens Received the way a WhatsApp share does.
   received: { url: '/?mockIntake=7', title: 'Files received' },
-  homeWithJob: { url: '/?mockIntake=2', taps: ['Home'], title: 'PrintSaathi' },
-  recent: { url: '/?mockIntake=2', taps: ['Home', 'Recent jobs'], title: 'Recent jobs' },
+  homeWithJob: { url: '/?mockIntake=2', taps: ['Home', 'Leave'], title: 'PrintSaathi' },
+  recent: { url: '/?mockIntake=2', taps: ['Home', 'Leave', 'Recent jobs'], title: 'Recent jobs' },
   change: { url: '/?mockIntake=3', taps: ['One on each page', 'Change'], title: 'Change' },
   layout: { url: '/?mockIntake=3', taps: ['One on each page', 'Change', /^Layout/], title: 'Layout' },
   pages: { url: '/?mockIntake=6', taps: ['Use more pages', 'Change', /^Pages/], title: 'Pages' },
@@ -71,7 +74,7 @@ const SCREENS: Record<string, Reach> = {
   },
   adjustcards: {
     url: '/?mockIntake=2',
-    taps: ['ID card copy', 'Card copy', /^Real card size/, 'Adjust cards'],
+    taps: ['ID card copy', 'Done', 'Done', 'Card copy', /^Real card size/, 'Adjust cards'],
     title: 'Card 1 of 2',
   },
   passportborder: { url: '/?mockIntake=1', taps: ['Passport photos', 'Next', 'Change', /^Border/], title: 'Border' },
@@ -80,10 +83,11 @@ const SCREENS: Record<string, Reach> = {
     taps: [/^Passport photos and prices/, /^Custom size/],
     title: 'Custom size',
   },
-  cards: { url: '/?mockIntake=2', taps: ['ID card copy'], title: 'ID card copy' },
+  // Owner, round 4: each card photo is fitted on its crop screen first (Front, then Back), then the cards.
+  cards: { url: '/?mockIntake=2', taps: ['ID card copy', 'Done', 'Done'], title: 'ID card copy' },
   cardsource: { url: '/', taps: [/^Aadhaar & ID cards/], title: 'Where is the card?' },
-  fixcorners: { url: '/?mockIntake=2', taps: ['ID card copy', 'Fix edges (Front)'], title: 'Fix the edges' },
-  cardsize: { url: '/?mockIntake=2', taps: ['ID card copy', 'Card copy'], title: 'How big?' },
+  fixcorners: { url: '/?mockIntake=2', taps: ['ID card copy'], title: 'Front of the card' },
+  cardsize: { url: '/?mockIntake=2', taps: ['ID card copy', 'Done', 'Done', 'Card copy'], title: 'How big?' },
   readyDocument: { url: '/?mockIntake=2&mockPdfAt=2&mockPdfForms=1&mockTier=NONE', title: 'Ready to print' },
   unlock: { url: '/?mockIntake=1&mockPdfAt=1&mockPdfLocked=1', taps: ['Unlock'], title: 'Unlock PDF' },
   docpages: {
@@ -119,7 +123,7 @@ const SCREENS: Record<string, Reach> = {
   receiving: { url: '/?screen=receiving', title: 'Receiving files' },
   paperchoice: {
     url: '/?mockIntake=2&mockPhotoPaper=1',
-    taps: ['One on each page', 'Change', /^Paper(?! direction)/],
+    taps: ['One on each page', 'Change', /^Paper(?! direction| type)/],
     title: 'Paper',
   },
   readyPassport: {
@@ -506,9 +510,11 @@ test('an unprinted job is offered on Home as Continue and listed in Recent jobs'
   await page.goto('/?mockIntake=2');
   await expect(page.locator('main h1')).toHaveText('Files received');
   await page.getByRole('button', { name: 'Home' }).click();
+  await leave(page);
   await page.getByRole('button', { name: /Continue the last job/ }).click();
   await expect(page.locator('main h1')).toHaveText('Files received');
   await page.getByRole('button', { name: 'Home' }).click();
+  await leave(page);
   await page.getByRole('button', { name: 'Recent jobs' }).click();
   await expect(page.getByRole('button', { name: /2 files.*Not printed yet/ })).toBeVisible();
 });
@@ -598,6 +604,7 @@ test('Continue the last job sits under the four job tiles (owner, 2026-10-23)', 
   await page.goto('/?mockIntake=2');
   await expect(page.locator('main h1')).toHaveText('Files received');
   await page.getByRole('button', { name: 'Home' }).click();
+  await leave(page);
   const cont = await page.getByRole('button', { name: /Continue the last job/ }).boundingBox();
   const cards = await page.getByRole('button', { name: /^Aadhaar & ID cards/ }).boundingBox();
   const docs = await page.getByRole('button', { name: /^Documents & PDF/ }).boundingBox();
@@ -662,6 +669,7 @@ test('the same files shared again within a minute open the job they already made
   await page.goto('/?mockIntake=2&mockRepeat=1');
   await expect(page.locator('main h1')).toHaveText('Files received');
   await page.getByRole('button', { name: 'Home' }).click();
+  await leave(page);
   await expect(page.locator('main h1')).toHaveText('PrintSaathi');
   await expect(page.locator('main h1')).toHaveText('Files received', { timeout: 5000 });
 });
@@ -678,6 +686,7 @@ test('a repeat share while that job is already on screen does not stack it twice
   await expect(page.locator('main h1')).toHaveText('Files received');
   await page.waitForTimeout(2500); // the repeat arrives meanwhile
   await page.getByRole('button', { name: 'Back' }).click();
+  await leave(page);
   await expect(page.locator('main h1')).toHaveText('PrintSaathi');
 });
 
@@ -1045,6 +1054,7 @@ test('a part still printing when the app was closed comes back as that part, not
 test('Delete all customer files asks first; Cancel keeps everything', async ({ page }) => {
   await page.goto('/?mockIntake=2');
   await page.getByRole('button', { name: 'Home' }).click();
+  await leave(page);
   await page.getByRole('button', { name: /Settings/ }).click();
   await page.getByRole('button', { name: /^Delete all customer files now/ }).click();
   await expect(page.locator('main h1')).toHaveText('Delete all customer files?');
@@ -1057,6 +1067,7 @@ test('Delete all customer files asks first; Cancel keeps everything', async ({ p
 test('Delete all customer files deletes the jobs and says so', async ({ page }) => {
   await page.goto('/?mockIntake=2');
   await page.getByRole('button', { name: 'Home' }).click();
+  await leave(page);
   await page.getByRole('button', { name: /Settings/ }).click();
   await page.getByRole('button', { name: /^Delete all customer files now/ }).click();
   await page.getByRole('button', { name: 'Delete all' }).click();
@@ -1404,11 +1415,11 @@ test('Print quality is not offered on 4×6 photo paper, where it could not chang
   await page.getByRole('button', { name: 'One on each page' }).click();
   await page.getByRole('button', { name: 'Change' }).click();
   await expect(page.getByRole('button', { name: /^Print quality/ })).toBeVisible();
-  await page.getByRole('button', { name: /^Paper(?! direction)/ }).click();
+  await page.getByRole('button', { name: /^Paper(?! direction| type)/ }).click();
   await page.getByRole('button', { name: /4×6 photo paper/ }).click();
   await expect(page.getByText('Put 4×6 photo paper in the printer', { exact: false })).toBeVisible();
   await page.getByRole('button', { name: 'Change' }).click();
-  await expect(page.getByRole('button', { name: /^Paper(?! direction).*4×6/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: /^Paper(?! direction| type).*4×6/ })).toBeVisible();
   await expect(page.getByRole('button', { name: /^Print quality/ })).toHaveCount(0);
 });
 
@@ -1546,6 +1557,7 @@ test('one photo that cannot be printed: Choose another photo goes back to Receiv
   await page.getByRole('button', { name: 'Choose another photo' }).click();
   await expect(page.locator('main h1')).toHaveText('Files received');
   await page.getByRole('button', { name: 'Back' }).click();
+  await leave(page);
   await expect(page.locator('main h1')).toHaveText('PrintSaathi');
 });
 
@@ -1937,6 +1949,7 @@ test('leaving Received while it looks at the photos never opens a screen later',
   await page.getByRole('button', { name: 'One on each page' }).click();
   await expect(page.getByText('Looking at the photos', { exact: false })).toBeVisible();
   await page.getByRole('button', { name: 'Home' }).click();
+  await leave(page);
   await expect(page.locator('main h1')).toHaveText('PrintSaathi');
   await page.waitForTimeout(2500);
   await expect(page.locator('main h1')).toHaveText('PrintSaathi');
@@ -2096,6 +2109,7 @@ test('a save that finishes after Home never opens a screen behind the shopkeeper
   await page.getByRole('button', { name: 'File 1, page 1' }).click();
   await page.getByRole('button', { name: 'Move later' }).click();
   await page.getByRole('button', { name: 'Home' }).click();
+  await leave(page);
   await expect(page.locator('main h1')).toHaveText('PrintSaathi');
   await page.waitForTimeout(1800);
   await expect(page.locator('main h1')).toHaveText('PrintSaathi');
@@ -2209,6 +2223,7 @@ test('a share while a job is open asks first; Start a new job opens it and Back 
   await expect(page.locator('main h1')).toHaveText('Files received');
   await expect(page.getByRole('img', { name: /^\d of 3$/ })).toHaveCount(3);
   await page.getByRole('button', { name: 'Back' }).click();
+  await leave(page);
   await expect(page.locator('main h1')).toHaveText('Ready to print');
   await expect(page.getByText('2 photos · 2 pages', { exact: false })).toBeVisible();
 });
@@ -2224,6 +2239,7 @@ test('Add them to this job: every file is on Received, the new job is gone from 
   await page.getByRole('button', { name: 'One on each page' }).click();
   await expect(page.getByText('5 photos · 5 pages', { exact: false })).toBeVisible();
   await page.getByRole('button', { name: 'Home' }).click();
+  await leave(page);
   await page.getByRole('button', { name: 'Recent jobs' }).click();
   await expect(page.getByRole('button', { name: /5 files/ })).toHaveCount(1);
   await expect(page.getByRole('button', { name: /3 files/ })).toHaveCount(0);
@@ -2237,6 +2253,7 @@ test('Keep working returns to the open job; the new files wait in Recent jobs', 
   await page.getByRole('button', { name: 'Keep working on this job' }).click();
   await expect(page.locator('main h1')).toHaveText('Ready to print');
   await page.getByRole('button', { name: 'Home' }).click();
+  await leave(page);
   await page.getByRole('button', { name: 'Recent jobs' }).click();
   await expect(page.getByRole('button', { name: /3 files.*Not printed yet/ })).toBeVisible();
   await expect(page.getByRole('button', { name: /2 files/ })).toBeVisible();
@@ -2252,6 +2269,7 @@ test('a second share while the question is open joins it: Add takes both (review
   await page.getByRole('button', { name: 'Add them to this job' }).click();
   await expect(page.getByRole('img', { name: /^\d+ of 9$/ })).toHaveCount(9);
   await page.getByRole('button', { name: 'Back' }).click();
+  await leave(page);
   await expect(page.locator('main h1')).toHaveText('PrintSaathi');
 });
 
@@ -2308,7 +2326,8 @@ test('ten quick taps on a choice open one Ready; one Back returns to Received', 
   await expect(page.locator('main h1')).toHaveText('Files received');
 });
 
-test('ten quick taps on Back from deep inside stop at Home, never leave the app in a broken state', async ({
+// Owner, round 4: the Backs stop at "Leave this job?" (the job's first screen); Leave reaches Home.
+test('ten quick taps on Back from deep inside stop at the Leave question, never leave the app in a broken state', async ({
   page,
 }) => {
   await page.goto('/?mockIntake=3');
@@ -2317,6 +2336,9 @@ test('ten quick taps on Back from deep inside stop at Home, never leave the app 
   await page.getByRole('button', { name: /^Copies/ }).click();
   const back = page.getByRole('button', { name: 'Back' });
   for (let i = 0; i < 10; i++) await back.click({ timeout: 2000 }).catch(() => {});
+  await expect(page.getByRole('dialog', { name: 'Leave this job?' })).toBeVisible();
+  await expect(page.locator('main h1')).toHaveText('Files received');
+  await leave(page);
   await expect(page.locator('main h1')).toHaveText('PrintSaathi');
   await page.getByRole('button', { name: /Continue the last job/ }).click();
   await expect(page.locator('main h1')).toHaveText('Files received');
@@ -2564,6 +2586,7 @@ test('Recent jobs says how long files are kept as chosen in Settings (review I4)
   await withSettings(page, { retention: '7d' });
   await page.goto('/?mockIntake=2');
   await page.getByRole('button', { name: 'Home' }).click();
+  await leave(page);
   await page.getByRole('button', { name: 'Recent jobs' }).click();
   await expect(page.getByText('Customer files are deleted 7 days after they were last used.')).toBeVisible();
 });
@@ -2584,7 +2607,7 @@ test('photos can print on the shop printer’s 4×6 photo paper: Change → Pape
   await page.goto('/?mockIntake=2&mockPhotoPaper=1');
   await page.getByRole('button', { name: 'One on each page' }).click();
   await page.getByRole('button', { name: 'Change' }).click();
-  await page.getByRole('button', { name: /^Paper(?! direction)/ }).click();
+  await page.getByRole('button', { name: /^Paper(?! direction| type)/ }).click();
   await expect(page.locator('main h1')).toHaveText('Paper');
   await page.getByRole('button', { name: /4×6 photo paper/ }).click();
   await expect(page.getByText('2 photos · 2 pages · 4×6 photo paper · Colour · 1 copy')).toBeVisible();
@@ -2594,7 +2617,7 @@ test('without the printer’s 4×6 paper set up, Paper offers A4 and says how to
   await page.goto('/?mockIntake=2');
   await page.getByRole('button', { name: 'One on each page' }).click();
   await page.getByRole('button', { name: 'Change' }).click();
-  await page.getByRole('button', { name: /^Paper(?! direction)/ }).click();
+  await page.getByRole('button', { name: /^Paper(?! direction| type)/ }).click();
   await expect(page.getByText('print the 4×6 test page', { exact: false })).toBeVisible();
   await expect(page.getByRole('button', { name: /4×6 photo paper/ })).toHaveCount(0);
 });
@@ -2603,7 +2626,7 @@ test('the paper printed last is how the next photo job starts', async ({ page })
   await page.goto('/?mockIntake=2&mockPhotoPaper=1');
   await page.getByRole('button', { name: 'One on each page' }).click();
   await page.getByRole('button', { name: 'Change' }).click();
-  await page.getByRole('button', { name: /^Paper(?! direction)/ }).click();
+  await page.getByRole('button', { name: /^Paper(?! direction| type)/ }).click();
   await page.getByRole('button', { name: /4×6 photo paper/ }).click();
   await expect(page.getByText('Put 4×6 photo paper in the printer', { exact: false })).toBeVisible();
   await page.getByRole('button', { name: 'PAPER LOADED — PRINT' }).click();
@@ -2883,6 +2906,7 @@ test('a stopped share of a PDF says so on Ready too (review M5)', async ({ page 
 test('Recent jobs shows customer photos, so it asks for screenshot protection (review I7)', async ({ page }) => {
   await page.goto('/?mockIntake=2');
   await page.getByRole('button', { name: 'Home' }).click();
+  await leave(page);
   await expect(page.locator('main h1')).toHaveText('PrintSaathi');
   await page.waitForTimeout(300);
   expect(await page.evaluate(() => (globalThis as { __customerShown?: boolean }).__customerShown)).toBe(false);
@@ -2901,7 +2925,7 @@ test('on 4×6 paper the Change screens count and draw 4×6 sheets, like Ready (r
   await page.goto('/?mockIntake=6&mockPhotoPaper=1');
   await page.getByRole('button', { name: 'Use more pages' }).click();
   await page.getByRole('button', { name: 'Change' }).click();
-  await page.getByRole('button', { name: /^Paper(?! direction)/ }).click();
+  await page.getByRole('button', { name: /^Paper(?! direction| type)/ }).click();
   await page.getByRole('button', { name: /4×6 photo paper/ }).click();
   await expect(page.locator('main h1')).toHaveText('Ready to print');
   const summary = await page.getByText(/6 photos · \d+ pages? · 4×6 photo paper/).textContent();
@@ -2939,7 +2963,9 @@ test('a job set to 4×6 on a printer without 4×6 set up says it prints on A4, e
   await expect(page.getByText('2 photos · 2 pages · A4 · Colour · 1 copy')).toBeVisible();
   await expect(page.getByText('4×6 photo paper is not set up for this printer, so this prints on A4.')).toBeVisible();
   await page.getByRole('button', { name: 'Change' }).click();
-  await expect(page.getByRole('button', { name: /^Paper(?! direction)/ })).toContainText('A4 (4×6 paper not set up)');
+  await expect(page.getByRole('button', { name: /^Paper(?! direction| type)/ })).toContainText(
+    'A4 (4×6 paper not set up)',
+  );
   await page.getByRole('button', { name: 'Back' }).click();
   await page.getByRole('button', { name: 'PRINT' }).click();
   await page.getByRole('button', { name: /^Yes/ }).click();
@@ -3009,16 +3035,17 @@ const JOURNEYS: { name: string; url: string; taps: (string | RegExp)[]; picker?:
   {
     name: 'J-card two card photos',
     url: '/?mockIntake=2',
-    taps: ['ID card copy', 'Card copy', /^Real card size/, 'PRINT'],
-    expected: 4,
+    // Owner, round 4: "let the user see the crop screen" for front and back: a Done on each (two taps more).
+    taps: ['ID card copy', 'Done', 'Done', 'Card copy', /^Real card size/, 'PRINT'],
+    expected: 6,
   },
   {
     name: 'J-card from Home',
     url: '/',
     // The owner asked for "gallery or file manager?" first (2026-10-23): one decision more than the spec's 5.
-    taps: [/^Aadhaar & ID cards/, /^Photos of the card/, 'Card copy', /^Real card size/, 'PRINT'],
+    taps: [/^Aadhaar & ID cards/, /^Photos of the card/, 'Done', 'Done', 'Card copy', /^Real card size/, 'PRINT'],
     picker: 1,
-    expected: 6,
+    expected: 8,
   },
 ];
 
@@ -3155,6 +3182,7 @@ test('motion: a push enters forward, Back enters back, Home fades', async ({ pag
   await expect(page.locator('main h1')).toHaveText('Files received');
   await expect(page.locator('.screen-host')).toHaveClass(/enter-back/);
   await page.getByRole('button', { name: 'Home' }).click();
+  await leave(page);
   await expect(page.locator('main h1')).toHaveText('PrintSaathi');
   await expect(page.locator('.screen-host')).toHaveClass(/enter-fade/);
 });
@@ -3176,6 +3204,7 @@ test('motion: nothing lasts longer than 400 ms on the main screens', async ({ pa
     );
   await page.goto('/?mockIntake=4');
   await page.getByRole('button', { name: 'Home' }).click();
+  await leave(page);
   await expect(page.locator('main h1')).toHaveText('PrintSaathi');
   expect(await longest()).toBeLessThanOrEqual(400);
   await page.getByRole('button', { name: /^Continue the last job/ }).click();
@@ -3259,6 +3288,7 @@ test('the print check mark stays small at big text on short screens (review I4)'
 test('Recent jobs rows do not animate; only short choice lists rise (review I5)', async ({ page }) => {
   await page.goto('/?mockIntake=2');
   await page.getByRole('button', { name: 'Home' }).click();
+  await leave(page);
   await page.getByRole('button', { name: 'Recent jobs' }).click();
   await expect(page.locator('main h1')).toHaveText('Recent jobs');
   const moving = await page.evaluate(() =>
@@ -3297,5 +3327,6 @@ test('no sideways scroll while a screen slides in (review M7)', async ({ page })
 test('Continue the last job shows its first photo (spec Part 1)', async ({ page }) => {
   await page.goto('/?mockIntake=2');
   await page.getByRole('button', { name: 'Home' }).click();
+  await leave(page);
   await expect(page.getByRole('button', { name: /^Continue the last job/ }).locator('img.tile-image')).toHaveCount(1);
 });

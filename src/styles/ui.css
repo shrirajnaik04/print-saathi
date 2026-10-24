@@ -216,6 +216,38 @@ html {
   font-size: 1.25rem;
 }
 /* Destructive actions only (Delete all): the error colour, white label (7.6 : 1), always with Cancel beside it. */
+/* A question that must be answered (owner, round 4: leaving a job, closing the app): a sheet at the bottom over a dimmed
+   page, its buttons one under another, the safe answer first. */
+.sheet {
+  position: fixed;
+  inset: auto 0 0;
+  /* The padding inside the width: a phone's full width, never 48 px past its right side (review, round 4). */
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 40rem;
+  margin: 0 auto;
+  padding: var(--space-3) var(--gutter)
+    calc(var(--space-3) + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
+  border: 0;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--elev-2);
+}
+.sheet::backdrop {
+  background: rgb(0 0 0 / 45%);
+}
+.sheet-title {
+  margin: 0 0 var(--space-1);
+  font-size: 1.375rem;
+}
+.sheet-line {
+  margin: 0 0 var(--space-2);
+}
+.sheet-choices {
+  display: grid;
+  gap: var(--space-1);
+}
 .btn-danger {
   background: var(--error-text);
   color: #fff;
@@ -348,6 +380,22 @@ html {
   flex-basis: 100%;
   margin: 0;
   font-size: max(1.125rem, min(1.5rem, 10vw));
+}
+/* The title with a control on its line (Ready's Colour | B&W, owner round 4): side by side, the control wrapping under
+   the title when there is no room; the title a little smaller so both fit a 360 px phone. */
+.topbar-titleline {
+  order: 3;
+  flex-basis: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-1) var(--space-2);
+}
+.topbar-titleline .topbar-title {
+  order: 0;
+  flex-basis: auto;
+  font-size: max(1.125rem, min(1.25rem, 8vw));
 }
 
 .actionbar {
@@ -753,6 +801,21 @@ main h2 {
   background: var(--primary);
   color: #fff;
 }
+/* Beside the title: the halves side by side, just wide enough for their words. */
+.colour-switch-compact {
+  display: flex;
+  flex-wrap: wrap; /* at the biggest text on the smallest phone, one half under the other */
+  margin: 0;
+  gap: 0.25rem;
+}
+.colour-switch-compact .colour-half {
+  flex: 1 1 auto;
+}
+.colour-switch-compact .colour-half {
+  gap: 0.25rem;
+  padding: 0 0.75rem;
+  font-size: 1rem;
+}
 .colour-half:focus-visible {
   outline: 0.1875rem solid var(--primary);
   outline-offset: 0.1875rem;
@@ -1099,8 +1162,22 @@ main h2 {
   max-height: 100%;
   box-shadow: 0 0 0 1px var(--edge);
 }
-.card-shot img.turn-2 {
-  transform: rotate(180deg);
+/* A card turned a quarter stands (owner, round 4): its frame stands; the picture is turned inside it (turnedStyle). */
+.card-shot.card-standing {
+  position: relative;
+  width: min(62%, 19rem);
+  aspect-ratio: 54 / 85.6;
+}
+.card-shot .card-picture {
+  max-width: 100%;
+  max-height: 100%;
+}
+.card-shot.card-standing .card-picture {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  max-width: none;
+  max-height: none;
 }
 /* Room for a whole dot around the photo: a corner at the photo's edge never reaches the screen's side. */
 .corner-stage {
@@ -1311,10 +1388,102 @@ main h2 {
   margin: 0;
   font-weight: 700;
 }
-.adjust-paper {
+/* Every page side by side (owner, round 4): a strip that slides one page at a time, the next and previous page showing
+   about 10 px at the sides; a page fills the strip less those edges. One page: the whole width. */
+.adjust-strip {
+  position: relative; /* its pages' offsets are measured from it */
   display: flex;
-  justify-content: center;
+  /* Each page as tall as its own shape (stretched to the tallest, a sideways page beside upright ones was drawn
+     upright-shaped). */
+  align-items: flex-start;
+  gap: 6px;
   width: 100%;
+  box-sizing: border-box;
+  /* A sliding box cuts off whatever reaches outside it: room above the pages for the round turn handle over a photo at a
+     page's top (round 3) and below for a lifted photo's shadow. That room reaches over the line above and below and lets
+     taps through to them; only the pages take taps. */
+  padding: 3.5rem 16px 1rem;
+  margin-block: -3.5rem -1rem;
+  pointer-events: none;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+}
+.adjust-strip::-webkit-scrollbar {
+  display: none;
+}
+.adjust-strip-one {
+  padding-inline: 0;
+}
+.adjust-sheet {
+  display: flex;
+  flex: 0 0 100%;
+  align-items: flex-start;
+  justify-content: center;
+  scroll-snap-align: center;
+  /* One page at a time: a quick flick slid three pages on the phone (device finding, round-4 smoke). */
+  scroll-snap-stop: always;
+  isolation: isolate;
+  pointer-events: auto;
+}
+/* Zoomed (round 4): only the page in the middle, bigger; the strip keeps its height (set on it) and the page slides
+   inside it both ways, never snapping. It is cut to the pages' own area: the room above and below for handles would
+   show the page over the line above it. Brought into view (the keyboard), a thing stays out of that room. */
+.adjust-strip.adjust-zoomed {
+  overflow: auto;
+  scroll-snap-type: none;
+  scroll-padding: 3.5rem 0 1rem;
+  clip-path: inset(3.5rem 0 1rem);
+}
+.adjust-zoomed .adjust-sheet:not(.adjust-shown) {
+  display: none;
+}
+.adjust-strip.adjust-zoomed .adjust-sheet {
+  flex: 0 0 auto;
+}
+.adjust-strip.adjust-zoomed .adjust-sheet .paper {
+  width: 100%;
+}
+/* The page in the middle, reached by the keyboard: the same thick ring as every control. */
+.adjust-sheet .paper:focus-visible {
+  outline: none;
+  box-shadow: var(--focus);
+}
+/* "Page n of N" with ‹ › at its sides, outside the page (nothing covers it); at big text the words wrap between them. */
+.adjust-pagebar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-1);
+  width: 100%;
+  box-sizing: border-box;
+}
+.adjust-pagebar .adjust-page {
+  flex: 1 1 0;
+  min-width: 0;
+  text-align: center;
+}
+/* 56 px to touch at every text size, so "Page n of N" keeps room between them on a small phone at big text. */
+.adjust-pagebtn {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  min-width: 56px;
+  min-height: 56px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--primary);
+  cursor: pointer;
+}
+.adjust-pagebtn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.adjust-pagebtn:focus-visible {
+  outline: 0.1875rem solid var(--primary);
+  outline-offset: -0.1875rem;
 }
 .adjust-pick {
   position: absolute;
@@ -1328,10 +1497,7 @@ main h2 {
 }
 /* Press and hold to place a photo (owner, 2026-10-24): no text selection or picture menu on a long press anywhere on
    the page area, its label and size line included (device finding: the label's text was selected). The page's own
-   layers (a lifted photo, the guides) stay inside it, under the pinned bar (device finding). */
-.adjust-paper {
-  isolation: isolate;
-}
+   layers (a lifted photo, the guides) stay inside it, under the pinned bar (device finding): .adjust-sheet isolates. */
 .adjust-stage {
   position: relative;
   -webkit-touch-callout: none;
@@ -1533,20 +1699,27 @@ main h2 {
   flex-direction: column;
   flex-wrap: nowrap;
   gap: 0.125rem;
-  min-height: 4.25rem;
-  padding: var(--space-1) 0.25rem;
-  font-size: 0.9375rem;
-  line-height: 1.2;
+  min-height: 3.5rem;
+  padding: 0.25rem;
+  font-size: 0.8125rem;
+  line-height: 1.15;
+}
+/* Compact tools (owner, round 4: "make the bottom buttons in edit preview small … consuming a lot of space"): 56 px,
+   the touch floor, with a smaller icon over a smaller word. */
+.tool-grid .btn .icon,
+.tool-row .btn .icon {
+  width: 1.25rem;
+  height: 1.25rem;
 }
 /* The page as big as the screen allows (owner, round 3: "increase the size of preview … like this app"): on a phone the
    grey stage runs to the screen's edges and the page fills it, 12 px in from each side (clear of curved edges), no
    taller than the screen leaves under the bars. */
-.adjust-paper .paper {
+.adjust-sheet .paper {
   width: min(100%, calc((100vh - 12rem) * var(--paper-aspect, 0.707)));
 }
 /* The screen's height without the browser's own bars, where the WebView knows it (Chrome 108+; review M8). */
 @supports (height: 100dvh) {
-  .adjust-paper .paper {
+  .adjust-sheet .paper {
     width: min(100%, calc((100dvh - 12rem) * var(--paper-aspect, 0.707)));
   }
 }
@@ -1558,6 +1731,14 @@ main h2 {
     padding-inline: var(--space-2);
     border-radius: 0;
   }
+  /* The pages reach the screen's sides (a page is the screen less its neighbours' 10 px edges); ‹ › keep the gutter. */
+  .adjust-strip {
+    width: calc(100% + 2 * var(--space-2));
+    margin-inline: calc(-1 * var(--space-2));
+  }
+  .adjust-pagebar {
+    padding-inline: max(0px, calc(var(--gutter) - var(--space-2)));
+  }
 }
 /* The tools in one row above Done that slides sideways (Doc Scanner's editor); the row reaches the screen's edges, so
    the last tool showing is cut at the edge and it is plain there are more. */
@@ -1565,8 +1746,8 @@ main h2 {
   display: flex;
   gap: var(--space-1);
   margin-inline: calc(-1 * var(--gutter));
-  /* Room for a tool's focus ring inside the sliding row (it clips whatever reaches outside it). */
-  padding: 0.5rem var(--gutter);
+  /* Room for a tool's focus ring inside the sliding row (it clips whatever reaches outside it): 3 px ring + 3 px gap. */
+  padding: 0.375rem var(--gutter);
   overflow-x: auto;
   overscroll-behavior-x: contain;
   scroll-padding-inline: var(--gutter);
@@ -1580,11 +1761,11 @@ main h2 {
   flex-direction: column;
   flex-wrap: nowrap;
   gap: 0.125rem;
-  width: 5.75rem;
-  min-height: 4.25rem;
-  padding: var(--space-1) 0.25rem;
-  font-size: 0.9375rem;
-  line-height: 1.2;
+  width: 4.5rem;
+  min-height: 3.5rem;
+  padding: 0.25rem;
+  font-size: 0.8125rem;
+  line-height: 1.15;
 }
 
 /* Adjust on a wide screen held sideways: the page on the left, its tools on the right (equal halves, so large text
@@ -1598,7 +1779,7 @@ main h2 {
     gap: var(--space-3);
     align-items: start;
   }
-  .adjust-body .adjust-paper .paper {
+  .adjust-body .adjust-sheet .paper {
     width: min(100%, 52vh);
   }
 }

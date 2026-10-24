@@ -34,6 +34,11 @@ export type Job = {
    * mode); 'photo' = Best photo quality (sent as photos: the printer may use its slower photo mode).
    */
   quality?: 'photo';
+  /**
+   * The paper in the printer (owner, round 4): none = plain paper; 'glossy' = glossy photo paper, a reminder only (Ready
+   * says to put it in; Android lets no app set the printer's paper type, so the job is sent the same way).
+   */
+  paperType?: 'glossy';
   colour: 'colour' | 'bw';
   /** Print style for the whole job (PLAN §F4); used only when it fits [colour] (see styleOf). */
   style?: StyleId;
@@ -124,10 +129,14 @@ export type IdCardSide = {
   item: number;
   page?: number;
   quad: number[];
-  turns: 0 | 2;
+  /** Quarter turns clockwise (owner, round 4: Turn left / Turn right); a card turned a quarter prints standing. */
+  turns: 0 | 1 | 2 | 3;
   /** false: the app was not sure of its edges ("Check the corners") until the shopkeeper sets them. None = sure. */
   sure?: boolean;
 };
+
+/** A card's quarter turns as stored: 0–3; anything else (an old or broken file) is 0. */
+const quarterTurns = (t: unknown): 0 | 1 | 2 | 3 => (t === 1 || t === 2 || t === 3 ? t : 0);
 
 /** [scale]: the cards' own size on Adjust (size 'custom'), 0.7–2 times the real card. */
 export type IdCardChoice = { size: IdCardSize; sets: number; cards: IdCardSide[]; scale?: number };
@@ -261,6 +270,7 @@ export type JobAction =
   | { type: 'setColour'; colour: 'colour' | 'bw' }
   | { type: 'setDirection'; direction: 'portrait' | 'landscape' }
   | { type: 'setQuality'; quality: 'normal' | 'photo' }
+  | { type: 'setPaperType'; paperType: 'plain' | 'glossy' }
   /** Adjust: the photos' sizes (long side, mm); null = automatic sizes again. */
   | { type: 'setSizes'; sizes: Record<number, number> | null }
   /** Adjust: a document page's size on its sheet (0.5–1, in 5 % steps; 1 = as it fits). */
@@ -334,7 +344,8 @@ export type JobAction =
   | { type: 'setIdCardSize'; size: IdCardSize; sets?: number }
   | { type: 'swapIdCards' }
   | { type: 'setIdCardQuad'; at: number; quad: number[] }
-  | { type: 'turnIdCard'; at: number }
+  /** [by] quarter turns clockwise: 1 Turn right, 3 Turn left, 2 (or none) upside down. */
+  | { type: 'turnIdCard'; at: number; by?: 1 | 2 | 3 }
   /**
    * Phase 15: the turns that make these photos upright, found by the app. Only photos nobody turned by hand get one;
    * the job is marked looked-at either way.
@@ -479,7 +490,7 @@ export function normalizeJob(o: unknown): Job | null {
             (c.page === undefined || (Number.isInteger(c.page) && c.page >= 0)),
         )
         .slice(0, 2)
-        .map((c) => ({ ...c, turns: c.turns === 2 ? (2 as const) : (0 as const), sure: c.sure !== false }))
+        .map((c) => ({ ...c, turns: quarterTurns(c.turns), sure: c.sure !== false }))
     : [];
   const cardScale =
     typeof ic?.scale === 'number' && Number.isFinite(ic.scale) && ic.scale >= 0.7 && ic.scale <= 2
@@ -513,6 +524,7 @@ export function normalizeJob(o: unknown): Job | null {
     autoTurnDone: j.autoTurnDone === true,
     direction: j.direction === 'portrait' || j.direction === 'landscape' ? j.direction : undefined,
     quality: j.quality === 'photo' ? 'photo' : undefined,
+    paperType: j.paperType === 'glossy' ? 'glossy' : undefined,
     picked: j.picked === true ? true : undefined,
     sizes: validSizes(j.sizes, indexes),
     spots: validSpots(j.spots, indexes),
@@ -672,7 +684,7 @@ export function jobReducer(job: Job, action: JobAction, nowMs: number): Job {
       const cards = action.cards
         .filter((c) => job.items.some((i) => i.index === c.item) && validQuad(c.quad))
         .slice(0, 2)
-        .map((c) => ({ ...c, turns: c.turns === 2 ? (2 as const) : (0 as const), sure: c.sure !== false }));
+        .map((c) => ({ ...c, turns: quarterTurns(c.turns), sure: c.sure !== false }));
       if (cards.length === 0) break;
       next = {
         layout: 'idCard',
@@ -718,7 +730,9 @@ export function jobReducer(job: Job, action: JobAction, nowMs: number): Job {
       next = {
         idCard: {
           ...job.idCard,
-          cards: job.idCard.cards.map((x, i) => (i === action.at ? { ...x, turns: x.turns === 2 ? 0 : 2 } : x)),
+          cards: job.idCard.cards.map((x, i) =>
+            i === action.at ? { ...x, turns: ((x.turns + (action.by ?? 2)) % 4) as 0 | 1 | 2 | 3 } : x,
+          ),
         },
       };
       break;
@@ -778,6 +792,11 @@ export function jobReducer(job: Job, action: JobAction, nowMs: number): Job {
             ? { ...rest, crop: { ...action.crop, turns, preset: rest.preset, shape: size.wMm / size.hMm } }
             : rest,
       };
+      break;
+    }
+    case 'setPaperType': {
+      const paperType = action.paperType === 'glossy' ? 'glossy' : undefined;
+      if (paperType !== job.paperType) next = { paperType };
       break;
     }
     case 'setQuality': {

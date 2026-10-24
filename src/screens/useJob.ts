@@ -2,6 +2,7 @@ import { Capacitor } from '@capacitor/core';
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { type Job, type JobAction, normalizeJob } from '../core/job/job';
 import { PrintEngine, type ThumbResult } from '../native/printEngine';
+import { noteJob } from './printedJobs';
 import { saveJobChange } from './received/Received';
 
 /**
@@ -40,6 +41,7 @@ export function useJob(jobId: string) {
         const loaded = normalizeJob((await PrintEngine.loadJob({ id: jobId })).job);
         if (!live) return;
         if (!loaded) return setGone(true);
+        noteJob(loaded);
         setJob(loaded);
         const { items } = await PrintEngine.makeThumbnails({ jobId });
         if (live) setThumbs(new Map(items.map((i) => [i.index, i])));

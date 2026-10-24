@@ -19,6 +19,8 @@ type Props = {
   children?: ComponentChildren;
   /** A picture per placement instead of per item (ID cards: two straightened cards may come from one photo). */
   srcOfPlacement?: (p: Placement) => string | undefined;
+  /** A stop for the keyboard (Adjust's pages side by side: the page in the middle; arrow keys then slide them). */
+  focusable?: boolean;
 };
 
 /** A photo turned by [turns] quarter turns clockwise fills its box: the image is rotated about the box centre. */
@@ -36,13 +38,25 @@ export function turnedStyle(turns: number, w: number, h: number) {
  * upright: a sideways page is displayed wide, never as a turned portrait (the caller labels it; a badge drawn on
  * the sheet hid the photo at 200 % text).
  */
-export function PaperPreview({ wPt, hPt, placements, srcOf, label, mini, grey, children, srcOfPlacement }: Props) {
+export function PaperPreview({
+  wPt,
+  hPt,
+  placements,
+  srcOf,
+  label,
+  mini,
+  grey,
+  children,
+  srcOfPlacement,
+  focusable,
+}: Props) {
   const pct = (v: number, of: number) => `${(100 * v) / of}%`;
   return (
     <figure
       class={`paper${wPt > hPt ? ' paper-wide' : ''}${mini ? ' paper-mini' : ''}${grey ? ' paper-grey' : ''}`}
       style={{ aspectRatio: `${wPt} / ${hPt}` }}
       aria-label={label}
+      tabIndex={focusable ? 0 : undefined}
     >
       {placements.map((p, i) => {
         const src = srcOfPlacement ? srcOfPlacement(p) : srcOf(p.itemIndex, p.pdfPage);

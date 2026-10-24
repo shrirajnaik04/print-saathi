@@ -21,6 +21,8 @@ import homeSvg from '@phosphor-icons/core/assets/bold/house-bold.svg?raw';
 import passportSvg from '@phosphor-icons/core/assets/bold/identification-card-bold.svg?raw';
 import photosSvg from '@phosphor-icons/core/assets/bold/images-bold.svg?raw';
 import infoSvg from '@phosphor-icons/core/assets/bold/info-bold.svg?raw';
+import zoomOutSvg from '@phosphor-icons/core/assets/bold/magnifying-glass-minus-bold.svg?raw';
+import zoomInSvg from '@phosphor-icons/core/assets/bold/magnifying-glass-plus-bold.svg?raw';
 import minusSvg from '@phosphor-icons/core/assets/bold/minus-bold.svg?raw';
 import plusSvg from '@phosphor-icons/core/assets/bold/plus-bold.svg?raw';
 import printSvg from '@phosphor-icons/core/assets/bold/printer-bold.svg?raw';
@@ -64,6 +66,8 @@ export const ICONS = {
   later: laterSvg,
   remove: removeSvg,
   card: cardSvg,
+  zoomIn: zoomInSvg,
+  zoomOut: zoomOutSvg,
 } as const;
 
 export type IconName = keyof typeof ICONS;

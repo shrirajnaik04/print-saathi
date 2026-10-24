@@ -2,7 +2,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { type Job, jobFromIntake, jobReducer, normalizeJob, validQuad } from '../job/job';
-import { buildPlan, CARD_H_MM, CARD_W_MM, idCardPlan, maxCardSets, planHash } from './plan';
+import { buildPlan, CARD_H_MM, CARD_W_MM, drawnCardScale, idCardPlan, maxCardSets, planHash } from './plan';
 
 const intake = {
   intakeId: 'in1',
@@ -215,5 +215,94 @@ describe('PrintPlan contract: ID cards', () => {
     const json = `${JSON.stringify({ planHash: planHash(plan), plan }, null, 2)}\n`;
     if (process.env.UPDATE_CONTRACT) writeFileSync(fixture, json);
     expect(readFileSync(fixture, 'utf8')).toBe(json);
+  });
+});
+
+// Owner, round 4: "allow rotating images in all directions in the ID card front and back sections": Turn left / right a
+// quarter at a time; a card turned a quarter prints standing (54 × 85.6 mm), for vertical ID cards, in every size.
+describe('a card turned a quarter prints standing', () => {
+  const turned = (a: 0 | 1 | 2 | 3, b: 0 | 1 | 2 | 3, size: 'real' | 'big' | 'sets' | 'custom'): Job => {
+    let job = jobFromIntake('jt', intake, 1);
+    job = jobReducer(
+      job,
+      {
+        type: 'setIdCards',
+        cards: [
+          { item: 1, quad: front, turns: a },
+          { item: 2, quad: back, turns: b },
+        ],
+        size: size === 'custom' ? 'real' : size,
+      },
+      2,
+    );
+    if (size === 'custom') job = jobReducer(job, { type: 'setIdCardScale', scale: 1.3 }, 3);
+    if (size === 'sets') job = jobReducer(job, { type: 'setIdCardSize', size: 'sets', sets: 9 }, 3);
+    return job;
+  };
+  it('every pair of turns in every size: inside the edges, apart, each card its own shape', () => {
+    const edge = 6 * MM;
+    for (const a of [0, 1, 2, 3] as const)
+      for (const b of [0, 1, 2, 3] as const)
+        for (const size of ['real', 'big', 'sets', 'custom'] as const) {
+          const ps = idCardPlan(turned(a, b, size), 6).pages[0]?.placements ?? [];
+          const label = `${size} turns ${a}/${b}`;
+          expect(ps.length, label).toBeGreaterThan(0);
+          for (const p of ps) {
+            expect(p.box.x, label).toBeGreaterThanOrEqual(edge - 1e-6);
+            expect(p.box.y, label).toBeGreaterThanOrEqual(edge - 1e-6);
+            expect(p.box.x + p.box.w, label).toBeLessThanOrEqual(595.2756 - edge + 1e-6);
+            expect(p.box.y + p.box.h, label).toBeLessThanOrEqual(841.8898 - edge + 1e-6);
+            const standing = (p.itemIndex === 1 ? a : b) % 2 === 1;
+            const ratio = standing ? p.box.h / p.box.w : p.box.w / p.box.h;
+            expect(ratio, label).toBeCloseTo(CARD_W_MM / CARD_H_MM, 4);
+            expect(p.turns, label).toBe(p.itemIndex === 1 ? a : b);
+            if (size === 'real' || size === 'sets') {
+              near(standing ? p.box.w : p.box.h, CARD_H_MM * MM);
+              near(standing ? p.box.h : p.box.w, CARD_W_MM * MM);
+            }
+          }
+          for (let i = 0; i < ps.length; i++)
+            for (let j = i + 1; j < ps.length; j++) {
+              const p = ps[i]?.box;
+              const q = ps[j]?.box;
+              if (!p || !q) continue;
+              const apart =
+                p.x + p.w <= q.x + 1e-6 ||
+                q.x + q.w <= p.x + 1e-6 ||
+                p.y + p.h <= q.y + 1e-6 ||
+                q.y + q.h <= p.y + 1e-6;
+              expect(apart, `${label}: ${i} and ${j} overlap`).toBe(true);
+            }
+        }
+  });
+  it('Many copies with a standing card: rows as tall as the taller card, so fewer sets fit', () => {
+    expect(maxCardSets(6, 2, true)).toBe(3);
+    expect(maxCardSets(6, 2, true)).toBeLessThan(maxCardSets(6, 2));
+    expect(idCardPlan(turned(1, 0, 'sets'), 6).pages[0]?.placements).toHaveLength(6);
+  });
+});
+
+// Review I2 (round 4): Adjust and Ready said a standing card's size from its width (54 ÷ 85.6), and a chosen size the
+// plan holds down to what fits as if it printed so.
+describe('the cards’ size as drawn', () => {
+  const standing = (size: 'big' | 'real', scale?: number) => {
+    let job = cardJob(size);
+    job = jobReducer(job, { type: 'turnIdCard', at: 0, by: 1 }, 3);
+    job = jobReducer(job, { type: 'turnIdCard', at: 1, by: 1 }, 4);
+    if (scale !== undefined) job = jobReducer(job, { type: 'setIdCardScale', scale }, 5);
+    return idCardPlan(job, 6);
+  };
+  it('is the long side over the real card, standing or lying', () => {
+    expect(drawnCardScale(idCardPlan(cardJob('real'), 6))).toBeCloseTo(1, 6);
+    expect(drawnCardScale(standing('real'))).toBeCloseTo(1, 6);
+  });
+  it('Big size with two standing cards: as big as fits (about 161 %), not 101 %', () => {
+    const s = drawnCardScale(standing('big'));
+    expect(s).toBeGreaterThan(1.55);
+    expect(s).toBeLessThan(1.7);
+  });
+  it('a chosen size above what fits is said as it prints', () => {
+    const big = drawnCardScale(standing('big'));
+    expect(drawnCardScale(standing('real', 2))).toBeCloseTo(big, 6);
   });
 });

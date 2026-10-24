@@ -19,12 +19,17 @@ describe('Home (PLAN §H3)', () => {
     for (const t of [en.home.photos, en.home.passport, en.home.documents, en.home.cards])
       expect(html).toContain(esc(t));
   });
-  it('shows the WhatsApp hint with its three steps', () => {
-    expect(html).toContain(esc(en.home.hintTitle));
-    for (const step of en.home.hintSteps) expect(html).toContain(esc(step));
+  // Owner, round 4: "remove section from home page 'Customer sent files on WhatsApp?'" (Help keeps the steps).
+  it('has no WhatsApp card', () => {
+    expect(html).not.toContain('Customer sent files on WhatsApp?');
+    expect(html).not.toContain('hint-card');
+  });
+  it('Help still explains sharing from WhatsApp', () => {
+    const help = render(<Help go={go} />);
+    for (const step of en.help.shareSteps) expect(help).toContain(esc(step));
   });
   it('keeps owner tools in a separate, smaller section at the bottom', () => {
-    expect(html.indexOf(esc(en.home.owner))).toBeGreaterThan(html.indexOf(esc(en.home.hintTitle)));
+    expect(html.indexOf(esc(en.home.owner))).toBeGreaterThan(html.indexOf(esc(en.home.recent)));
     expect(html).toContain(esc(en.home.tests));
   });
   it('has the app name as its only h1', () => {

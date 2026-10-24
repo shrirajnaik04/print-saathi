@@ -17,6 +17,19 @@ export function peekAddedChoice(jobId: string): number | null {
 
 export const forgetAddedChoice = () => sessionStorage.removeItem('ps.addChoose');
 
+/** Change photo on an ID card side (owner, round 4): the side the next photo added to [jobId] replaces. */
+export const noteCardSide = (jobId: string, at: number) =>
+  sessionStorage.setItem('ps.cardSide', JSON.stringify({ jobId, at }));
+export function peekCardSide(jobId: string): number | null {
+  try {
+    const v = JSON.parse(sessionStorage.getItem('ps.cardSide') ?? 'null') as { jobId?: string; at?: number } | null;
+    return v?.jobId === jobId && (v.at === 0 || v.at === 1) ? v.at : null;
+  } catch {
+    return null;
+  }
+}
+export const forgetCardSide = () => sessionStorage.removeItem('ps.cardSide');
+
 /** The first photo just added to [jobId], once (Adjust chooses it when it comes back on screen); else null. */
 export function takeAddedChoice(jobId: string): number | null {
   const raw = sessionStorage.getItem('ps.addChoose');

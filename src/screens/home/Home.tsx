@@ -24,7 +24,7 @@ const JOBS: { key: PickKind; icon: IconName; title: string; tone: TileTone }[] =
   { key: 'cards', icon: 'card', title: t.cards, tone: 'cards' },
 ];
 
-/** Home (PLAN §H3): three big jobs, the WhatsApp hint, then owner tools at the bottom. */
+/** Home (PLAN §H3): the big jobs, Recent jobs, then owner tools at the bottom (owner, round 4: no WhatsApp card). */
 export function Home({ go }: ScreenProps) {
   // A job left unprinted (the app was closed, or the shopkeeper went back): one tap continues it (PLAN §H3).
   const [last, setLast] = useState<Job | null>(null);
@@ -123,16 +123,6 @@ export function Home({ go }: ScreenProps) {
           />
         </div>
       )}
-      <section class="hint-card" aria-labelledby="hint-title">
-        <h2 id="hint-title" class="panel-title">
-          {t.hintTitle}
-        </h2>
-        <ol>
-          {t.hintSteps.map((s) => (
-            <li key={s}>{s}</li>
-          ))}
-        </ol>
-      </section>
       <div class="stack section-gap">
         <Button variant="secondary" icon="recent" onClick={() => go(push('recent'))}>
           {t.recent}
