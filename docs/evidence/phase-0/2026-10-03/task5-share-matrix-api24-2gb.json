@@ -1,0 +1,92 @@
+[
+  {
+    "mode": "single-photo",
+    "receivedMs": 359,
+    "newJobDirs": 1,
+    "files": 1,
+    "types": "jpeg",
+    "rejected": 0,
+    "bytesCrossBridge": "paths only",
+    "verdict": "PASS"
+  },
+  {
+    "mode": "six-photos",
+    "receivedMs": 349,
+    "newJobDirs": 1,
+    "files": 6,
+    "types": "jpeg,jpeg,jpeg,jpeg,jpeg,jpeg",
+    "rejected": 0,
+    "bytesCrossBridge": "paths only",
+    "verdict": "PASS"
+  },
+  {
+    "mode": "mixed",
+    "receivedMs": 397,
+    "newJobDirs": 1,
+    "files": 2,
+    "types": "jpeg,pdf",
+    "rejected": 0,
+    "bytesCrossBridge": "paths only",
+    "verdict": "PASS"
+  },
+  {
+    "mode": "pdf",
+    "receivedMs": 345,
+    "newJobDirs": 1,
+    "files": 1,
+    "types": "pdf",
+    "rejected": 0,
+    "bytesCrossBridge": "paths only",
+    "verdict": "PASS"
+  },
+  {
+    "mode": "pdf-octet",
+    "receivedMs": 347,
+    "newJobDirs": 1,
+    "files": 1,
+    "types": "pdf",
+    "rejected": 0,
+    "bytesCrossBridge": "paths only",
+    "verdict": "PASS"
+  },
+  {
+    "mode": "office",
+    "receivedMs": 353,
+    "newJobDirs": 1,
+    "files": 1,
+    "types": "office",
+    "rejected": 0,
+    "bytesCrossBridge": "paths only",
+    "verdict": "PASS"
+  },
+  {
+    "mode": "own-authority",
+    "receivedMs": 350,
+    "newJobDirs": 1,
+    "files": 0,
+    "types": "",
+    "rejected": 1,
+    "bytesCrossBridge": "paths only",
+    "verdict": "PASS"
+  },
+  {
+    "mode": "own-authority-user",
+    "receivedMs": 340,
+    "newJobDirs": 1,
+    "files": 0,
+    "types": "",
+    "rejected": 1,
+    "bytesCrossBridge": "paths only",
+    "verdict": "PASS"
+  },
+  {
+    "mode": "file-uri",
+    "receivedMs": 349,
+    "newJobDirs": 1,
+    "files": 0,
+    "types": "",
+    "rejected": 1,
+    "bytesCrossBridge": "paths only",
+    "verdict": "PASS"
+  }
+]

@@ -1,0 +1,9 @@
+== from repo root:
+ok   repo root OK: D:/Projects/PrintSaathi
+ok   node v24.17.0 OK
+exit=0
+== from D:\Projects (parent):
+FAIL Refusing to run: git top level is "E:/
+" but must be "D:/Projects/PrintSaathi". The unrelated repository at D:\.git must never be used. Run this command from inside the PrintSaathi repo.
+ok   node v24.17.0 OK
+exit=1

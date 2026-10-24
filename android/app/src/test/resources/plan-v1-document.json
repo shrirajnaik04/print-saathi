@@ -1,0 +1,87 @@
+{
+  "planHash": "91b84ec32c38af82",
+  "plan": {
+    "v": 1,
+    "jobId": "job5",
+    "rev": 5,
+    "paper": {
+      "id": "A4",
+      "wPt": 595.2755905511812,
+      "hPt": 841.8897637795276
+    },
+    "colour": "bw",
+    "copies": 2,
+    "contentType": "document",
+    "pages": [
+      {
+        "orientation": "landscape",
+        "placements": [
+          {
+            "itemIndex": 1,
+            "pdfPage": 2,
+            "crop": {
+              "x": 0,
+              "y": 0,
+              "w": 1,
+              "h": 1
+            },
+            "turns": 0,
+            "style": "bw",
+            "box": {
+              "x": 222.4017152433829,
+              "y": 17.00787401574803,
+              "w": 397.08633329276176,
+              "h": 561.2598425196851
+            }
+          }
+        ]
+      },
+      {
+        "orientation": "landscape",
+        "placements": [
+          {
+            "itemIndex": 1,
+            "pdfPage": 1,
+            "crop": {
+              "x": 0,
+              "y": 0,
+              "w": 1,
+              "h": 1
+            },
+            "turns": 0,
+            "style": "bw",
+            "box": {
+              "x": 24.28981671408718,
+              "y": 17.00787401574803,
+              "w": 793.3101303513532,
+              "h": 561.2598425196851
+            }
+          }
+        ]
+      },
+      {
+        "orientation": "landscape",
+        "placements": [
+          {
+            "itemIndex": 1,
+            "pdfPage": 0,
+            "crop": {
+              "x": 0,
+              "y": 0,
+              "w": 1,
+              "h": 1
+            },
+            "turns": 0,
+            "style": "bw",
+            "box": {
+              "x": 222.4017152433829,
+              "y": 17.00787401574803,
+              "w": 397.08633329276176,
+              "h": 561.2598425196851
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

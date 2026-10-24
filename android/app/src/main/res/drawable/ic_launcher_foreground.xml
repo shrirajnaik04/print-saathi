@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The PS printer (brand v3, assets/brand/android-foreground.svg): the same paths and transform, on the 108 dp adaptive
+     canvas, inside the safe zone. Pairs with the white background (values/ic_launcher_background.xml). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <group android:translateX="18.16" android:translateY="18.16" android:scaleX="0.14" android:scaleY="0.14">
+        <path android:fillColor="#FF304BEE" android:pathData="M128 184V158Q128 146 140 146H372Q384 146 384 158V184" />
+        <path android:fillColor="#FFFFFFFF" android:strokeColor="#FFFFFFFF" android:strokeWidth="16"
+            android:pathData="M148 68H298L360 130V174H148Z" />
+        <path android:fillColor="#FFFF854A" android:pathData="M160 78H296V124Q296 140 312 140H348V162H160Z" />
+        <path android:fillColor="#FFFF854A" android:pathData="M308 78L348 128H308Z" />
+        <path android:fillColor="#FF304BEE"
+            android:pathData="M104 176H408A40 40 0 0 1 448 216V332A40 40 0 0 1 408 372H104A40 40 0 0 1 64 332V216A40 40 0 0 1 104 176Z" />
+        <path android:strokeColor="#FFFFFFFF" android:strokeWidth="32" android:strokeLineCap="round"
+            android:strokeLineJoin="round" android:pathData="M136 216H198C242 216 242 272 198 272H136V328" />
+        <path android:strokeColor="#FFFFFFFF" android:strokeWidth="32" android:strokeLineCap="round"
+            android:strokeLineJoin="round"
+            android:pathData="M376 216H310C268 216 268 272 310 272H342C386 272 386 328 342 328H288" />
+        <path android:fillColor="#FFFFFFFF" android:strokeColor="#FF304BEE" android:strokeWidth="22"
+            android:strokeLineJoin="round" android:pathData="M170 356H342L372 426Q375 440 360 440H152Q137 440 141 426Z" />
+        <path android:strokeColor="#FFFF854A" android:strokeWidth="20" android:strokeLineCap="round"
+            android:pathData="M196 394H316" />
+    </group>
+</vector>

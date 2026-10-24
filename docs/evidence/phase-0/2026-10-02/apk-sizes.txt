@@ -1,0 +1,3 @@
+app-debug.apk: 4166385 B (filesystem)
+app-release.apk: 3208980 B (filesystem; budget 10 MB)
+Note: apkanalyzer.bat in cmdline-tools 23.0 fails on SDK paths containing spaces (ClassNotFoundException on '<user>\AppData...'); sizes taken from the filesystem instead.

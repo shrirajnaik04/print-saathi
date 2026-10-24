@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- Android 11+: lets the app see which print services are installed (Brother plugin, Mopria; PLAN §D4). -->
+    <queries>
+        <intent>
+            <action android:name="android.printservice.PrintService" />
+        </intent>
+    </queries>
+
+    <application
+        android:allowBackup="false"
+        android:fullBackupContent="@xml/backup_rules"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/AppTheme">
+
+        <activity
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode|navigation|density|fontScale"
+            android:name=".MainActivity"
+            android:label="@string/title_activity_main"
+            android:theme="@style/AppTheme.NoActionBarLaunch"
+            android:launchMode="singleTask"
+            android:exported="true">
+
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <!-- Share target (PLAN §D1). Mixed shares arrive as */* and match any filter with types,
+                 so */* itself is NOT declared (keeps PrintSaathi out of video/text share sheets).
+                 Office types are received only to explain "ask the customer for a PDF". -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <action android:name="android.intent.action.SEND_MULTIPLE" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="image/*" />
+                <data android:mimeType="application/pdf" />
+                <data android:mimeType="application/octet-stream" />
+                <data android:mimeType="application/msword" />
+                <data android:mimeType="application/vnd.openxmlformats-officedocument.wordprocessingml.document" />
+                <data android:mimeType="application/vnd.ms-excel" />
+                <data android:mimeType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" />
+                <data android:mimeType="application/vnd.ms-powerpoint" />
+                <data android:mimeType="application/vnd.openxmlformats-officedocument.presentationml.presentation" />
+            </intent-filter>
+
+        </activity>
+
+        <!-- Native explanation when the phone's WebView is too old (not exported). -->
+        <activity android:name=".WebViewGateActivity" android:exported="false" android:theme="@style/AppTheme.NoActionBar" />
+
+        <!-- Isolated engine (PLAN §B): parses every customer file with no permissions and no file access. -->
+        <service
+            android:name=".engine.isolated.EngineService"
+            android:exported="false"
+            android:isolatedProcess="true"
+            android:process=":engine" />
+
+        <!-- No FileProvider: Capacitor's template one served only WebView camera capture, which PrintSaathi
+             never uses, and it exposed cache/external paths to our own process (Gate 2 finding 3). -->
+
+        <!-- Only MainActivity may be exported (both variants). AndroidX's ProfileInstallReceiver (exported,
+             DUMP-protected) exists for benchmarking via adb; baseline profiles still install at startup. -->
+        <receiver
+            android:name="androidx.profileinstaller.ProfileInstallReceiver"
+            tools:ignore="MissingClass"
+            tools:node="remove" />
+        <!-- Daily deletion of old customer files (PLAN §E). Only the system may start it. -->
+        <service
+            android:name=".engine.jobs.RetentionJobService"
+            android:exported="false"
+            android:permission="android.permission.BIND_JOB_SERVICE" />
+    </application>
+
+    <!-- Permissions. INTERNET is only for debug live-reload; release removes it (src/release/AndroidManifest.xml). -->
+
+    <uses-permission android:name="android.permission.INTERNET" />
+</manifest>

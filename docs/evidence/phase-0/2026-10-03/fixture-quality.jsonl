@@ -1,0 +1,16 @@
+{"device":"api35","engine":"108mp-2048.rgba","size":"2048x1536","psnrDb":54.28,"ssim":0.9977,"worstRow":1087,"worstRowPsnrDb":42.91}
+{"device":"api24","engine":"108mp-2048.rgba","size":"2048x1536","psnrDb":54.28,"ssim":0.9977,"worstRow":1087,"worstRowPsnrDb":42.91}
+{"device":"api35","engine":"108mp-3508.rgba","size":"3508x2631","psnrDb":88.66,"ssim":1,"worstRow":438,"worstRowPsnrDb":55.9}
+{"device":"api24","engine":"108mp-3508.rgba","size":"3508x2631","psnrDb":88.66,"ssim":1,"worstRow":438,"worstRowPsnrDb":55.9}
+{"device":"api35","engine":"108mp-420-2048.rgba","size":"2048x1536","psnrDb":50.81,"ssim":0.9977,"worstRow":512,"worstRowPsnrDb":34.97}
+{"device":"api24","engine":"108mp-420-2048.rgba","size":"2048x1536","psnrDb":50.81,"ssim":0.9977,"worstRow":512,"worstRowPsnrDb":34.97}
+{"device":"api35","engine":"108mp-420-3508.rgba","size":"3508x2631","psnrDb":86.44,"ssim":1,"worstRow":438,"worstRowPsnrDb":55.38}
+{"device":"api24","engine":"108mp-420-3508.rgba","size":"3508x2631","psnrDb":86.44,"ssim":1,"worstRow":438,"worstRowPsnrDb":55.38}
+{"device":"api35","engine":"108mp-prog-odd-2048.rgba","size":"2048x1536","psnrDb":51.86,"ssim":0.9977,"worstRow":1502,"worstRowPsnrDb":36.07}
+{"device":"api24","engine":"108mp-prog-odd-2048.rgba","size":"2048x1536","psnrDb":51.86,"ssim":0.9977,"worstRow":1502,"worstRowPsnrDb":36.07}
+{"device":"api35","engine":"108mp-prog-odd-3508.rgba","size":"3508x2631","psnrDb":null,"ssim":1,"worstRow":-1,"worstRowPsnrDb":null}
+{"device":"api24","engine":"108mp-prog-odd-3508.rgba","size":"3508x2631","psnrDb":null,"ssim":1,"worstRow":-1,"worstRowPsnrDb":null}
+{"device":"api35","engine":"48mp-odd-2048.rgba","size":"2048x1536","psnrDb":null,"ssim":1,"worstRow":-1,"worstRowPsnrDb":null}
+{"device":"api24","engine":"48mp-odd-2048.rgba","size":"2048x1536","psnrDb":null,"ssim":1,"worstRow":-1,"worstRowPsnrDb":null}
+{"device":"api35","engine":"48mp-odd-3508.rgba","size":"3508x2631","psnrDb":null,"ssim":1,"worstRow":-1,"worstRowPsnrDb":null}
+{"device":"api24","engine":"48mp-odd-3508.rgba","size":"3508x2631","psnrDb":null,"ssim":1,"worstRow":-1,"worstRowPsnrDb":null}

@@ -1,0 +1,3 @@
+Android 11 (API 30)
+share matrix exit 0
+privacy hits in app log lines: 1

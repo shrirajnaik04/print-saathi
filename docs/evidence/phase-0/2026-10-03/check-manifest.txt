@@ -1,0 +1,5 @@
+# 2026-10-03T02:10:16+05:30 — aapt2 from build-tools 37.0.0; APKs built from HEAD c5e4b66 + working tree (Gate 3 fixes)
+ok   android\app\build\outputs\apk\release\app-release.apk (binary manifest via aapt2)
+ok   android\app\build\outputs\apk\debug\app-debug.apk (binary manifest via aapt2)
+-rw-r--r-- 1 user 197121 4397293 Oct  3 02:03 android/app/build/outputs/apk/debug/app-debug.apk
+-rw-r--r-- 1 user 197121 3353778 Oct  3 02:09 android/app/build/outputs/apk/release/app-release.apk

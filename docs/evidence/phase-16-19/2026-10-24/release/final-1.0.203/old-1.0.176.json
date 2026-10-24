@@ -1,0 +1,33 @@
+{
+  "label": "old-1.0.176",
+  "apk": "PrintSaathi-1.0.176-8bcaf35.apk",
+  "runs": [
+    {
+      "totalMs": 992,
+      "seq": "LAUNCHER 0.0-1.2s -> BLANK 1.2-2.3s -> WHITE 2.3-2.4s -> BLANK 2.4-3.8s -> APP 3.8-4.1s",
+      "homeAfterStartS": 2.6
+    },
+    {
+      "totalMs": 947,
+      "seq": "LAUNCHER 0.0-1.2s -> BLANK 1.2-3.9s -> APP 3.9-4.2s",
+      "homeAfterStartS": 2.7
+    },
+    {
+      "totalMs": 914,
+      "seq": "LAUNCHER 0.0-1.1s -> BLANK 1.1-3.9s -> APP 3.9-4.3s",
+      "homeAfterStartS": 2.8
+    },
+    {
+      "totalMs": 990,
+      "seq": "LAUNCHER 0.0-1.1s -> BLANK 1.1-3.9s -> APP 3.9-4.2s",
+      "homeAfterStartS": 2.8
+    },
+    {
+      "totalMs": 982,
+      "seq": "LAUNCHER 0.0-1.1s -> BLANK 1.1-3.9s -> APP 3.9-4.3s",
+      "homeAfterStartS": 2.8
+    }
+  ],
+  "medianTotalMs": 982,
+  "medianHomeAfterStartS": 2.8
+}

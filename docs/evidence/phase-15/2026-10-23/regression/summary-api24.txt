@@ -1,0 +1,10 @@
+tests/fixtures-large/108mp.jpg: 1 file pushed, 0 skipped. 76.0 MB/s (18083168 bytes in 0.227s)
+tests/fixtures-large/108mp-420.jpg: 1 file pushed, 0 skipped. 61.2 MB/s (10847586 bytes in 0.169s)
+tests/fixtures-large/108mp-prog-odd.jpg: 1 file pushed, 0 skipped. 76.2 MB/s (9472367 bytes in 0.118s)
+tests/fixtures-large/48mp-odd.png: 1 file pushed, 0 skipped. 53.8 MB/s (20967215 bytes in 0.372s)
+docs/evidence/phase-15/2026-10-23/regression/instrumentation-api24.txt: 65 passed, 0 failed, 6 skipped (skipped: in.printsaathi.app.AccessibilityJourneyDeviceTest#j1PhotosOnOnePageReachThePrintScreenByScreenReaderActionsOnly, in.printsaathi.app.AccessibilityJourneyDeviceTest#j5APdfReachesThePrintScreenByScreenReaderActionsOnly, in.printsaathi.app.AppSafetyDeviceTest#aDeadWebRendererRebuildsTheScreenAndCountsAsACrash, in.printsaathi.app.engine.EngineHeifTest#rotatedHeicDecodesUprightInTheNonIsolatedHeifProcess, in.printsaathi.app.engine.EngineHeifTest#rotatedHeicInTheIsolatedEngineIsUprightOrAContainedFailure, in.printsaathi.app.engine.PdfOpenSpikeTest#wrongPasswordIsRefused)
+api24 share:      15 "verdict": "PASS" 
+Android 7.0 (API 24)
+render check exit 0
+share matrix exit 0
+privacy hits in app log lines: 0

@@ -1,0 +1,67 @@
+{
+  "scenario": "PHOTO_4X6 x1 DOCUMENT COLOUR",
+  "finished": true,
+  "layouts": [
+    {
+      "preview": true,
+      "mediaId": "NA_INDEX_4X6",
+      "mediaMils": "4000x6000",
+      "portrait": true,
+      "minMarginsMils": "0,0,0,0",
+      "colorMode": 2,
+      "decision": "REAL_DOCUMENT"
+    },
+    {
+      "preview": true,
+      "mediaId": "NA_LETTER",
+      "mediaMils": "8500x11000",
+      "portrait": true,
+      "minMarginsMils": "0,0,0,0",
+      "colorMode": 2,
+      "decision": "WARNING_PAGE"
+    },
+    {
+      "preview": false,
+      "mediaId": "NA_LETTER",
+      "mediaMils": "8500x11000",
+      "portrait": true,
+      "minMarginsMils": "0,0,0,0",
+      "colorMode": 2,
+      "decision": "FAIL"
+    },
+    {
+      "preview": true,
+      "mediaId": "NA_LETTER",
+      "mediaMils": "8500x11000",
+      "portrait": true,
+      "minMarginsMils": "0,0,0,0",
+      "colorMode": 2,
+      "decision": "WARNING_PAGE"
+    },
+    {
+      "preview": true,
+      "mediaId": "NA_INDEX_4X6",
+      "mediaMils": "4000x6000",
+      "portrait": true,
+      "minMarginsMils": "0,0,0,0",
+      "colorMode": 2,
+      "decision": "REAL_DOCUMENT"
+    },
+    {
+      "preview": false,
+      "mediaId": "NA_INDEX_4X6",
+      "mediaMils": "4000x6000",
+      "portrait": true,
+      "minMarginsMils": "0,0,0,0",
+      "colorMode": 2,
+      "decision": "REAL_DOCUMENT"
+    }
+  ],
+  "jobState": "completed",
+  "printerId": "PrinterId{serviceName=com.android.printspooler\/com.android.printspooler.ui.PrintActivity, localId=PDF printer}",
+  "printerLocalId": "PDF printer",
+  "savedAsPdf": true,
+  "finalMediaMils": "4000x6000",
+  "finalColorMode": 2,
+  "copies": 1
+}

@@ -1,0 +1,4 @@
+ROTATE-METRIC right-aligned pages (limitation): applied 120/120, wrong 120
+ROTATE-METRIC applied by the app (quarter turns only): left-aligned 198/400 turned, 0 wrong (upside-down pages are left for faces or the shopkeeper); right-aligned 60/120 turned, 60 wrong
+ROTATE-METRIC text: applied 396/400, right 396 (precision 1.000), abstained 4; wrong 
+ROTATE-METRIC centred and justified: applied 96/240, all right

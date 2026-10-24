@@ -1,0 +1,7 @@
+INSTRUMENTATION_STATUS: hostile=zero.pdf facts=[-103]  render=EngineFileException 205ms
+INSTRUMENTATION_STATUS: hostile=garbage.pdf facts=[-103]  render=EngineFileException 6ms
+INSTRUMENTATION_STATUS: hostile=truncated.pdf facts=[-103]  render=EngineFileException 3ms
+INSTRUMENTATION_STATUS: hostile=badxref.pdf facts=[1, 0, 595, 841]  render=ok 57ms
+INSTRUMENTATION_STATUS: hostile=bomb.pdf facts=[1, 0, 595, 841]  render=ok 2102ms
+INSTRUMENTATION_STATUS: hostile=bigimage.pdf facts=[1, 0, 595, 841]  render=ok 618ms
+OK (6 tests)

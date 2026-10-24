@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The app's background (src/styles/tokens.css, the bg token): the splash hands over to the first screen without a flash. -->
+    <color name="splash_background">#F3F4F6</color>
+</resources>

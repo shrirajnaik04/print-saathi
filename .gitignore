@@ -1,0 +1,51 @@
+node_modules/
+dist/
+coverage/
+.superpowers/
+*.log
+# Android
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+android/.idea/
+android/captures/
+*.keystore
+*.jks
+# Large generated fixtures (regenerate with tests/generate/*)
+tests/fixtures-large/
+# Playwright
+test-results/
+playwright-report/
+.DS_Store
+Thumbs.db
+# Build outputs and secrets that must never be committed
+*.apk
+*.aab
+*.hprof
+.env
+.env.*
+android/**/build/
+# Customer files are never committed (PLAN §R test fixtures)
+customer-files/
+test-results/
+.playwright-mcp/
+# Release APKs (scripts/check-release.mjs)
+/release/
+# Release signing must never be in the repo (Phase 12)
+signing.properties
+*.p12
+
+# Release APK copies for testing (npm run android:release, copied by hand)
+/apk/
+
+# The owner's brand pack as delivered (the production masters are copied into assets/brand/), and their own
+# sample photos: never committed.
+/PrintSaathi-v3/
+/size that we use for passport size photo.jpg
+
+# Kotlin compiler session files (Kotlin 2.x writes them next to the Gradle build)
+android/.kotlin/
+
+# Security audit reports: maps of open issues, never committed (security-audit skill)
+SECURITY-AUDIT-*

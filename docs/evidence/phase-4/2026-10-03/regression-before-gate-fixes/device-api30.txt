@@ -1,0 +1,4 @@
+Android 11 (API 30)
+render check exit 0
+share matrix exit 1
+privacy hits in app log lines: 0

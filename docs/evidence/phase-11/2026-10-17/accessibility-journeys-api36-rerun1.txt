@@ -1,0 +1,37 @@
+INSTRUMENTATION_STATUS: class=in.printsaathi.app.AccessibilityJourneyDeviceTest
+INSTRUMENTATION_STATUS: current=1
+INSTRUMENTATION_STATUS: id=AndroidJUnitRunner
+INSTRUMENTATION_STATUS: numtests=2
+INSTRUMENTATION_STATUS: stream=
+in.printsaathi.app.AccessibilityJourneyDeviceTest:
+INSTRUMENTATION_STATUS: test=j1PhotosOnOnePageReachThePrintScreenByScreenReaderActionsOnly
+INSTRUMENTATION_STATUS_CODE: 1
+INSTRUMENTATION_STATUS: class=in.printsaathi.app.AccessibilityJourneyDeviceTest
+INSTRUMENTATION_STATUS: current=1
+INSTRUMENTATION_STATUS: id=AndroidJUnitRunner
+INSTRUMENTATION_STATUS: numtests=2
+INSTRUMENTATION_STATUS: stream=.
+INSTRUMENTATION_STATUS: test=j1PhotosOnOnePageReachThePrintScreenByScreenReaderActionsOnly
+INSTRUMENTATION_STATUS_CODE: 0
+INSTRUMENTATION_STATUS: class=in.printsaathi.app.AccessibilityJourneyDeviceTest
+INSTRUMENTATION_STATUS: current=2
+INSTRUMENTATION_STATUS: id=AndroidJUnitRunner
+INSTRUMENTATION_STATUS: numtests=2
+INSTRUMENTATION_STATUS: stream=
+INSTRUMENTATION_STATUS: test=j5APdfReachesThePrintScreenByScreenReaderActionsOnly
+INSTRUMENTATION_STATUS_CODE: 1
+INSTRUMENTATION_STATUS: class=in.printsaathi.app.AccessibilityJourneyDeviceTest
+INSTRUMENTATION_STATUS: current=2
+INSTRUMENTATION_STATUS: id=AndroidJUnitRunner
+INSTRUMENTATION_STATUS: numtests=2
+INSTRUMENTATION_STATUS: stream=.
+INSTRUMENTATION_STATUS: test=j5APdfReachesThePrintScreenByScreenReaderActionsOnly
+INSTRUMENTATION_STATUS_CODE: 0
+INSTRUMENTATION_RESULT: stream=
+
+Time: 28.159
+
+OK (2 tests)
+
+
+INSTRUMENTATION_CODE: -1

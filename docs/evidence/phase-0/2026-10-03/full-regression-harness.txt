@@ -1,0 +1,49 @@
+# Full HARNESS regression — 2026-10-03T02:37:14+05:30, HEAD 898e48f + working tree
+
+## npm run verify
+exit 0
+      Tests  56 passed (56)
+✔ counts passed, failed and skipped tests separately (OK (n tests) hides skips) (3.5692ms)
+✔ a share that never arrived is a FAIL, not a blank row (0.6375ms)
+✔ a hostile share that only failed to copy is a FAIL (the policy did not catch it) (1.3842ms)
+ℹ pass 49
+ℹ fail 0
+
+## npm run build
+exit 0
+
+## npm run size
+exit 0
+ok   js: 16391 B gzip (budget 61440 B)
+ok   css: 2017 B gzip (budget 15360 B)
+
+## npm run test:e2e
+exit 0
+  62 passed (11.0s)
+
+## npm run android:test
+exit 0
+BUILD SUCCESSFUL in 39s
+
+## npm run android:build
+exit 0
+BUILD SUCCESSFUL in 9s
+
+## npm run android:release
+exit 0
+BUILD SUCCESSFUL in 32s
+ok   android\app\build\outputs\apk\release\app-release.apk (binary manifest via aapt2)
+
+## node scripts/check-manifest.mjs debug
+ok   android\app\build\outputs\apk\debug\app-debug.apk (binary manifest via aapt2)
+exit 0
+
+## JVM test count
+JVM tests 68 skipped 0 failures 0
+
+## device regression (scripts/device/regress.sh, 2026-10-03)
+docs/evidence/phase-0/2026-10-03/final-regression/instrumentation-api24-2gb.txt: 23 passed, 0 failed, 3 skipped
+docs/evidence/phase-0/2026-10-03/final-regression/instrumentation-api28-2gb.txt: 23 passed, 0 failed, 3 skipped
+docs/evidence/phase-0/2026-10-03/final-regression/instrumentation-api30.txt: 23 passed, 0 failed, 3 skipped
+docs/evidence/phase-0/2026-10-03/final-regression/instrumentation-api35.txt: 26 passed, 0 failed, 0 skipped
+docs/evidence/phase-0/2026-10-03/final-regression/instrumentation-api36.txt: 26 passed, 0 failed, 0 skipped

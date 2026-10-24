@@ -1,0 +1,41 @@
+{
+  "serial": "emulator-5580",
+  "when": "2026-10-22T19:43:34.526Z",
+  "coldStartTotalTimeMs": 1360,
+  "coldStartToHomeMs": 2124,
+  "idleKb": {
+    "app": 119024,
+    "engine": 0,
+    "webview": 101133
+  },
+  "share6ToReceivedMs": 3666,
+  "share6ToReceivedShownMs": 328,
+  "share6ToThumbnailsMs": 3828,
+  "choiceToReadyScreen6Ms": 6535,
+  "choiceToReadyFile6Ms": 8566,
+  "marks6": {
+    "choiceToReady": 121,
+    "choiceToFileMade": 2419,
+    "choiceToFileShown": 2727,
+    "blackEdgeCheck": 57
+  },
+  "share20ToReceivedMs": 10838,
+  "share20ToThumbnailsMs": 16622,
+  "twentyBigChoiceToReadyScreenMs": 13548,
+  "twentyBigChoiceToReadyFileMs": 14675,
+  "marks20": {
+    "choiceToReady": 3717,
+    "choiceToFileShown": 11660,
+    "blackEdgeCheck": 3685
+  },
+  "twentyBigOnTwoPagesMs": 2121,
+  "marks20TwoPages": {
+    "readyToFileShown": null
+  },
+  "peakKbTwentyBig": {
+    "app": 117410,
+    "engine": 51926,
+    "webview": 126637,
+    "total": 295973
+  }
+}

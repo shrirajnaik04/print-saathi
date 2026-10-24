@@ -1,0 +1,3 @@
+Android 9 (API 28)
+share matrix exit 0
+privacy hits in app log lines: 2

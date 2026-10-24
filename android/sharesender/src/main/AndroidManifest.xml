@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- testOnly: Android refuses a normal install, so it cannot end up on a real phone by accident (adb install -t only). -->
+    <application android:label="PS Share Sender (test)" android:allowBackup="false" android:testOnly="true">
+        <!-- Exported so adb can drive it: am start -n in.printsaathi.sharesender/.SendActivity -e mode six-photos -->
+        <activity android:name=".SendActivity" android:exported="true" android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="in.printsaathi.sharesender.files"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/paths" />
+        </provider>
+        <!-- Misbehaving streams for the hostile-provider suite (lying length, stall, endless, …). -->
+        <provider
+            android:name=".HostileProvider"
+            android:authorities="in.printsaathi.sharesender.hostile"
+            android:exported="false"
+            android:grantUriPermissions="true" />
+    </application>
+</manifest>

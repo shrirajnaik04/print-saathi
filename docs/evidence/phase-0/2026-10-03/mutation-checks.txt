@@ -1,0 +1,26 @@
+## 1. Manifest checker with checkManifest() replaced by 'return []' (every rule test must fail)
+✔ an APK older than any source file is stale (0.0916ms)
+✔ files cap sync regenerates are not treated as APK sources (Gradle tracks their content) (0.1798ms)
+✔ parser nests elements by indentation and attaches attributes to the right element (1.0555ms)
+✔ text that merely looks like an attribute inside a string value is ignored (0.2702ms)
+✔ the real release manifest passes (0.8518ms)
+✖ EngineService must exist, be isolated and not exported (0.3339ms)
+✖ INTERNET is rejected in release and allowed in debug (5.1339ms)
+✖ MainActivity must exist and be exported (0.2635ms)
+✖ a non-android attribute with the same local name cannot override android:exported (0.2865ms)
+✖ an activity with an intent filter and no exported attribute counts as exported (0.3296ms)
+✖ an exported activity-alias is rejected (0.281ms)
+✖ any exported service, provider or receiver is rejected (0.3522ms)
+✖ any other permission is rejected in both variants (0.3851ms)
+✖ backup and transfer settings are required (0.2987ms)
+✖ debuggable and cleartext traffic are rejected in release (0.3147ms)
+✖ failing tests:
+✖ only the exact MainActivity may be exported (0.3185ms)
+✖ security attributes given as resource references are rejected (cannot be proven statically) (0.2546ms)
+✖ uses-permission-sdk-23 INTERNET is rejected in release (0.3029ms)
+
+## 2. Gradle STRICT locking: add an unlocked dependency (gson 2.11.0) to :app
+   > Resolved 'com.google.errorprone:error_prone_annotations:2.27.0' which is not part of the dependency lock state
+   > Resolved 'com.google.code.gson:gson:2.11.0' which is not part of the dependency lock state
+BUILD FAILED in 1s
+restored build.gradle: 

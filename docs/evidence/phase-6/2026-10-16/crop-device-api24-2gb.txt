@@ -1,0 +1,4 @@
+INSTRUMENTATION_STATUS: crop=108 MP: 90 % crop 3508x2631 peak 141 MB; 10 % crop 531x398 peak 141 MB
+OK (9 tests)
+API 35 PlanRenderDeviceTest (before the strip change): OK (8 tests)
+API 24 full instrumentation after the strip change: 35 passed, 0 failed, 4 skipped (by design)

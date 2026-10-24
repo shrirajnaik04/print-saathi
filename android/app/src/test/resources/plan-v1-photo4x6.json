@@ -1,0 +1,57 @@
+{
+  "planHash": "c667014ba14ebe40",
+  "plan": {
+    "v": 1,
+    "jobId": "j",
+    "rev": 1,
+    "paper": {
+      "id": "PHOTO_4x6",
+      "wPt": 288,
+      "hPt": 432
+    },
+    "colour": "colour",
+    "copies": 1,
+    "contentType": "document",
+    "pages": [
+      {
+        "orientation": "portrait",
+        "placements": [
+          {
+            "itemIndex": 1,
+            "crop": {
+              "x": 0,
+              "y": 0,
+              "w": 1,
+              "h": 1
+            },
+            "turns": 0,
+            "style": "original",
+            "box": {
+              "x": 58.11023622027444,
+              "y": 11.33858267670336,
+              "w": 171.7795275594511,
+              "h": 229.03937007926814
+            }
+          },
+          {
+            "itemIndex": 2,
+            "crop": {
+              "x": 0,
+              "y": 0,
+              "w": 1,
+              "h": 1
+            },
+            "turns": 0,
+            "style": "original",
+            "box": {
+              "x": 15.165354330411667,
+              "y": 248.88188976384552,
+              "w": 257.66929133917665,
+              "h": 171.7795275594511
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,13 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<testsuite name="in.printsaathi.app.engine.CardEngineDeviceTest" tests="5" failures="0" errors="0" skipped="0" time="3.415" timestamp="2026-10-22T22:21:59" hostname="localhost">
+  <properties>
+    <property name="device" value="ps_api24_2gb(AVD) - 7.0" />
+    <property name="flavor" value="" />
+    <property name="project" value=":app" />
+  </properties>
+  <testcase name="hostileBytesFailContainedNeverCrashingTheApp" classname="in.printsaathi.app.engine.CardEngineDeviceTest" time="0.527" />
+  <testcase name="findsTheCardInAPhotoWithin1Point5PercentOfTheDiagonal" classname="in.printsaathi.app.engine.CardEngineDeviceTest" time="0.515" />
+  <testcase name="findsBothCardPanelsOnAnEAadhaarLikePage" classname="in.printsaathi.app.engine.CardEngineDeviceTest" time="0.901" />
+  <testcase name="aBlankImageHasNoFace" classname="in.printsaathi.app.engine.CardEngineDeviceTest" time="0.132" />
+  <testcase name="aStraightenedCardIsExactlyItsSizeAndKeepsItsColour" classname="in.printsaathi.app.engine.CardEngineDeviceTest" time="0.389" />
+</testsuite>

@@ -1,0 +1,12 @@
+SEND type='*/*' → PrintSaathi listed: 1
+SEND_MULTIPLE type='*/*' → PrintSaathi listed: 1
+SEND type='video/mp4' → PrintSaathi listed: 0
+SEND_MULTIPLE type='video/mp4' → PrintSaathi listed: 0
+SEND type='text/plain' → PrintSaathi listed: 0
+SEND_MULTIPLE type='text/plain' → PrintSaathi listed: 0
+SEND type='application/pdf' → PrintSaathi listed: 1
+SEND_MULTIPLE type='application/pdf' → PrintSaathi listed: 1
+SEND type='image/*' → PrintSaathi listed: 1
+SEND_MULTIPLE type='image/*' → PrintSaathi listed: 1
+SEND type='multipart/mixed' → PrintSaathi listed: 0
+SEND_MULTIPLE type='multipart/mixed' → PrintSaathi listed: 0

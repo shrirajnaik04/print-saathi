@@ -1,0 +1,18 @@
+{
+  "device": "API 35",
+  "steps": [
+    "release APK installed",
+    "photos → All on one page → Ready → PRINT → print screen",
+    "back from the print screen: the result screen",
+    "PDF → Ready",
+    "locked PDF → Unlock (RAMA + 1965) → Ready",
+    "update in place (install -r): the shop name is still there",
+    "daily cleanup job run in a cold process"
+  ],
+  "webViewDevtoolsSocket": false,
+  "appLogLines": 252,
+  "infoOrDebugLines": 0,
+  "appCrash": false,
+  "appRunning": true,
+  "pass": true
+}

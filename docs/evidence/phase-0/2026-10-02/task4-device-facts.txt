@@ -1,0 +1,13 @@
+API 35 (Medium_Tablet, Google Pixel Tablet image): pdfUnlockTier=NATIVE_35, sExtensionLevel=13, WebView com.google.android.webview 151.0.7922.199, RAM 3.8 GB, memoryClass 192 MB (large 576).
+Cold start (first launch after install, swiftshader software GPU, includes dex compilation): TotalTime 8437 ms - NOT representative of a phone; real cold-start measured in Phase 10.
+Screenshot: task4-device-facts-api35.png
+API 24 / API 30 runs: pending system-image download (added when AVDs exist).
+
+API 24 (ps_api24_2gb, 2 GB): factory WebView = com.android.chrome 69.0.3497.100 (no Play updates on google_apis image).
+FINDING: the Capacitor UI was a BLANK white screen (WebView 69 < our build target chrome92; Capacitor 8 itself needs >= 60).
+FIX (pulled forward from Phase 1, PLAN §D6): native WebViewGateActivity — works without the WebView, explains
+"update Android System WebView", Play Store button, and shows the phone facts. WebViewGateTest 3/3 (JVM).
+Verified: API 24 → WebViewGateActivity on top (task4-webview-gate-api24-2gb.png); API 35 (WebView 151) → MainActivity.
+Also fixed: DeviceFacts used WebView.getCurrentWebViewPackage (API 26+) → now WebViewCompat (works on API 24).
+LIMITATION: UI tests on Android 7–9 emulators need a Play-updated WebView (google_apis images ship 69); Phase 1 must
+use *_playstore images or a real old phone. Native engine tests are unaffected (they ran on API 24).

@@ -1,0 +1,3 @@
+INSTRUMENTATION_STATUS: ocvA4=docs/text.pdf: 2482x3508 in 3829 ms, engine PSS after 25321 KB
+INSTRUMENTATION_STATUS: ocvA4=docs/photo.pdf: 2482x3508 in 3530 ms, engine PSS after 25452 KB
+OK (6 tests)

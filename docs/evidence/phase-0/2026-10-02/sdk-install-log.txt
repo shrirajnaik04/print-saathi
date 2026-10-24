@@ -1,0 +1,20 @@
+android CLI 1.0.16486076 (cmdline-tools 23.0). Installs run strictly one at a time (an earlier parallel attempt was stopped).
+=== android-24: exit after wait
+Unzipping system-images/android-28/google_apis/x86_64... [....................]   0% (   1.7 MB/   2.6 GB) ETA: ----- 
+Unzipping system-images/android-28/google_apis/x86_64... [###################.]  96% (   2.5 GB/   2.6 GB) ETA:    1s 
+Unzipping system-images/android-28/google_apis/x86_64... [####################] 100% (   2.6 GB/   2.6 GB) ETA: ----- 
+=== system-images/android-28/google_apis/x86_64 exit=0 in 434s
+Unzipping system-images/android-30/google_apis/x86_64... [###################.]  95% (   3.0 GB/   3.2 GB) ETA:    1s 
+Unzipping system-images/android-30/google_apis/x86_64... [###################.]  99% (   3.2 GB/   3.2 GB) ETA:    1s 
+Unzipping system-images/android-30/google_apis/x86_64... [####################] 100% (   3.2 GB/   3.2 GB) ETA: ----- 
+=== system-images/android-30/google_apis/x86_64 exit=0 in 491s
+Unzipping system-images/android-36/google_apis/x86_64... [....................]   0% (  19.3 MB/   4.3 GB) ETA:   32s 
+Unzipping system-images/android-36/google_apis/x86_64... [###################.]  97% (   4.2 GB/   4.3 GB) ETA:    1s 
+Unzipping system-images/android-36/google_apis/x86_64... [####################] 100% (   4.3 GB/   4.3 GB) ETA: ----- 
+=== system-images/android-36/google_apis/x86_64 exit=0 in 667s
+installed: android-24\google_apis\x86_64  Pkg.Revision=27
+installed: android-28\google_apis\x86_64  Pkg.Revision=11
+installed: android-30\google_apis\x86_64  Pkg.Revision=16
+installed: android-35\google_apis_playstore_tablet\x86_64  Pkg.Revision=9
+installed: android-36\google_apis\x86_64  Pkg.Revision=7
+installed: android-37.0\google_apis_playstore_ps16k\x86_64  Pkg.Revision=6

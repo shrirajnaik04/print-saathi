@@ -1,0 +1,115 @@
+apply plugin: 'com.android.application'
+apply plugin: 'org.jetbrains.kotlin.android'
+
+def gitOut(String... args) {
+    try {
+        def p = (['git'] + args.toList()).execute(null, rootProject.projectDir)
+        p.waitFor()
+        return p.exitValue() == 0 ? p.text.trim() : null
+    } catch (ignored) {
+        return null
+    }
+}
+def gitCommitCount() { (gitOut('rev-list', '--count', 'HEAD') ?: '1').toInteger() }
+def gitShortSha() { gitOut('rev-parse', '--short', 'HEAD') ?: 'dev' }
+
+android {
+    // Instrumentation tests read the committed synthetic fixtures straight from the repo (no copies).
+    sourceSets {
+        androidTest.assets.srcDirs += ['../../tests/fixtures']
+    }
+    namespace = "in.printsaathi.app"
+    compileSdk = rootProject.ext.compileSdkVersion
+    defaultConfig {
+        applicationId "in.printsaathi.app"
+        minSdkVersion rootProject.ext.minSdkVersion
+        targetSdkVersion rootProject.ext.targetSdkVersion
+        // Every build gets a rising number (commits so far) and names its commit, so updates install over older ones and
+        // a problem report says exactly which build it came from (Phase 12 review I4). Read-only git, in this repo.
+        versionCode gitCommitCount()
+        versionName "1.0.${gitCommitCount()} (${gitShortSha()})"
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        aaptOptions {
+             // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
+             // Default: https://android.googlesource.com/platform/frameworks/base/+/282e181b58cf72b6ca770dc7ca5f91f135444502/tools/aapt/AaptAssets.cpp#61
+            ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
+        }
+    }
+    buildFeatures {
+        aidl true
+        buildConfig true
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_21
+        targetCompatibility JavaVersion.VERSION_21
+    }
+    kotlinOptions {
+        jvmTarget = '21'
+    }
+    // Release signing (Phase 12): the key lives outside the repo (scripts/release-key.mjs makes it once). Without
+    // it the release APK is left unsigned and `npm run android:release` stops with the reason.
+    def signingFile = file(System.getenv('PRINTSAATHI_SIGNING') ?: "${System.getProperty('user.home')}/.printsaathi/signing.properties")
+    // The keystore sits next to signing.properties (a relative storeFile), so the backed-up folder works on any PC.
+    // An incomplete file never breaks debug builds or tests: the release APK is then just left unsigned.
+    def signingProps = new Properties()
+    if (signingFile.exists()) signingFile.withInputStream { signingProps.load(it) }
+    def signingReady = ['storeFile', 'storePassword', 'keyAlias', 'keyPassword'].every { signingProps.getProperty(it) }
+    signingConfigs {
+        if (signingReady) {
+            release {
+                def store = new File(signingProps.getProperty('storeFile'))
+                storeFile store.isAbsolute() ? store : new File(signingFile.parentFile, store.path)
+                storePassword signingProps.getProperty('storePassword')
+                keyAlias signingProps.getProperty('keyAlias')
+                keyPassword signingProps.getProperty('keyPassword')
+            }
+        }
+    }
+    buildTypes {
+        release {
+            if (signingReady) signingConfig signingConfigs.release
+            // R8: smaller APK; proguard-rules.pro keeps the bridge and the engine, and strips debug logs.
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+}
+
+repositories {
+    flatDir{
+        dirs '../capacitor-cordova-android-plugins/src/main/libs', 'libs'
+    }
+}
+
+dependencies {
+    implementation fileTree(include: ['*.jar'], dir: 'libs')
+    implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
+    implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"
+    implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
+    implementation "androidx.exifinterface:exifinterface:1.4.2"
+    // Already shipped via Capacitor (same version); declared so the app can read the WebView version.
+    implementation "androidx.webkit:webkit:$androidxWebkitVersion"
+    implementation project(':capacitor-android')
+    testImplementation "junit:junit:$junitVersion"
+    // JVM tests only: Android's org.json is a stub off-device; the real one lets journal/job JSON be tested.
+    testImplementation "org.json:json:20250517"
+    androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
+    androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
+    androidTestImplementation "androidx.test:runner:1.7.0"
+    androidTestImplementation "androidx.test:core:1.7.0"
+    androidTestImplementation "androidx.test.uiautomator:uiautomator:2.4.0"
+    // Test-only: writes HEIC fixtures on the device (Gate 2 #4). Not in the app; see docs/decisions/deps-test-tools.md.
+    androidTestImplementation "androidx.heifwriter:heifwriter:1.1.0"
+    implementation project(':capacitor-cordova-android-plugins')
+}
+
+apply from: 'capacitor.build.gradle'
+
+
+// Reproducible dependency graph (PLAN §C versioning policy).
+dependencyLocking {
+    lockAllConfigurations()
+    // STRICT: a configuration without a lock state fails the build instead of resolving freely.
+    lockMode = LockMode.STRICT
+}

@@ -1,0 +1,52 @@
+{
+  "serial": "emulator-5580",
+  "checks": {
+    "adjustPrintsTheSizeShown": true,
+    "biggerPhotoFlowsOnToANewPage": true,
+    "originalPhotoInTheFileByteForByte": true,
+    "uprightPaperByDefault": true,
+    "passportBorder1_5ptOnEveryPhoto": true,
+    "passportOneMmBiggerExactly": true,
+    "galleryOpensThePhotoPicker": true,
+    "pickedPhotoNeverTurnedByTheApp": true,
+    "pickedSidewaysPhotoPrintsUpright": true,
+    "photoNotesLeftOutOfThePrintFile": true
+  },
+  "adjust": {
+    "shown": "13 × 9.7 cm",
+    "firstPlacedMm": [
+      129.77251583333333,
+      97.32937805555554
+    ],
+    "pagesBefore": 1,
+    "pages": 2
+  },
+  "asIs": {
+    "sourceBytes": 21934,
+    "pictureBytes": 21077,
+    "printBytes": 22180
+  },
+  "passport": {
+    "borders": 5,
+    "borderWidths": [
+      1.5
+    ],
+    "placed": 5,
+    "biggerMm": [
+      35.99998444444444,
+      46.30000194444444
+    ]
+  },
+  "cardSource": {
+    "top": "topResumedActivity=ActivityRecord{u0 com.google.android.providers.media.module/com.android.providers.media.photopicker.PhotoPickerActivity t266}\r"
+  },
+  "picked": {
+    "picked": true,
+    "turns": {},
+    "boxMm": [
+      190.14842166666668,
+      284.99999444444444
+    ],
+    "turnedNote": false
+  }
+}

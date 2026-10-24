@@ -1,0 +1,21 @@
+#!/bin/sh
+# Blocks any commit unless lint + typecheck + Vitest + script tests pass (HARNESS.md `npm run verify`), plus
+# Android lint + JVM tests when Android files are staged. Installed with: git config core.hooksPath .githooks
+# Never bypass with --no-verify.
+STAGED_ANDROID=$(git diff --cached --name-only -- android/ | head -1)
+# git exports GIT_INDEX_FILE/GIT_DIR to hooks; preflight (rightly) refuses them, so clear them here — the hook
+# already runs at the repo root, and preflight re-checks the root and git dir itself.
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY GIT_PREFIX
+LOG=${TMPDIR:-/tmp}/printsaathi-verify.log
+npm run verify --silent > "$LOG" 2>&1 || {
+  echo "pre-commit: npm run verify failed — commit blocked. Tail of the log:" >&2
+  tail -25 "$LOG" >&2
+  exit 1
+}
+if [ -n "$STAGED_ANDROID" ]; then
+  npm run android:test --silent > "$LOG" 2>&1 || {
+    echo "pre-commit: npm run android:test (Android lint + JVM tests) failed — commit blocked:" >&2
+    grep -E "e: |Error:|FAILED|What went wrong" "$LOG" | head -20 >&2
+    exit 1
+  }
+fi

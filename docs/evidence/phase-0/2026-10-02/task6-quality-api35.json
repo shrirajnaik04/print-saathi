@@ -1,0 +1,36 @@
+{
+  "source": "12000x9000",
+  "engineOutput": "2048x1536",
+  "referenceMethod": "exact area-average downscale of the decoded source (desktop, jpeg-js)",
+  "overall": {
+    "psnrDb": 41.71,
+    "ssim": 0.9733
+  },
+  "bands": [
+    {
+      "band": "gradients",
+      "psnrDb": 49.35,
+      "ssim": 0.9974
+    },
+    {
+      "band": "colour strips",
+      "psnrDb": 41.82,
+      "ssim": 0.9813
+    },
+    {
+      "band": "photo-like noise",
+      "psnrDb": 37.6,
+      "ssim": 0.8828
+    },
+    {
+      "band": "checkerboard",
+      "psnrDb": 41.28,
+      "ssim": 0.9992
+    }
+  ],
+  "borderMarker": {
+    "expectedWidthPx": 34,
+    "insideIsMagenta": true,
+    "outsideIsNotMagenta": true
+  }
+}

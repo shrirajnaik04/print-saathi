@@ -1,0 +1,1 @@
+images 6, pixels 5971968, not grey 0

@@ -1,0 +1,187 @@
+{
+  "serial": "emulator-5582",
+  "dontKeep": true,
+  "results": [
+    {
+      "screen": "received",
+      "expected": "Files received",
+      "killed": true,
+      "reopenedOn": "Files received",
+      "jobsBefore": 1,
+      "jobsAfter": 1,
+      "verdict": "PASS"
+    },
+    {
+      "screen": "ready",
+      "expected": "Ready to print",
+      "killed": true,
+      "reopenedOn": "Ready to print",
+      "jobsBefore": 1,
+      "jobsAfter": 1,
+      "verdict": "PASS"
+    },
+    {
+      "screen": "change",
+      "expected": "Change",
+      "killed": true,
+      "reopenedOn": "Change",
+      "jobsBefore": 1,
+      "jobsAfter": 1,
+      "verdict": "PASS"
+    },
+    {
+      "screen": "layout",
+      "expected": "Layout",
+      "killed": true,
+      "reopenedOn": "Layout",
+      "jobsBefore": 1,
+      "jobsAfter": 1,
+      "verdict": "PASS"
+    },
+    {
+      "screen": "pages",
+      "expected": "Pages",
+      "killed": true,
+      "reopenedOn": "Pages",
+      "jobsBefore": 1,
+      "jobsAfter": 1,
+      "verdict": "PASS"
+    },
+    {
+      "screen": "colour",
+      "expected": "Colour",
+      "killed": true,
+      "reopenedOn": "Colour",
+      "jobsBefore": 1,
+      "jobsAfter": 1,
+      "verdict": "PASS"
+    },
+    {
+      "screen": "printstyle",
+      "expected": "Print style",
+      "killed": true,
+      "reopenedOn": "Print style",
+      "jobsBefore": 1,
+      "jobsAfter": 1,
+      "verdict": "PASS"
+    },
+    {
+      "screen": "copies",
+      "expected": "Copies",
+      "killed": true,
+      "reopenedOn": "Copies",
+      "jobsBefore": 1,
+      "jobsAfter": 1,
+      "verdict": "PASS"
+    },
+    {
+      "screen": "photos",
+      "expected": "Photos",
+      "killed": true,
+      "reopenedOn": "Photos",
+      "jobsBefore": 1,
+      "jobsAfter": 1,
+      "verdict": "PASS"
+    },
+    {
+      "screen": "phototools",
+      "expected": "Photo 1",
+      "killed": true,
+      "reopenedOn": "Photo 1",
+      "jobsBefore": 1,
+      "jobsAfter": 1,
+      "verdict": "PASS"
+    },
+    {
+      "screen": "crop",
+      "expected": "Crop photo 1",
+      "killed": true,
+      "reopenedOn": "Crop photo 1",
+      "jobsBefore": 1,
+      "jobsAfter": 1,
+      "verdict": "PASS"
+    },
+    {
+      "screen": "whichphoto",
+      "expected": "Which photo?",
+      "killed": true,
+      "reopenedOn": "Which photo?",
+      "jobsBefore": 1,
+      "jobsAfter": 1,
+      "verdict": "PASS"
+    },
+    {
+      "screen": "passportframe",
+      "expected": "Fit the face in the frame",
+      "killed": true,
+      "reopenedOn": "Fit the face in the frame",
+      "jobsBefore": 1,
+      "jobsAfter": 1,
+      "verdict": "PASS"
+    },
+    {
+      "screen": "document",
+      "expected": "Ready to print",
+      "killed": true,
+      "reopenedOn": "Ready to print",
+      "jobsBefore": 1,
+      "jobsAfter": 1,
+      "verdict": "PASS"
+    },
+    {
+      "screen": "docpages",
+      "expected": "Pages to print",
+      "killed": true,
+      "reopenedOn": "Pages to print",
+      "jobsBefore": 1,
+      "jobsAfter": 1,
+      "verdict": "PASS"
+    },
+    {
+      "screen": "docorder",
+      "expected": "Page order",
+      "killed": true,
+      "reopenedOn": "Page order",
+      "jobsBefore": 1,
+      "jobsAfter": 1,
+      "verdict": "PASS"
+    },
+    {
+      "screen": "doctools",
+      "expected": "Page 2",
+      "killed": true,
+      "reopenedOn": "Page 2",
+      "jobsBefore": 1,
+      "jobsAfter": 1,
+      "verdict": "PASS"
+    },
+    {
+      "screen": "unlock",
+      "expected": "Unlock PDF",
+      "killed": true,
+      "reopenedOn": "Unlock PDF",
+      "jobsBefore": 1,
+      "jobsAfter": 1,
+      "verdict": "PASS"
+    },
+    {
+      "screen": "settings",
+      "expected": "Settings",
+      "killed": true,
+      "reopenedOn": "Settings",
+      "jobsBefore": 0,
+      "jobsAfter": 0,
+      "verdict": "PASS"
+    },
+    {
+      "screen": "help",
+      "expected": "Help",
+      "killed": true,
+      "reopenedOn": "Help",
+      "jobsBefore": 0,
+      "jobsAfter": 0,
+      "verdict": "PASS",
+      "note": "rerun alone after the scroll fix (first run: Help never came into view at 2.0x text)"
+    }
+  ]
+}

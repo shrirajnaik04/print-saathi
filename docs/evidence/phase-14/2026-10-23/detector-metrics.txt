@@ -1,0 +1,4 @@
+CARD-METRIC two cards: 38/40
+CARD-METRIC card-free false cards: 0/100 (blobs, wood, page, page sideways, screenshot: [0, 0, 0, 0, 0])
+CARD-METRIC clear backgrounds: 231/240 = 0.963 ([PAPER 60/60, DARK 60/60, CLOTH 60/60, WOOD 51/60]); misses [WOOD/23:none, WOOD/25:none, WOOD/27:none, WOOD/30:none, WOOD/34:none, WOOD/43:none, WOOD/50:none, WOOD/52:none, WOOD/56:none]
+CARD-METRIC detection time on this computer: 12 ms per 960 × 720 photo

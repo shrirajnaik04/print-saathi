@@ -1,0 +1,25 @@
+OK (15 tests)
+fuzz=pdfs={pdf-decoded=23, pdf-refused=37}
+fuzz=photos={jpg-refused=34, jpg-decoded=46, png-refused=78, png-decoded=2}
+hostile=cut.png.result=EngineFileException
+hostile=cut.webp.result=EngineFileException
+hostile=doc.pdf.result=EngineFileException
+hostile=empty.jpg.result=EngineFileException
+hostile=garbage.bin.result=EngineFileException
+hostile=header-only.jpg.result=EngineFileException
+hostile=truncated.jpg.result=EngineFileException
+test=aSmallProgressiveJpegDecodes
+test=aTruncatedJpegIsAFileError
+test=aTruncatedPngOrWebpIsAFileError
+test=decodesLargeJpegWithinBudget
+test=emptyFileIsAFileError
+test=engineCannotOpenAppFiles
+test=engineCrashDoesNotKillApp
+test=engineStillWorksAfterHostileInputs
+test=exifRotationAppliedExactlyOnce
+test=garbageBytesAreAFileErrorNotACrash
+test=jpegHeaderWithGarbageBodyIsAFileError
+test=mutatedPdfsOpenRenderOrAreRefused
+test=mutatedPhotosDecodeOrAreRefused
+test=oversampledDecodeExperiment
+test=pdfPassedAsAnImageIsAFileError

@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-label="PrintSaathi"><g>
+ <path d="M128 184V158Q128 146 140 146H372Q384 146 384 158V184" fill="#304BEE"/>
+ <path d="M148 68H298L360 130V174H148Z" fill="white" stroke="white" stroke-width="16"/>
+ <path d="M160 78H296V124Q296 140 312 140H348V162H160Z" fill="#304BEE"/>
+ <path d="M308 78L348 128H308Z" fill="#304BEE"/>
+ <rect x="64" y="176" width="384" height="196" rx="40" fill="#304BEE"/>
+ <path d="M136 216H198C242 216 242 272 198 272H136V328" fill="none" stroke="white" stroke-width="32" stroke-linecap="round" stroke-linejoin="round"/>
+ <path d="M376 216H310C268 216 268 272 310 272H342C386 272 386 328 342 328H288" fill="none" stroke="white" stroke-width="32" stroke-linecap="round" stroke-linejoin="round"/>
+ <path d="M170 356H342L372 426Q375 440 360 440H152Q137 440 141 426Z" fill="white" stroke="#304BEE" stroke-width="22" stroke-linejoin="round"/>
+ <path d="M196 394H316" fill="none" stroke="#304BEE" stroke-width="20" stroke-linecap="round"/>
+ </g></svg>

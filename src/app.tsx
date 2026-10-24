@@ -1,0 +1,469 @@
+import { App as NativeApp } from '@capacitor/app';
+import { Capacitor } from '@capacitor/core';
+import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
+import { takeNewIntakesDetailed } from './core/intake/flow';
+import { problemMessages } from './core/intake/messages';
+import { receivingDone, receivingNow, setReceiving } from './core/intake/receiving';
+import { intakeRunner } from './core/intake/runner';
+import { restoreStack, saveStack } from './core/nav/persist';
+import { initialStack, type NavAction, navigate } from './core/nav/stack';
+import { en } from './i18n/en';
+import { passwords } from './native/passwords';
+import { PrintEngine } from './native/printEngine';
+import { Change } from './screens/change/Change';
+import { Colour, Copies, Direction, Layout, Pages, PaperChoice, Quality } from './screens/change/Choices';
+import { BlackEdges } from './screens/edges/BlackEdges';
+import { Help } from './screens/help/Help';
+import { Welcome } from './screens/help/Welcome';
+import { Home } from './screens/home/Home';
+import { NewFiles } from './screens/newfiles/NewFiles';
+import { Photos, PhotoTools } from './screens/photos/Photos';
+import { forgetRemoved } from './screens/photos/undo';
+import { Problem } from './screens/problem/Problem';
+import { Ready } from './screens/ready/Ready';
+import { Received } from './screens/received/Received';
+import { Receiving } from './screens/received/Receiving';
+import { Recent } from './screens/recent/Recent';
+import { Result } from './screens/result/Result';
+import type { ScreenProps } from './screens/types';
+import { loadSettings } from './screens/useSettings';
+import { lazyScreen } from './ui/lazyScreen';
+
+// Off the start path (startup JS budget, PLAN §C): these load the first time they open, or in the background soon
+// after start (preloadScreens).
+const cards = () => import('./screens/cards/Cards');
+const passport = () => import('./screens/passport/Passport');
+const docs = () => import('./screens/docs/Docs');
+const groups = () => import('./screens/settings/SettingsGroups');
+const CardsFound = lazyScreen(() => cards().then((m) => m.CardsFound));
+const FixCorners = lazyScreen(() => cards().then((m) => m.FixCorners));
+const CardSize = lazyScreen(() => cards().then((m) => m.CardSize));
+const CardSource = lazyScreen(() => import('./screens/cards/CardSource').then((m) => m.CardSource));
+const PrintStyle = lazyScreen(() => import('./screens/change/PrintStyle').then((m) => m.PrintStyle));
+const Unlock = lazyScreen(() => docs().then((m) => m.Unlock));
+const DocPages = lazyScreen(() => docs().then((m) => m.DocPages));
+const DocOrder = lazyScreen(() => docs().then((m) => m.DocOrder));
+const DocTools = lazyScreen(() => docs().then((m) => m.DocTools));
+const WhichPhoto = lazyScreen(() => passport().then((m) => m.WhichPhoto));
+const PassportCrop = lazyScreen(() => passport().then((m) => m.PassportCrop));
+const PassportCount = lazyScreen(() => passport().then((m) => m.PassportCount));
+const PassportSizeChoice = lazyScreen(() => passport().then((m) => m.PassportSizeChoice));
+const PassportBorderChoice = lazyScreen(() => passport().then((m) => m.PassportBorderChoice));
+const PassportCustom = lazyScreen(() => groups().then((m) => m.PassportCustom));
+const CropPhoto = lazyScreen(() => import('./screens/photos/CropPhoto').then((m) => m.CropPhoto));
+const Adjust = lazyScreen(() => import('./screens/adjust/Adjust').then((m) => m.Adjust));
+const DeleteAll = lazyScreen(() => import('./screens/settings/DeleteAll').then((m) => m.DeleteAll));
+const SettingChoice = lazyScreen(() => import('./screens/settings/SettingChoice').then((m) => m.SettingChoice));
+const Settings = lazyScreen(() => import('./screens/settings/Settings').then((m) => m.Settings));
+const ShopName = lazyScreen(() => import('./screens/settings/ShopName').then((m) => m.ShopName));
+const PaperSettings = lazyScreen(() => groups().then((m) => m.PaperSettings));
+const PassportCountSetting = lazyScreen(() => groups().then((m) => m.PassportCountSetting));
+const PassportSettings = lazyScreen(() => groups().then((m) => m.PassportSettings));
+const Prices = lazyScreen(() => groups().then((m) => m.Prices));
+const Report = lazyScreen(() => groups().then((m) => m.Report));
+const Screenshots = lazyScreen(() => groups().then((m) => m.Screenshots));
+const TestPage = lazyScreen(() => import('./screens/testpage/TestPage').then((m) => m.TestPage));
+const Tests = lazyScreen(() => import('./screens/tests/Tests').then((m) => m.Tests));
+const LAZY = [
+  CardsFound,
+  FixCorners,
+  CardSize,
+  CardSource,
+  PrintStyle,
+  Unlock,
+  DocPages,
+  DocOrder,
+  DocTools,
+  WhichPhoto,
+  PassportCrop,
+  PassportCount,
+  PassportSizeChoice,
+  PassportBorderChoice,
+  PassportCustom,
+  CropPhoto,
+  Adjust,
+  DeleteAll,
+  SettingChoice,
+  Settings,
+  ShopName,
+  PaperSettings,
+  PassportCountSetting,
+  PassportSettings,
+  Prices,
+  Report,
+  Screenshots,
+  TestPage,
+  Tests,
+];
+
+/** After start, when the phone is idle: every lazy screen's code, so none opens empty later (failures retry on open). */
+/**
+ * The screens off the start path load in the background once the first screen is up and the splash has gone (main.tsx
+ * calls this), never in its way (release cold starts, 2026-10-24). Test builds load each screen only when it opens: the
+ * slower case, and 1,400 test pages never fetch every screen.
+ */
+export function preloadScreensSoon(): void {
+  if (import.meta.env.MODE === 'e2e') return;
+  setTimeout(preloadScreens, 300);
+}
+
+function preloadScreens(): void {
+  for (const s of LAZY) s.preload().catch(() => {});
+}
+
+const SCREENS: Record<string, (p: ScreenProps) => preact.JSX.Element> = {
+  home: Home,
+  help: Help,
+  settings: Settings,
+  problem: Problem,
+  tests: Tests,
+  received: Received,
+  ready: Ready,
+  change: Change,
+  layout: Layout,
+  pages: Pages,
+  copies: Copies,
+  colour: Colour,
+  photos: Photos,
+  phototools: PhotoTools,
+  recent: Recent,
+  result: Result,
+  testpage: TestPage,
+  deleteall: DeleteAll,
+  whichphoto: WhichPhoto,
+  passportcrop: PassportCrop,
+  passportcount: PassportCount,
+  passportsize: PassportSizeChoice,
+  passportborder: PassportBorderChoice,
+  passportcustom: PassportCustom,
+  unlock: Unlock,
+  docpages: DocPages,
+  docorder: DocOrder,
+  doctools: DocTools,
+  printstyle: PrintStyle,
+  blackedges: BlackEdges,
+  newfiles: NewFiles,
+  setting: SettingChoice,
+  shopname: ShopName,
+  passportsettings: PassportSettings,
+  papersettings: PaperSettings,
+  passportcountsetting: PassportCountSetting,
+  prices: Prices,
+  screenshots: Screenshots,
+  report: Report,
+  paperchoice: PaperChoice,
+  direction: Direction,
+  quality: Quality,
+  welcome: Welcome,
+  receiving: Receiving,
+  cropphoto: CropPhoto,
+  adjust: Adjust,
+  cards: CardsFound,
+  fixcorners: FixCorners,
+  cardsize: CardSize,
+  cardsource: CardSource,
+};
+
+/**
+ * Test builds only (`vite build --mode e2e`): `?screen=<name>` opens that screen on top of Home so the layout
+ * matrix covers screens with no button yet. In the app build this branch is constant-false and removed.
+ */
+function startStack() {
+  const base = initialStack();
+  if (import.meta.env.MODE === 'e2e') {
+    const name = new URLSearchParams(location.search).get('screen');
+    if (name && name !== 'home' && name in SCREENS) return [...base, { name, params: {} }];
+  }
+  // Android closed the app in the background: within 30 minutes the shopkeeper comes back to the same screen (PLAN §D5).
+  // The first-start steps are never brought back (Home shows them again if they were not finished), and neither is
+  // Receiving: the copy it showed ended with the app (gate review M1).
+  const restorable = new Set(Object.keys(SCREENS).filter((n) => n !== 'welcome' && n !== 'receiving'));
+  return restoreStack(localStorage, Date.now(), restorable) ?? base;
+}
+
+/** Screens showing one job: a repeat share of that job while one of them is on top changes nothing. */
+const JOB_SCREEN_NAMES = new Set([
+  'received',
+  'ready',
+  'result',
+  'whichphoto',
+  'passportcrop',
+  'passportcount',
+  'passportsize',
+  'passportborder',
+  'unlock',
+  'docpages',
+  'docorder',
+  'doctools',
+  'printstyle',
+  'blackedges',
+  'cropphoto',
+  'adjust',
+  'cards',
+  'fixcorners',
+  'cardsize',
+]);
+
+/**
+ * Each stack entry is its own screen, identified by the entry object itself: push and replace always make a new one,
+ * back keeps the earlier ones. So "Back, then the same screen again" is a new screen (Phase 9 re-review).
+ */
+const entryIds = new WeakMap<object, number>();
+let nextEntryId = 0;
+function entryId(entry: object): number {
+  let id = entryIds.get(entry);
+  if (id === undefined) {
+    id = ++nextEntryId;
+    entryIds.set(entry, id);
+  }
+  return id;
+}
+
+export function App() {
+  const [stack, setStack] = useState(startStack);
+  const stackRef = useRef(stack);
+  stackRef.current = stack;
+
+  /**
+   * The `go` a screen gets: it does nothing once that screen is no longer on top, so work finishing late (a save, a
+   * check) never opens or replaces a screen behind the shopkeeper after Back, Home or a new share (Phase 9 re-reviews).
+   */
+  const goFrom = (entry: object) => (action: NavAction) => {
+    if (stackRef.current[stackRef.current.length - 1] === entry) go(action);
+  };
+  // Which way the next screen moves in (Phase 13 motion): forward for a new screen, back for Back, a fade otherwise.
+  const enterDir = useRef<'forward' | 'back' | 'fade'>('fade');
+  const go = (action: NavAction) => {
+    const dir =
+      action.type === 'push' ? 'forward' : action.type === 'back' || action.type === 'backTo' ? 'back' : 'fade';
+    const before = stackRef.current[stackRef.current.length - 1];
+    const r = navigate(stackRef.current, action);
+    // The same screen for the same job replacing itself (the page tools after a move) stays the same screen: updated
+    // in place, never reloaded (final review). Its handlers rebind to the new entry on the next render.
+    const after = r.stack[r.stack.length - 1];
+    if (
+      action.type === 'replace' &&
+      before &&
+      after &&
+      after.name === before.name &&
+      after.params.jobId === before.params.jobId &&
+      // Another share is a new question with its own state (review I2), never the old one updated.
+      after.name !== 'newfiles'
+    )
+      entryIds.set(after, entryId(before));
+    // Only a new screen gets an entrance: a screen updated in place keeps its class, so nothing replays (review I1).
+    // Back on Home minimises the app: nothing slides (review M9).
+    if (!before || !after || entryId(after) !== entryId(before))
+      enterDir.current = r.effect === 'minimise' ? 'fade' : dir;
+    if (r.effect === 'minimise' && Capacitor.isNativePlatform()) void NativeApp.minimizeApp();
+    // At once, not at the next render: two steps in a row (safe start: Home, then Problem) build on each other.
+    stackRef.current = r.stack;
+    setStack(r.stack);
+  };
+
+  // Android Back = in-app Back on every screen; on Home it minimises (PLAN §D5). Works with predictive back.
+  useEffect(() => {
+    if (import.meta.env.MODE === 'e2e')
+      (globalThis as { __androidBack?: () => void }).__androidBack = () => go({ type: 'back' }); // tests: phone Back
+    if (!Capacitor.isNativePlatform()) return;
+    const handle = NativeApp.addListener('backButton', () => go({ type: 'back' }));
+    return () => {
+      void handle.then((h) => h.remove());
+    };
+  }, []);
+
+  // Shares from WhatsApp become jobs as soon as the app can see them: at start, and on every new share.
+  useEffect(() => {
+    const runner = intakeRunner(async (open) => {
+      const { defaults } = await loadSettings(); // new jobs start in the owner's colour for photos
+      const { jobs, empty, picks, cancelled } = await takeNewIntakesDetailed(
+        PrintEngine,
+        Date.now(),
+        defaults.photos.colour,
+        defaults.photos.paper,
+      );
+      const shown = stackRef.current[stackRef.current.length - 1];
+      // After a crash loop new files are still kept as jobs, but nothing opens by itself (PLAN §D5).
+      if (!open) {
+        if (shown?.name === 'receiving') go({ type: 'back' });
+        return;
+      }
+      const last = jobs[jobs.length - 1];
+      // Cancelled while receiving: what arrived waits in Recent jobs; nothing opens by itself (PLAN §D2).
+      if (last && cancelled.has(last.id) && jobs.every((j) => cancelled.has(j.id))) {
+        if (shown?.name === 'receiving') go({ type: 'back' });
+        return;
+      }
+      // The receiving screen gives way to what arrived (never stays under it).
+      const step: 'push' | 'replace' = shown?.name === 'receiving' ? 'replace' : 'push';
+      const pick = last ? picks.get(last.id) : undefined;
+      // The job the shopkeeper had open is the screen under Receiving, if Receiving is showing (gate review I1).
+      const under = (s: typeof stackRef.current) => s[s.length - (s[s.length - 1]?.name === 'receiving' ? 2 : 1)];
+      const before = under(stackRef.current);
+      const openId = String(before?.params.jobId ?? '');
+      // A share while another job is open: ask what to do with it (PLAN §I-17); nothing is lost either way. Shares
+      // arriving while the question is open join it (review I4), so Add takes every batch the customer sent.
+      // Only while that job still exists (retention or Delete all may have removed it under the screen).
+      const openExists =
+        !!openId &&
+        openId !== last?.id &&
+        // A job that cannot be read just now counts as there: asking is safer than opening over it (review M11).
+        !!(await PrintEngine.loadJob({ id: openId }).catch(() => ({ job: true }))).job;
+      // The screen on top now (the shopkeeper may have moved while the job was looked up), looking under Receiving.
+      const onTop = stackRef.current[stackRef.current.length - 1];
+      const top = under(stackRef.current);
+      if (last && openExists) {
+        const asked =
+          top?.name === 'newfiles' && Array.isArray(top.params.newJobIds) ? (top.params.newJobIds as string[]) : [];
+        const newJobIds = [...new Set([...asked, ...jobs.map((j) => j.id)])].filter((id) => id !== openId);
+        // Over Result the open job was just printed: adding would print its files again (review I3).
+        const printed = top?.name === 'result' || top?.params.printed === true;
+        // Receiving gives way to the question; an open question is replaced by the bigger one.
+        if (onTop?.name === 'receiving' && top?.name === 'newfiles') go({ type: 'back' });
+        go({
+          type: top?.name === 'newfiles' || onTop?.name === 'receiving' ? 'replace' : 'push',
+          screen: { name: 'newfiles', params: { jobId: openId, newJobIds, printed } },
+        });
+      } else if (last)
+        // Chosen on Home for passport photos (PLAN §J0): Received goes straight on to the passport photo.
+        go({
+          type: step,
+          screen: {
+            name: 'received',
+            params: {
+              jobId: last.id,
+              ...(pick === 'passport' ? { passport: true } : {}),
+              // Chosen on Home for ID cards (Phase 14): Received goes straight on to the cards.
+              ...(pick === 'cards' ? { cards: true } : {}),
+            },
+          },
+        });
+      else if (empty.length)
+        go({ type: step, screen: { name: 'problem', params: { lines: empty.flatMap(problemMessages) } } });
+    });
+    void (async () => {
+      let safeStart = false;
+      try {
+        safeStart = (await PrintEngine.getStartInfo()).safeStart;
+        if (safeStart) {
+          go({ type: 'home' });
+          go({ type: 'push', screen: { name: 'problem', params: { lines: [en.problem.safeStart] } } });
+          void PrintEngine.ackSafeStart();
+        } else {
+          // A print that was in flight when the app was closed: say what happened to it first (PLAN §D4).
+          const s = await PrintEngine.printStatus();
+          // A test page goes back to its own screen: it is never shown as a customer job.
+          if (s.state !== 'none' && s.state !== 'inDialog' && s.kind && s.kind !== 'job')
+            go({ type: 'push', screen: { name: 'testpage', params: { kind: s.kind, state: s.state } } });
+          else if (s.state !== 'none' && s.state !== 'inDialog' && s.jobId)
+            go({
+              type: 'push',
+              screen: {
+                name: 'result',
+                params: {
+                  jobId: s.jobId,
+                  state: s.state,
+                  ...((s.parts ?? 1) > 1 ? { part: s.part, parts: s.parts, partOf: s.partOf } : {}),
+                },
+              },
+            });
+        }
+      } finally {
+        // Even if a start-up check failed, shares must still be taken (gate re-review N7).
+        await runner.start(!safeStart).catch(() => {});
+      }
+    })();
+    // A share still copying after a second shows "Receiving files… k of n" with Cancel (PLAN §D2, §H2.7);
+    // small quick shares never flash that screen.
+    const progress = PrintEngine.addListener('intakeProgress', (p) => {
+      const first = receivingNow()?.intakeId !== p.intakeId;
+      setReceiving(p);
+      if (!first || p.done >= p.total) return;
+      setTimeout(() => {
+        const top = stackRef.current[stackRef.current.length - 1];
+        if (receivingNow()?.intakeId === p.intakeId && top?.name !== 'receiving' && top?.name !== 'problem')
+          go({ type: 'push', screen: { name: 'receiving', params: {} } });
+      }, 1000);
+    });
+    const ready = PrintEngine.addListener('intakeReady', async ({ intakeId, repeat }) => {
+      receivingDone(intakeId);
+      // The same files shared again within a minute: open the job they already made (PLAN §D2b).
+      if (repeat) {
+        const { job } = await PrintEngine.loadJob({ id: intakeId });
+        const top = stackRef.current[stackRef.current.length - 1];
+        const showing =
+          top &&
+          ((top.params.jobId === intakeId && JOB_SCREEN_NAMES.has(top.name)) ||
+            (top.name === 'newfiles' && (top.params.newJobIds as string[] | undefined)?.includes(intakeId)));
+        if (job && !showing) go({ type: 'push', screen: { name: 'received', params: { jobId: intakeId } } });
+        return;
+      }
+      void runner.request().catch(() => {});
+    });
+    // Receiving failed outright (gate review #3): say so instead of nothing happening.
+    const failed = PrintEngine.addListener('intakeFailed', ({ intakeId }) => {
+      receivingDone(intakeId);
+      const top = stackRef.current[stackRef.current.length - 1];
+      go({
+        type: top?.name === 'receiving' ? 'replace' : 'push',
+        screen: { name: 'problem', params: { lines: [en.problem.receiveFailed] } },
+      });
+    });
+    return () => {
+      void ready.then((h) => h.remove());
+      void progress.then((h) => h.remove());
+      void failed.then((h) => h.remove());
+    };
+  }, []);
+
+  // Remember where the shopkeeper is (screen names and job ids only), and keep every job on the stack safe from deletion.
+  useEffect(() => {
+    saveStack(localStorage, stack, Date.now());
+    // Undo of a removed photo belongs to one visit of Photos / Photo tools: leaving them forgets it (re-review #4).
+    if (!['photos', 'phototools'].includes(stack[stack.length - 1]?.name ?? '')) forgetRemoved();
+    const jobIds = [
+      ...new Set(
+        stack
+          .flatMap((sc) => [sc.params.jobId, ...(Array.isArray(sc.params.newJobIds) ? sc.params.newJobIds : [])])
+          .map((id) => String(id ?? ''))
+          .filter(Boolean),
+      ),
+    ];
+    // Leaving a job forgets its PDF passwords here and its decrypted data natively (PLAN §G5, review I5).
+    passwords.keepOnly(jobIds);
+    void PrintEngine.setActiveJobs({ jobIds });
+  }, [stack]);
+
+  // A new screen starts at the top, and screen readers land on its title (focus-on-route-change).
+  const top = stack[stack.length - 1] ?? { name: 'home', params: {} };
+  // Before the first paint of the new screen: the page never shows a frame at the old scroll (Phase 13 motion).
+  useLayoutEffect(() => {
+    window.scrollTo(0, 0);
+    const h1 = document.querySelector<HTMLElement>('main h1');
+    if (h1) {
+      h1.tabIndex = -1;
+      h1.focus({ preventScroll: true });
+    }
+  }, [stack.length, top.name]);
+
+  const Screen = SCREENS[top.name] ?? Problem;
+  return (
+    <>
+      {/* Keyed by its stack entry: another entry is another screen, never the old one's state or late work
+          (Phase 9 reviews); a screen replacing itself for the same job keeps its key (see go). */}
+      {/* The host is keyed with the screen, so its entrance plays once per new screen (never on an update). */}
+      <div key={entryId(top)} class={`screen-host enter-${enterDir.current}`}>
+        <Screen go={goFrom(top)} params={top.params} />
+      </div>
+      {/* Black & white previews: Rec.601 grey, the same weights the print file uses (PLAN §F4, gate review F4). */}
+      <svg width="0" height="0" aria-hidden="true" style={{ position: 'absolute' }}>
+        <filter id="rec601" color-interpolation-filters="sRGB">
+          <feColorMatrix
+            type="matrix"
+            values="0.299 0.587 0.114 0 0 0.299 0.587 0.114 0 0 0.299 0.587 0.114 0 0 0 0 0 1 0"
+          />
+        </filter>
+      </svg>
+    </>
+  );
+}

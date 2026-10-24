@@ -1,0 +1,14 @@
+--------- beginning of main
+10-02 23:22:17.035  6753  6837 I PrintSaathi: intake done: 1 files, 0 refused
+10-02 23:22:18.727  6753  6837 I PrintSaathi: intake done: 6 files, 0 refused
+10-02 23:22:20.031  6753  6837 I PrintSaathi: intake done: 2 files, 0 refused
+10-02 23:22:21.355  6753  6837 I PrintSaathi: intake done: 1 files, 0 refused
+10-02 23:22:22.732  6753  6753 I PrintSaathi: share repeated within window: existing intake reused
+10-02 23:22:43.972  6753  6837 I PrintSaathi: intake done: 1 files, 0 refused
+10-02 23:22:45.295  6753  6837 I PrintSaathi: intake done: 0 files, 1 refused
+10-02 23:22:46.703  6753  6837 I PrintSaathi: intake done: 0 files, 1 refused
+10-02 23:23:00.728  6753  6837 I PrintSaathi: intake done: 1 files, 0 refused
+10-02 23:23:01.318  6753  6837 I PrintSaathi: intake done: 6 files, 0 refused
+10-02 23:23:02.228  6753  6753 I PrintSaathi: share repeated within window: existing intake reused
+10-02 23:24:16.835  6753  6837 I PrintSaathi: intake done: 6 files, 0 refused
+10-02 23:25:01.758  7346  7346 I PrintSaathi: share skipped: activity restore

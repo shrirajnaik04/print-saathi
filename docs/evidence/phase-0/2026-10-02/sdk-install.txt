@@ -1,0 +1,18 @@
+SDK installs for Phase 0 (approved by owner 2026-10-02)
+Disk before: C: 494G free, D: 199G free
+cmdline-tools;latest = commandlinetools-win-16111833 (v23.0, stable channel-0), SHA-1 57d04f2d75eb8e8fffc5000a987e5de4b5a63e9d verified
+System images (stable, Google APIs, x86_64):
+  system-images;android-24;google_apis;x86_64  27.0.0
+  system-images;android-28;google_apis;x86_64  11.0.0
+  system-images;android-30;google_apis;x86_64  16.0.0
+  system-images;android-36;google_apis;x86_64  7.0.0
+Reused (verified installed): platforms;android-36, build-tools 35/36.1/37, emulator 36.6.11, platform-tools 37.0.0,
+  system-images;android-35;google_apis_playstore_tablet;x86_64 (AVD Medium_Tablet)
+Not installed: API 33 (deferred per owner), canary/beta channels.
+
+Correction (Gate 1 finding 4, 2026-10-03): at Gate 1 review time API 30/36 images were still downloading and
+the ps_api30/ps_api36 AVDs did not exist, so the list above overstated what was installed. Verified state now
+(source.properties Pkg.Revision, see sdk-install-log.txt tail):
+  android-24 google_apis x86_64 rev 27 · android-28 rev 11 · android-30 rev 16 · android-36 rev 7 · android-35 playstore_tablet rev 9
+AVDs (emulator -list-avds): ps_api24_2gb, ps_api28_2gb (2048 MB RAM, heap 256), ps_api30, ps_api36 (pixel_3a profile, 2 GB RAM, heap 256 MB,
+created with avdmanager 2026-10-03), Medium_Tablet (API 35).

@@ -1,0 +1,4 @@
+    tests\e2e\shell.spec.ts:2460:5 › screen reader and keyboard: unlock @ 320, text 200 % ──────────
+  24 skipped
+  1229 passed (3.9m)
+e2e exit 1

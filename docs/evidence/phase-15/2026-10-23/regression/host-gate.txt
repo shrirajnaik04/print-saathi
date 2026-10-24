@@ -1,0 +1,11 @@
+ok   js: 60664 B gzip (budget 61440 B)
+ok   css: 4646 B gzip (budget 15360 B)
+host gate exit 0
+ Test Files  48 passed (48)
+      Tests  352 passed (352)
+dist/assets/printEngine.mock-DLlKYyuY.js                                 15.78 kB │ gzip:   4.85 kB
+dist/assets/index-DWgDiqKH.js                                           189.66 kB │ gzip:  61.16 kB
+dist/assets/es-C5TOQXzF.js                                              565.90 kB │ gzip: 245.83 kB
+(!) Some chunks are larger than 500 kB after minification. Consider:
+ok   js: 60664 B gzip (budget 61440 B)
+ok   css: 4646 B gzip (budget 15360 B)

@@ -1,0 +1,97 @@
+{
+  "serial": "emulator-5580",
+  "name": "three.pdf",
+  "n": 20,
+  "runs": [
+    {
+      "job": 1,
+      "readyMs": 5260
+    },
+    {
+      "job": 2,
+      "readyMs": 2211
+    },
+    {
+      "job": 3,
+      "readyMs": 2197
+    },
+    {
+      "job": 4,
+      "readyMs": 2246
+    },
+    {
+      "job": 5,
+      "readyMs": 2203
+    },
+    {
+      "job": 6,
+      "readyMs": 2211
+    },
+    {
+      "job": 7,
+      "readyMs": 2227
+    },
+    {
+      "job": 8,
+      "readyMs": 2230
+    },
+    {
+      "job": 9,
+      "readyMs": 2161
+    },
+    {
+      "job": 10,
+      "readyMs": 2220
+    },
+    {
+      "job": 11,
+      "readyMs": 2211
+    },
+    {
+      "job": 12,
+      "readyMs": 2259
+    },
+    {
+      "job": 13,
+      "readyMs": 2192
+    },
+    {
+      "job": 14,
+      "readyMs": 2184
+    },
+    {
+      "job": 15,
+      "readyMs": 2228
+    },
+    {
+      "job": 16,
+      "readyMs": 2229
+    },
+    {
+      "job": 17,
+      "readyMs": 2203
+    },
+    {
+      "job": 18,
+      "readyMs": 2159
+    },
+    {
+      "job": 19,
+      "readyMs": 2166
+    },
+    {
+      "job": 20,
+      "readyMs": 2184
+    }
+  ],
+  "afterFirst": {
+    "appKb": 144478,
+    "engineKb": null,
+    "jobsKb": 1376
+  },
+  "afterLast": {
+    "appKb": 133689,
+    "engineKb": null,
+    "jobsKb": 1768
+  }
+}

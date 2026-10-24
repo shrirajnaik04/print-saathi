@@ -1,0 +1,57 @@
+{
+  "planHash": "c4b2d02b2ca87ee2",
+  "plan": {
+    "v": 1,
+    "jobId": "job2",
+    "rev": 3,
+    "paper": {
+      "id": "A4",
+      "wPt": 595.2755905511812,
+      "hPt": 841.8897637795276
+    },
+    "colour": "colour",
+    "copies": 1,
+    "contentType": "document",
+    "pages": [
+      {
+        "orientation": "portrait",
+        "placements": [
+          {
+            "itemIndex": 1,
+            "crop": {
+              "x": 0,
+              "y": 0,
+              "w": 1,
+              "h": 1
+            },
+            "turns": 0,
+            "style": "original",
+            "box": {
+              "x": 17.007874015748033,
+              "y": 236.69291338582676,
+              "w": 276.37795275590554,
+              "h": 368.5039370078741
+            }
+          },
+          {
+            "itemIndex": 2,
+            "crop": {
+              "x": 0,
+              "y": 0,
+              "w": 1,
+              "h": 1
+            },
+            "turns": 1,
+            "style": "original",
+            "box": {
+              "x": 301.8897637795276,
+              "y": 213.66141732283464,
+              "w": 276.37795275590554,
+              "h": 414.5669291338583
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

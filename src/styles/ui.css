@@ -1,0 +1,1348 @@
+/* Components (design-system/printsaathi/MASTER.md). Sizes in rem so the app text scale grows everything. */
+:root {
+  --space-1: 0.4375rem;
+  --space-2: 0.625rem;
+  --space-3: 0.875rem;
+  --space-4: 1.25rem;
+  --space-5: 1.75rem;
+  --radius: 0.75rem;
+  --focus: 0 0 0 0.2rem var(--surface), 0 0 0 0.4rem var(--primary);
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  touch-action: manipulation;
+}
+/* Pinned bars report their height here (usePinWhileSmall): focus never lands under them (WCAG 2.4.11). */
+html {
+  scroll-padding-top: var(--pinned-top, 0px);
+  scroll-padding-bottom: var(--pinned-bottom, 0px);
+}
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  /* The same thick ring on every control, fields and tick boxes too (Phase 11: they had the browser's 1 px one). */
+  outline: none;
+  box-shadow: var(--focus);
+}
+/* Motion (Phase 13, spec Part 1): transform and opacity only, nothing longer than 400 ms, never blocking a tap.
+   Phones that ask for reduced motion get none of it: every rule is inside this query. */
+@media (prefers-reduced-motion: no-preference) {
+  .btn,
+  .tile,
+  .choice,
+  .change-row,
+  .topbar-btn,
+  .stepper-btn {
+    transition:
+      transform var(--dur-press) var(--ease-out),
+      opacity 150ms ease-out,
+      background-color 150ms ease-out;
+  }
+  /* Press: the control sinks a little under the finger (no layout change). */
+  .btn:active:not(:disabled),
+  .tile:active,
+  .choice:active:not(:disabled),
+  .change-row:active,
+  .stepper-btn:active:not(:disabled) {
+    transform: scale(0.97);
+  }
+  /* A new screen slides in the way the shopkeeper is going: from the right going forward, from the left going back. */
+  .screen-host.enter-forward > * {
+    animation: ps-enter-forward var(--dur-screen) var(--ease-out) backwards;
+  }
+  .screen-host.enter-back > * {
+    animation: ps-enter-back var(--dur-screen) var(--ease-out) backwards;
+  }
+  .screen-host.enter-fade > * {
+    animation: ps-enter-fade var(--dur-screen) var(--ease-out) backwards;
+  }
+  /* Short lists of choices rise in a wave (opt-in .rise; the first six only; 40 ms apart, all within 400 ms). */
+  .rise > :nth-child(-n + 6) {
+    animation: ps-rise var(--dur-rise) var(--ease-out) backwards;
+  }
+  .rise > :nth-child(2) {
+    animation-delay: var(--stagger);
+  }
+  .rise > :nth-child(3) {
+    animation-delay: calc(2 * var(--stagger));
+  }
+  .rise > :nth-child(4) {
+    animation-delay: calc(3 * var(--stagger));
+  }
+  .rise > :nth-child(5) {
+    animation-delay: calc(3.5 * var(--stagger));
+  }
+  .rise > :nth-child(6) {
+    animation-delay: calc(4 * var(--stagger));
+  }
+  .spinner {
+    animation: ps-spin 0.8s linear infinite;
+  }
+  .sent-mark path {
+    stroke-dasharray: 40;
+    animation: ps-draw 400ms var(--ease-out) backwards;
+  }
+}
+@keyframes ps-enter-forward {
+  from {
+    opacity: 0;
+    transform: translateX(1.5rem);
+  }
+}
+@keyframes ps-enter-back {
+  from {
+    opacity: 0;
+    transform: translateX(-1.5rem);
+  }
+}
+@keyframes ps-enter-fade {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes ps-rise {
+  from {
+    opacity: 0;
+    transform: translateY(0.625rem) scale(0.96);
+  }
+}
+@keyframes ps-spin {
+  to {
+    transform: rotate(1turn);
+  }
+}
+@keyframes ps-draw {
+  from {
+    stroke-dashoffset: 40;
+  }
+}
+.sent-mark {
+  display: flex;
+  justify-content: center;
+  margin: var(--space-2) 0;
+}
+.sent-mark svg {
+  /* Never more than 12 % of the screen's height: big text must not push the question away (review I4). */
+  width: min(4.5rem, 12vh);
+  height: min(4.5rem, 12vh);
+}
+/* Busy buttons: a small ring beside the words (it turns only when motion is allowed). */
+.spinner {
+  display: inline-block;
+  flex: none;
+  width: 1.1em;
+  height: 1.1em;
+  border: 0.18em solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+}
+/* A slide-in never makes the page scroll sideways (review M7): the host stays put and clips its sliding screen.
+   Clip, not hidden: clip makes no scroll container, so the pinned PRINT bar and page buttons keep sticking. */
+.screen-host {
+  overflow-x: clip;
+  /* Focus rings reach 0.4rem outside full-width buttons: the clip leaves them room (inside the 16 px gutter). */
+  overflow-clip-margin: 0.5rem;
+}
+.sent-mark circle {
+  fill: var(--primary-soft);
+}
+.sent-mark path {
+  fill: none;
+  stroke: var(--primary);
+  stroke-width: 4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.icon {
+  display: inline-flex;
+  flex: none;
+}
+.icon svg {
+  width: 100%;
+  height: 100%;
+}
+.icon-sm {
+  width: 1.125rem;
+  height: 1.125rem;
+}
+.icon-md {
+  width: 1.5rem;
+  height: 1.5rem;
+}
+.icon-lg {
+  width: 1.75rem;
+  height: 1.75rem;
+}
+
+.btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  width: 100%;
+  min-height: 3.5rem;
+  padding: var(--space-2) var(--space-3);
+  border: 0.125rem solid transparent;
+  border-radius: var(--radius-sm);
+  font-size: 1.125rem;
+  font-weight: 700;
+  text-align: center;
+  cursor: pointer;
+}
+.btn {
+  flex-wrap: wrap;
+}
+.btn:active:not(:disabled) {
+  opacity: 0.85;
+}
+.btn:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+.btn-primary {
+  background: var(--primary);
+  color: #fff;
+}
+.btn-print {
+  background: var(--print);
+  color: #fff;
+  box-shadow: var(--elev-1);
+  min-height: 3.75rem;
+  font-size: 1.25rem;
+}
+/* Destructive actions only (Delete all): the error colour, white label (7.6 : 1), always with Cancel beside it. */
+.btn-danger {
+  background: var(--error-text);
+  color: #fff;
+}
+.btn-secondary {
+  background: var(--surface);
+  color: var(--primary);
+  border-color: var(--primary);
+}
+
+.tile {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  min-height: 4.5rem;
+  padding: var(--space-3);
+  background: var(--surface);
+  border: 0.125rem solid transparent;
+  border-radius: var(--radius);
+  box-shadow:
+    0 0 0 1px var(--edge),
+    var(--elev-1);
+  text-align: start;
+  cursor: pointer;
+}
+.tile:active,
+.change-row:active,
+.choice:active:not(:disabled) {
+  /* Pressed shows in the outline too: the lighter background alone is faint. The card sinks (no lift). */
+  border-color: var(--primary);
+  background: var(--pressed);
+  box-shadow: 0 0 0 1px var(--edge);
+}
+/* Office look: each job's icon sits in its own coloured badge (glyph 3:1 on its badge; the title names the job). */
+.badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: var(--radius-sm);
+}
+.badge-photos {
+  background: var(--badge-photos-bg);
+  color: var(--badge-photos-fg);
+}
+.badge-passport {
+  background: var(--badge-passport-bg);
+  color: var(--badge-passport-fg);
+}
+.badge-cards {
+  background: var(--badge-cards-bg);
+  color: var(--badge-cards-fg);
+}
+.badge-documents {
+  background: var(--badge-documents-bg);
+  color: var(--badge-documents-fg);
+}
+.badge-neutral {
+  background: var(--badge-neutral-bg);
+  color: var(--badge-neutral-fg);
+}
+/* Home's jobs: two columns while each tile keeps 9rem; one column with big text on small phones. */
+.tile-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 9rem), 1fr));
+  gap: var(--space-2);
+}
+.tile-grid .tile {
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: space-between;
+  min-height: 6.5rem;
+}
+.tile-grid .tile-text {
+  flex: 0 0 auto;
+}
+.lead {
+  margin: -0.5rem 0 var(--space-3);
+  font-size: 1.0625rem;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+/* Beside the icon when there is room; below it (full width) when big text makes the row too narrow. */
+.tile-text {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 9rem;
+}
+.tile-title {
+  /* Width cap only bites at ~200 % text on ~320 px screens, so "Documents" never splits. */
+  font-size: max(1.0625rem, min(1.125rem, 11vw));
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+.tile-helper {
+  font-size: 1rem;
+  color: var(--text-muted);
+}
+
+/* Back and Home on top, the title below at full width. If 200 % text on a 320 px phone can't fit both buttons on
+   one line, Home wraps under Back instead of pushing the screen sideways. */
+.topbar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) 0;
+  border-bottom: 0.0625rem solid var(--divider);
+  margin-bottom: var(--space-3);
+}
+.topbar-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  min-height: 3.5rem;
+  min-width: 3.5rem;
+  padding: 0 var(--space-1);
+  background: none;
+  border: 0;
+  color: var(--primary);
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.topbar-title {
+  order: 3;
+  flex-basis: 100%;
+  margin: 0;
+  font-size: max(1.125rem, min(1.5rem, 10vw));
+}
+
+.actionbar {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-2) 0 calc(var(--space-2) + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
+  background: var(--bg);
+  box-shadow: var(--elev-up);
+}
+
+.panel {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: flex-start;
+  padding: var(--space-3);
+  border-radius: var(--radius);
+  margin: var(--space-2) 0;
+}
+.panel-title {
+  margin: 0 0 0.25rem;
+  font-weight: 700;
+}
+.panel p {
+  margin: 0;
+}
+.panel-info {
+  background: var(--info-bg);
+  color: var(--text);
+}
+.panel-warn {
+  background: var(--warn-bg);
+  color: var(--warn-text);
+}
+.panel-error {
+  background: var(--error-bg);
+  color: var(--error-text);
+}
+
+.stepper {
+  display: grid;
+  /* Buttons shrink towards 56 px (never below) before the stepper can run into the screen's side at big text. */
+  grid-template-columns: minmax(56px, 3.5rem) minmax(0, 1fr) minmax(56px, 3.5rem);
+  align-items: center;
+  gap: var(--space-2);
+  border: 0;
+  padding: 0;
+  margin: var(--space-2) 0;
+}
+.stepper legend {
+  font-weight: 700;
+  margin-bottom: var(--space-1);
+}
+.stepper-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 3.5rem;
+  background: var(--surface);
+  border: 0.125rem solid var(--primary);
+  border-radius: var(--radius-sm);
+  color: var(--primary);
+  cursor: pointer;
+}
+.stepper-btn:disabled {
+  border-color: var(--divider);
+  color: var(--disabled);
+}
+.stepper-value {
+  text-align: center;
+  font-size: min(1.75rem, 10vw);
+  font-weight: 700;
+}
+
+/* Label and value share a column; "Change" sits beside them while the column keeps >= 10rem, otherwise it drops
+   to its own line, so big text never squeezes the words (gate review: "Sh|op na|me" at 200 % on 320 px). */
+.change-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: var(--space-3);
+  row-gap: var(--space-1);
+  width: 100%;
+  min-height: 3.5rem;
+  padding: var(--space-2) var(--space-3);
+  background: var(--surface);
+  border: 0.125rem solid transparent;
+  border-radius: var(--radius-sm);
+  box-shadow:
+    0 0 0 1px var(--edge),
+    var(--elev-1);
+  text-align: start;
+  cursor: pointer;
+}
+.change-text {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 10rem;
+}
+.change-label {
+  font-size: 1rem;
+  color: var(--text-muted);
+}
+.change-value {
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+.change-action {
+  color: var(--primary);
+  font-weight: 700;
+  text-decoration: underline;
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.hint-card {
+  margin-top: var(--space-4);
+  padding: var(--space-3);
+  background: var(--surface);
+  border-radius: var(--radius);
+  box-shadow: var(--elev-1);
+}
+/* Numbers inline: an indented list loses ~50 px, enough to split "WhatsApp" at 200 % text on a small phone. */
+.hint-card ol {
+  margin: var(--space-1) 0 0;
+  padding: 0;
+  list-style-position: inside;
+}
+.section-title {
+  font-size: 1rem;
+  color: var(--text-muted);
+  margin: var(--space-4) 0 var(--space-1);
+}
+
+.screen {
+  padding-bottom: var(--space-4);
+}
+/* Titles may not exceed ~10 % of the screen width per letter height: at 200 % text on 320 px the app name still
+   fits on one line (Playwright matrix). Body text keeps the full scale. */
+/* Titles shrink toward the body size on narrow screens with big text, but never below it (gate review). */
+.screen > h1 {
+  font-size: max(1.125rem, min(1.5rem, 10vw));
+}
+.screen h1:focus {
+  outline: none;
+}
+
+/* At 200 % text on a 320 px phone a single word ("WhatsApp?") can be wider than the column. break-word splits
+   a word only when it can't fit on a line of its own (unlike "anywhere", it doesn't let flex items shrink below
+   whole words, which broke "Photos" into "Photo|s"). Layouts wrap whole items first (tiles, buttons below). */
+body {
+  overflow-wrap: break-word;
+}
+main h2 {
+  font-size: max(1.0625rem, min(1.25rem, 8vw));
+}
+.section-gap {
+  margin-top: var(--space-4);
+}
+.rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+/* Text beside the icon when there is room, below it when big text makes the row narrow (no split words). */
+.panel-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  flex: 1 1 12rem;
+}
+.actionbar-flow {
+  position: static;
+  box-shadow: none; /* in the flow: nothing floats over it (review M6) */
+}
+
+/* Received: big numbered thumbnails, 2 per row on phones (3+ on wider screens). */
+.thumb-grid {
+  list-style: none;
+  padding: 0;
+  margin: var(--space-2) 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(8rem, 1fr));
+  gap: var(--space-2);
+}
+.thumb {
+  position: relative;
+  aspect-ratio: 1;
+  background: var(--stage);
+  border-radius: var(--radius);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.thumb-note {
+  padding: var(--space-1);
+  color: var(--text);
+  font-size: 1rem;
+  text-align: center;
+}
+.thumb-number {
+  position: absolute;
+  top: 0.25rem;
+  left: 0.25rem;
+  min-width: 2rem;
+  padding: 0 0.4rem;
+  border-radius: 1rem;
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 700;
+  text-align: center;
+}
+
+/* Ready: each sheet drawn from the plan, on the "desk" colour so white paper stands out (PLAN §H1 --desk). */
+.sheets {
+  list-style: none;
+  padding: var(--space-2);
+  margin: var(--space-2) 0;
+  background: var(--stage);
+  border-radius: var(--radius);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+}
+.sheets li {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+}
+.sheet-label {
+  color: var(--text);
+  font-weight: 700;
+}
+.paper {
+  position: relative;
+  margin: 0;
+  background: #fff;
+  width: min(100%, 42vh);
+  box-shadow: 0 0.125rem 0.5rem rgb(0 0 0 / 35%);
+}
+.paper-wide {
+  width: min(100%, 80vh);
+}
+.paper-photo {
+  position: absolute;
+  object-fit: fill;
+}
+.paper-empty {
+  background: var(--border);
+}
+.sheet-badge {
+  display: inline-block;
+  margin-left: var(--space-1);
+  padding: 0 0.5rem;
+  border-radius: 1rem;
+  background: var(--warn-bg);
+  color: var(--warn-text);
+}
+.sheet-label {
+  text-align: center;
+}
+.summary {
+  font-size: 1.1875rem;
+  font-weight: 700;
+}
+.progress {
+  width: 100%;
+  height: 1rem;
+  accent-color: var(--primary);
+}
+.muted {
+  color: var(--text-muted);
+}
+
+/* A turned photo: the image is rotated inside its box (the box already has the turned shape). */
+.paper-turned {
+  overflow: hidden;
+}
+/* A crop: the box clips the scaled photo inside it (passport frame). */
+.paper-crop {
+  overflow: hidden;
+}
+/* Passport crop: the photo as shown, the fixed frame dimming everything outside it, a face oval inside. */
+.crop-stage {
+  position: relative;
+  /* Never taller than 42 % of the screen (--a = the photo's width ÷ height): the buttons under it stay in view above
+     the bottom bar (owner's phone, 2026-10-23: they were hidden under Next). */
+  width: min(100%, max(calc(42vh * var(--a, 0.75)), 10rem)); /* room for two corner handles side by side */
+  margin: 0 auto var(--space-2);
+  overflow: hidden;
+  background: var(--desk);
+  touch-action: none; /* fingers on the photo move or resize the frame, never scroll or zoom the page */
+  user-select: none;
+}
+/* Fit the face (owner, 2026-10-23): a still stage, 3 wide by 4 high, never taller than 40 % of the screen (its buttons
+   stay in view); the photo moves under the frame. Fingers on it never scroll or zoom the page. */
+.face-stage {
+  position: relative;
+  width: min(100%, max(30vh, 12rem));
+  aspect-ratio: 3 / 4;
+  margin: 0 auto var(--space-2);
+  overflow: hidden;
+  background: var(--desk);
+  touch-action: none;
+  user-select: none;
+}
+.face-photo img {
+  pointer-events: none;
+}
+.passport-frame {
+  position: absolute;
+  box-shadow: 0 0 0 100vmax rgb(0 0 0 / 50%);
+  outline: 0.1875rem solid #fff;
+}
+.passport-oval {
+  position: absolute;
+  left: 18%;
+  top: 10%;
+  width: 64%;
+  height: 62%;
+  border: 0.125rem dashed #fff;
+  border-radius: 50%;
+}
+.nudge-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+.quick-counts {
+  display: grid;
+  /* Four in a row, wrapping to two rows when large text makes them too wide (320 px at 200 %). */
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 5rem), 1fr));
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+.photo-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(8rem, 1fr));
+  gap: var(--space-2);
+}
+.photo-pick {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-height: 3.5rem;
+  padding: var(--space-1);
+  border: 0.125rem solid var(--border);
+  border-radius: 0.5rem;
+  background: var(--surface);
+  font: inherit;
+  color: var(--text);
+}
+/* Unlock PDF: big labelled fields; Show writes the password large below the field (it stays hidden in it). */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin-bottom: var(--space-2);
+  font-weight: 600;
+}
+.field input {
+  min-height: 3.5rem;
+  padding: 0 var(--space-2);
+  font: inherit;
+  font-size: 1.25rem;
+  letter-spacing: 0.1em;
+  border: 0.125rem solid var(--border);
+  border-radius: 0.5rem;
+  background: var(--surface);
+  color: var(--text);
+}
+.password-shown {
+  font-size: 1.75rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  overflow-wrap: anywhere;
+}
+.page-blank {
+  display: block;
+  width: 100%;
+  aspect-ratio: 595 / 841;
+  background: var(--border);
+}
+.page-pick input {
+  width: 1.75rem;
+  height: 1.75rem;
+  vertical-align: middle;
+}
+.order-row {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-1) 0;
+  border-bottom: 0.0625rem solid var(--border);
+}
+.order-thumb {
+  width: 6rem;
+}
+.photo-pick img {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: contain;
+  background: var(--stage);
+}
+.paper-turned img {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  object-fit: fill;
+}
+.paper.paper-mini {
+  width: 100%;
+  box-shadow: 0 0 0 1px var(--edge);
+}
+
+/* Choice with a picture (Layout, Pages): the whole card is one button; the chosen one says so in words too. */
+.choice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  min-height: 4.5rem;
+  padding: var(--space-2);
+  border: 4px solid transparent;
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow:
+    0 0 0 1px var(--edge),
+    var(--elev-1);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.choice[aria-pressed="true"] {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+}
+.choice-preview {
+  /* A definite width (the mini sheet fills it); capped so it never crowds the text at 200 %. */
+  flex: 0 0 auto;
+  width: min(6.5rem, 40vw);
+  align-items: center;
+  display: flex;
+  justify-content: center;
+  padding: var(--space-1);
+  background: var(--stage);
+  border-radius: var(--radius);
+}
+.choice-preview-wide {
+  width: min(10rem, 45vw);
+}
+/* Black edges? (PLAN §I-3): the photo now and without its edges, side by side. */
+.edges-example {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.edges-example figure {
+  flex: 1 1 8rem;
+  margin: 0;
+  background: var(--stage);
+  padding: var(--space-1);
+  border-radius: var(--radius);
+  color: var(--text);
+  text-align: center;
+}
+.edges-example img {
+  display: block;
+  width: 100%;
+}
+.edges-cut {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  width: 100%;
+}
+.edges-cut img {
+  position: absolute;
+  max-width: none;
+}
+/* Manual crop (PLAN §H2.5): corner handles 48 px to see, 64 px to touch (an extra; the buttons always work). */
+.crop-handle {
+  position: absolute;
+  user-select: none;
+  width: 4rem;
+  height: 4rem;
+  touch-action: none;
+}
+.crop-handle-off {
+  visibility: hidden;
+  pointer-events: none;
+}
+.crop-handle::after {
+  content: "";
+  position: absolute;
+  left: 1rem;
+  top: 1rem;
+  width: 2rem;
+  height: 2rem;
+  border: 0.25rem solid #fff;
+  border-radius: 50%;
+  background: rgb(0 0 0 / 35%);
+}
+/* Inside the frame's corners, so a frame over the whole photo never puts a handle off the screen. */
+.crop-handle-tl {
+  left: 0;
+  top: 0;
+}
+.crop-handle-tr {
+  right: 0;
+  top: 0;
+}
+.crop-handle-bl {
+  left: 0;
+  bottom: 0;
+}
+.crop-handle-br {
+  right: 0;
+  bottom: 0;
+}
+.doc-page-preview {
+  display: flex;
+  justify-content: center;
+  margin-bottom: var(--space-2);
+}
+.style-frame {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  aspect-ratio: 1;
+}
+.style-sample {
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+}
+/* Turned like the print; inside a square frame both sides fit either way round. */
+.style-sample.turn-1 {
+  transform: rotate(90deg);
+}
+.style-sample.turn-2 {
+  transform: rotate(180deg);
+}
+.style-sample.turn-3 {
+  transform: rotate(270deg);
+}
+.choice-text {
+  flex: 1 1 10rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.choice-title {
+  font-size: 1.125rem;
+  font-weight: 700;
+}
+.choice-selected {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  color: var(--primary);
+  font-weight: 700;
+}
+
+/* A photo turned in Photo tools: shown turned everywhere (thumbnail grid, tools preview), like on paper. */
+.thumb img.turn-1 {
+  transform: rotate(90deg);
+}
+.thumb img.turn-2 {
+  transform: rotate(180deg);
+}
+.thumb img.turn-3 {
+  transform: rotate(270deg);
+}
+.thumb-button:focus-visible {
+  /* Inside the photo's box, which clips anything drawn outside it (Phase 11 review I1). */
+  box-shadow:
+    inset 0 0 0 0.25rem var(--surface),
+    inset 0 0 0 0.5rem var(--primary);
+}
+.thumb-button {
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.tool-preview {
+  max-width: 20rem;
+  margin: var(--space-2) auto;
+}
+
+/* Black & white preview: drawn grey, as the print will be (the print file itself is grey data, PLAN §G2). */
+.paper-grey img {
+  /* The same Rec.601 grey the print uses (CSS grayscale() uses other weights: red would look darker than it prints). */
+  filter: url(#rec601);
+}
+
+/* Ready: Previous page · Page k of n · Next page (PLAN §I-5) */
+.pager {
+  /* "Page 2 of 5" on one line, Previous and Next side by side under it when they fit: small enough to stay pinned
+     (review I8); with big text they stack. */
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1, 4px) var(--space-2, 8px);
+}
+.pager .btn {
+  flex: 1 1 8rem;
+  width: auto;
+  padding-inline: var(--space-2);
+}
+.pager-pinned {
+  /* Stays at the top of the screen while the sheets scroll under it, while it is small (gate review I8). */
+  position: sticky;
+  top: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
+  z-index: 1;
+  background: var(--bg);
+  padding-block: var(--space-1, 4px);
+}
+.pager-status {
+  flex: 1 0 100%;
+  order: -1;
+  text-align: center;
+  margin: 0;
+  font-weight: 700;
+}
+
+/* Recent jobs: the job's first photo instead of an icon (PLAN §I-14) */
+.tile-image {
+  width: 56px;
+  height: 56px;
+  flex: none;
+  object-fit: cover;
+  border-radius: 6px;
+  background: var(--stage);
+}
+
+/* ---- ID card copy (Phase 14): cards found, fix corners ---- */
+.card-list {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0 0 var(--space-2);
+  padding: 0;
+  list-style: none;
+}
+.card-found {
+  padding: var(--space-2);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  box-shadow:
+    0 0 0 1px var(--edge),
+    var(--elev-1);
+}
+.card-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-2);
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: var(--space-1);
+}
+.badge-label {
+  font-weight: 700;
+  font-size: 1.0625rem;
+}
+.card-state {
+  color: var(--text);
+}
+.card-check {
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-sm);
+  background: var(--warn-bg);
+  color: var(--warn-text);
+  font-weight: 700;
+}
+.card-shot {
+  display: grid;
+  place-items: center;
+  /* A card's size on a phone; on a tablet it stays this size instead of filling the width. */
+  box-sizing: border-box;
+  width: min(100%, 30rem);
+  margin: 0 auto var(--space-2);
+  padding: var(--space-1);
+  aspect-ratio: 85.6 / 54;
+  background: var(--stage);
+}
+.card-shot img {
+  max-width: 100%;
+  max-height: 100%;
+  box-shadow: 0 0 0 1px var(--edge);
+}
+.card-shot img.turn-2 {
+  transform: rotate(180deg);
+}
+/* Room for a whole dot around the photo: a corner at the photo's edge never reaches the screen's side. */
+.corner-stage {
+  width: min(calc(100% - 3.5rem), 50vh);
+  overflow: visible;
+  touch-action: none;
+}
+.corner-photo {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.corner-lines {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.corner-lines polygon {
+  fill: none;
+  stroke: #fff;
+  stroke-width: 0.6;
+  vector-effect: non-scaling-stroke;
+}
+/* A dot is small to see, big to touch (PLAN §H1: 56 px touch area). */
+.corner-dot {
+  position: absolute;
+  width: 3.5rem;
+  height: 3.5rem;
+  margin: -1.75rem 0 0 -1.75rem;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  cursor: grab;
+}
+.corner-dot::after {
+  content: "";
+  position: absolute;
+  inset: 1.125rem;
+  border-radius: 50%;
+  background: var(--surface);
+  box-shadow: 0 0 0 0.1875rem var(--primary);
+}
+.corner-dot-on::after {
+  inset: 0.875rem;
+  background: var(--primary);
+  box-shadow: 0 0 0 0.25rem #fff;
+}
+.corner-dot:focus-visible {
+  outline: 0.1875rem solid var(--primary);
+}
+.corner-now {
+  font-weight: 700;
+}
+
+/* The PS printer logo (brand v3, assets/brand/mark.svg): the same paths in the Home title and the splash. */
+.bm-c {
+  fill: var(--brand-cobalt);
+}
+.bm-t {
+  fill: var(--brand-tangerine);
+}
+.bm-w {
+  fill: #fff;
+  stroke: #fff;
+  stroke-width: 16;
+}
+.bm-letter {
+  fill: none;
+  stroke: #fff;
+  stroke-width: 32;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.bm-page {
+  fill: #fff;
+  stroke: var(--brand-cobalt);
+  stroke-width: 22;
+  stroke-linejoin: round;
+}
+.bm-line {
+  fill: none;
+  stroke: var(--brand-tangerine);
+  stroke-width: 20;
+  stroke-linecap: round;
+}
+.bm-ink {
+  fill: var(--brand-ink);
+}
+.brand-title {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+.brand-mark {
+  flex: none;
+  width: 3rem; /* the pack's smallest size that keeps the PS readable */
+  height: 3rem;
+}
+
+/* Splash (owner, 2026-10-23): over everything while the app starts, then gone. The printer sits exactly where the
+   phone's own splash drew it (288 dp canvas, 0.34 dp per mark unit = 174 px), so nothing jumps at the hand-over. */
+#splash {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg);
+}
+.splash-stage {
+  position: relative;
+  width: 174px;
+  height: 174px;
+}
+.splash-layer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+/* The layers are HTML boxes around their drawings: Chrome moves HTML boxes on its compositor even while the app's code
+   is still loading (an animated <svg> waits for the main thread; release cold starts, 2026-10-24). */
+.splash-layer svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.splash-word svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.splash-word {
+  position: absolute;
+  top: calc(50% + 96px);
+  left: calc(50% - 100px);
+  width: 200px;
+}
+#splash.splash-out {
+  opacity: 0;
+  transition: opacity 200ms ease-in;
+  pointer-events: none; /* Home is already up underneath: a tap goes to it */
+}
+/* Four small layers, transform and opacity only (the compositor moves them; no script runs per frame). */
+@media (prefers-reduced-motion: no-preference) {
+  .splash-paper {
+    animation: splash-feed 420ms var(--ease-out) both;
+  }
+  .splash-page {
+    transform-origin: 50% 69.5%; /* the paper slot (y 356 of 512) */
+    animation: splash-print 360ms var(--ease-out) 300ms both;
+  }
+  .splash-word {
+    animation: splash-word 320ms var(--ease-out) 420ms both;
+  }
+}
+@keyframes splash-feed {
+  from {
+    opacity: 0;
+    transform: translateY(-18%);
+  }
+}
+@keyframes splash-print {
+  from {
+    transform: scaleY(0);
+  }
+}
+@keyframes splash-word {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+/* A passport photo's border on the preview (owner, 2026-10-23): drawn in page points, like the print file. */
+.paper-lines {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+.paper-border {
+  fill: none;
+  stroke: #000;
+}
+
+/* Adjust (owner, 2026-10-23): the chosen photo outlined, with a round corner to drag (64 px to touch). */
+.adjust-stage {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-1);
+  margin-bottom: var(--space-2);
+  padding: var(--space-2);
+  background: var(--stage);
+  border-radius: var(--radius-sm);
+}
+.adjust-page,
+.adjust-size {
+  margin: 0;
+  font-weight: 700;
+}
+.adjust-paper {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+}
+.adjust-pick {
+  position: absolute;
+  cursor: pointer;
+}
+.adjust-selected {
+  z-index: 1;
+  outline: 0.1875rem solid var(--primary);
+  outline-offset: 0.0625rem;
+}
+.adjust-handle {
+  position: absolute;
+  right: -1rem;
+  bottom: -1rem;
+  width: 2rem;
+  height: 2rem;
+  border: 0.1875rem solid #fff;
+  border-radius: 50%;
+  background: var(--primary);
+  touch-action: none;
+  cursor: nwse-resize;
+}
+.adjust-handle::before {
+  content: "";
+  position: absolute;
+  inset: -1rem; /* a 64 px place to touch around the 32 px dot */
+}
+.sheets li {
+  cursor: pointer;
+}
+
+/* Adjust's tools, Office ribbon style: icon above the word, every one 56 px or taller; three to a row at normal text,
+   fewer as the text grows (the column width is in rem), so a word is never split. */
+.tool-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(5.75rem, 1fr));
+  gap: var(--space-1);
+  margin-bottom: var(--space-2);
+}
+.tool-grid .btn {
+  flex-direction: column;
+  flex-wrap: nowrap;
+  gap: 0.125rem;
+  min-height: 4.25rem;
+  padding: var(--space-1) 0.25rem;
+  font-size: 0.9375rem;
+  line-height: 1.2;
+}
+/* On Adjust the page is a little smaller than on Ready, so more of the tools show without scrolling. */
+.adjust-paper .paper {
+  width: min(100%, 34vh);
+}
+.adjust-paper .paper-wide {
+  width: min(100%, 60vh);
+}
+
+/* Adjust on a wide screen held sideways: the page on the left, its tools on the right (equal halves, so large text
+   still fits). */
+.adjust-body {
+  display: grid;
+}
+@media (min-width: 45rem) and (orientation: landscape) {
+  .adjust-body {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: var(--space-3);
+    align-items: start;
+  }
+  .adjust-body .adjust-paper .paper {
+    width: min(100%, 52vh);
+  }
+}

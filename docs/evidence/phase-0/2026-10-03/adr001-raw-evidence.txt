@@ -1,0 +1,48 @@
+# ADR-001 raw evidence (files produced by PdfWriterComparisonTest on API 35, 2026-10-02 23:58, pulled with run-as)
+
+## sizes
+197121 23:58
+197121 23:58
+197121 23:58
+197121 23:58
+197121 23:58
+197121 23:58
+
+## colour spaces (grep -a over the raw PDF bytes)
+platform-grey10: ColorSpace=[     10 /ColorSpace [/ICCBased ] N=[      1 /N 3 ] Filters=[     21 /Filter /FlateDecode ]
+custom-grey10: ColorSpace=[     10 /ColorSpace /DeviceGray ] N=[] Filters=[     10 /Filter /FlateDecode ]
+platform-6photos-a4: ColorSpace=[      6 /ColorSpace [/ICCBased ] N=[      1 /N 3 ] Filters=[      8 /Filter /FlateDecode ]
+custom-6photos-a4: ColorSpace=[      6 /ColorSpace /DeviceRGB ] N=[] Filters=[      6 /Filter /DCTDecode ]
+
+## image objects in the 2-copy files (reuse check)
+platform-6photos-a4-x2: 6 image XObjects
+custom-6photos-a4-x2: 6 image XObjects
+
+## pdf.js parse of the Task 7 spooler-saved 4x6 file (34,216 B) and our source (34,467 B)
+{"file":"TEMP/saved-4x6.pdf","pages":1,"pageSizes":[{"page":1,"widthPt":288,"heightPt":432,"widthMm":101.6,"heightMm":152.4,"imagesDrawn":7,"operators":65}]}
+{"file":"TEMP/src-4x6.pdf","pages":1,"pageSizes":[{"page":1,"widthPt":288,"heightPt":432,"widthMm":101.6,"heightMm":152.4,"imagesDrawn":7,"operators":60}]}
+
+## committed instrumentation timings (API 35 full-suite run)
+adr001=custom.dctPassThrough=true
+adr001=custom.deterministic=true
+adr001=custom.grey10.bytes=6533829
+adr001=custom.grey10.deviceGray=true
+adr001=custom.grey10.deviceRGB=false
+adr001=custom.grey10.ms=2374
+adr001=custom.mediaBox=0
+adr001=custom.photos1.bytes=2986778
+adr001=custom.photos1.ms=23
+adr001=custom.photos2.bytes=2987401
+adr001=custom.photos2.ms=9
+adr001=inputJpegBytes=2984761
+adr001=platform.dctPassThrough=false
+adr001=platform.deterministic=true
+adr001=platform.grey10.bytes=10960457
+adr001=platform.grey10.deviceGray=false
+adr001=platform.grey10.deviceRGB=false
+adr001=platform.grey10.ms=3108
+adr001=platform.mediaBox=0
+adr001=platform.photos1.bytes=27495107
+adr001=platform.photos1.ms=1249
+adr001=platform.photos2.bytes=27495627
+adr001=platform.photos2.ms=1617

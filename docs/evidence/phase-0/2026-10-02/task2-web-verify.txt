@@ -1,0 +1,96 @@
+
+> printsaathi@0.0.0 prelint
+> node scripts/preflight.mjs
+
+ok   repo root OK: D:/Projects/PrintSaathi
+ok   node v24.17.0 OK
+
+> printsaathi@0.0.0 lint
+> biome check .
+
+Checked 14 files in 8ms. No fixes applied.
+
+> printsaathi@0.0.0 pretypecheck
+> node scripts/preflight.mjs
+
+ok   repo root OK: D:/Projects/PrintSaathi
+ok   node v24.17.0 OK
+
+> printsaathi@0.0.0 typecheck
+> tsc --noEmit
+
+
+> printsaathi@0.0.0 pretest
+> node scripts/preflight.mjs
+
+ok   repo root OK: D:/Projects/PrintSaathi
+ok   node v24.17.0 OK
+
+> printsaathi@0.0.0 test
+> vitest run
+
+
+ RUN  v5.0.3 D:/Projects/PrintSaathi
+
+
+ Test Files  1 passed (1)
+      Tests  4 passed (4)
+   Start at  22:56:30
+   Duration  133ms (transform 59%, import 27%, worker 8%, tests 6%)
+
+
+> printsaathi@0.0.0 pretest:scripts
+> node scripts/preflight.mjs
+
+ok   repo root OK: D:/Projects/PrintSaathi
+ok   node v24.17.0 OK
+
+> printsaathi@0.0.0 test:scripts
+> node --test "scripts/*.test.mjs"
+
+✔ preflight accepts the expected top level (0.7036ms)
+✔ preflight rejects a different top level (0.1976ms)
+✔ preflight rejects a parent directory (0.6459ms)
+✔ preflight rejects an empty top level (git not resolving) (0.1185ms)
+✔ budgets pass when gzip sizes are under the limits (0.6088ms)
+✔ budgets fail and name the offender when JS is over (0.1705ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 87.1566
+
+> printsaathi@0.0.0 prebuild
+> node scripts/preflight.mjs
+
+ok   repo root OK: D:/Projects/PrintSaathi
+ok   node v24.17.0 OK
+
+> printsaathi@0.0.0 build
+> vite build
+
+[36mvite v8.3.2 [32mbuilding client environment for production...[36m[39m
+transforming...
+✓ 8 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                  0.44 kB │ gzip: 0.28 kB
+dist/assets/index-Df6nWePG.css   0.68 kB │ gzip: 0.41 kB
+dist/assets/index-CIGtazda.js   11.49 kB │ gzip: 4.88 kB
+
+[32m✓ built in 52ms[39m
+
+> printsaathi@0.0.0 presize
+> node scripts/preflight.mjs
+
+ok   repo root OK: D:/Projects/PrintSaathi
+ok   node v24.17.0 OK
+
+> printsaathi@0.0.0 size
+> node scripts/size.mjs
+
+ok   js: 4849 B gzip (budget 61440 B)
+ok   css: 412 B gzip (budget 15360 B)

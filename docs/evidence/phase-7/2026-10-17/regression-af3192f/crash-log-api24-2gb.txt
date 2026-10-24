@@ -1,0 +1,79 @@
+10-17 03:00:04.064  3646  3658 F libc    : Fatal signal 11 (SIGSEGV), code 1, fault addr 0x10 in tid 3658 (Binder:3646_1)
+10-17 03:00:04.118  3661  3661 F DEBUG   : *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***
+10-17 03:00:04.118  3661  3661 F DEBUG   : Build fingerprint: 'Android/sdk_google_phone_x86_64/generic_x86_64:7.0/NYC/6696031:userdebug/dev-keys'
+10-17 03:00:04.118  3661  3661 F DEBUG   : Revision: '0'
+10-17 03:00:04.118  3661  3661 F DEBUG   : ABI: 'x86_64'
+10-17 03:00:04.119  3661  3661 F DEBUG   : pid: 3646, tid: 3658, name: Binder:3646_1  >>> in.printsaathi.app:engine <<<
+10-17 03:00:04.119  3661  3661 F DEBUG   : signal 11 (SIGSEGV), code 1 (SEGV_MAPERR), fault addr 0x10
+10-17 03:00:04.119  3661  3661 F DEBUG   :     rax 0000000000000000  rbx 00007084a4dc7880  rcx 0000000000590000  rdx 00007084a4dc7880
+10-17 03:00:04.119  3661  3661 F DEBUG   :     rsi 0000000000000000  rdi 00007084a4dc7880
+10-17 03:00:04.119  3661  3661 F DEBUG   :     r8  00007084adefd9a0  r9  0000000072a2da53  r10 0000000072a2da55  r11 00007084adefd7f0
+10-17 03:00:04.119  3661  3661 F DEBUG   :     r12 0000000012c9b060  r13 0000000070a83388  r14 00007084a4d79700  r15 00007084a4d79700
+10-17 03:00:04.119  3661  3661 F DEBUG   :     cs  0000000000000033  ss  000000000000002b
+10-17 03:00:04.119  3661  3661 F DEBUG   :     rip 00007084b2088c86  rbp 00007084a4dc7880  rsp 00007084adefd410  eflags 0000000000000206
+10-17 03:00:04.287  3661  3661 F DEBUG   : 
+10-17 03:00:04.287  3661  3661 F DEBUG   : backtrace:
+10-17 03:00:04.287  3661  3661 F DEBUG   :     #00 pc 000000000016ec86  /system/lib64/libpdfium.so (_ZN13CPDF_DocumentD2Ev+22)
+10-17 03:00:04.287  3661  3661 F DEBUG   :     #01 pc 000000000017aa5d  /system/lib64/libpdfium.so (_ZN11CPDF_Parser11CloseParserEi+61)
+10-17 03:00:04.287  3661  3661 F DEBUG   :     #02 pc 000000000017a82d  /system/lib64/libpdfium.so (_ZN11CPDF_ParserD1Ev+13)
+10-17 03:00:04.287  3661  3661 F DEBUG   :     #03 pc 00000000000dae3c  /system/lib64/libpdfium.so (FPDF_CloseDocument+28)
+10-17 03:00:04.287  3661  3661 F DEBUG   :     #04 pc 000000000012ef78  /system/lib64/libandroid_runtime.so
+10-17 03:00:04.287  3661  3661 F DEBUG   :     #05 pc 0000000001a3c915  /system/framework/x86_64/boot-framework.oat (offset 0x15bc000) (android.graphics.pdf.PdfRenderer.nativeClose+161)
+10-17 03:00:04.287  3661  3661 F DEBUG   :     #06 pc 0000000001a3c7d4  /system/framework/x86_64/boot-framework.oat (offset 0x15bc000) (android.graphics.pdf.PdfRenderer.doClose+96)
+10-17 03:00:04.287  3661  3661 F DEBUG   :     #07 pc 0000000001a3d3eb  /system/framework/x86_64/boot-framework.oat (offset 0x15bc000) (android.graphics.pdf.PdfRenderer.close+71)
+10-17 03:00:04.287  3661  3661 F DEBUG   :     #08 pc 0000000000137234  /system/lib64/libart.so (art_quick_invoke_stub+756)
+10-17 03:00:04.287  3661  3661 F DEBUG   :     #09 pc 0000000000145447  /system/lib64/libart.so (_ZN3art9ArtMethod6InvokeEPNS_6ThreadEPjjPNS_6JValueEPKc+231)
+10-17 03:00:04.287  3661  3661 F DEBUG   :     #10 pc 0000000000310b7f  /system/lib64/libart.so (_ZN3art11interpreter34ArtInterpreterToCompiledCodeBridgeEPNS_6ThreadEPNS_9ArtMethodEPKNS_7DexFile8CodeItemEPNS_11ShadowFrameEPNS_6JValueE+255)
+10-17 03:00:04.287  3661  3661 F DEBUG   :     #11 pc 000000000030908d  /system/lib64/libart.so (_ZN3art11interpreter6DoCallILb0ELb0EEEbPNS_9ArtMethodEPNS_6ThreadERNS_11ShadowFrameEPKNS_11InstructionEtPNS_6JValueE+765)
+10-17 03:00:04.287  3661  3661 F DEBUG   :     #12 pc 000000000061a038  /system/lib64/libart.so (MterpInvokeVirtualQuick+472)
+10-17 03:00:04.287  3661  3661 F DEBUG   :     #13 pc 000000000012c699  /system/lib64/libart.so (artMterpAsmInstructionStart+29849)
+10-17 03:00:04.287  3661  3661 F DEBUG   :     #14 pc 00000000002e1059  /system/lib64/libart.so (_ZN3art11interpreterL7ExecuteEPNS_6ThreadEPKNS_7DexFile8CodeItemERNS_11ShadowFrameENS_6JValueEb+409)
+10-17 03:00:04.287  3661  3661 F DEBUG   :     #15 pc 00000000002e734c  /system/lib64/libart.so (_ZN3art11interpreter33ArtInterpreterToInterpreterBridgeEPNS_6ThreadEPKNS_7DexFile8CodeItemEPNS_11ShadowFrameEPNS_6JValueE+172)
+10-17 03:00:04.287  3661  3661 F DEBUG   :     #16 pc 0000000000309072  /system/lib64/libart.so (_ZN3art11interpreter6DoCallILb0ELb0EEEbPNS_9ArtMethodEPNS_6ThreadERNS_11ShadowFrameEPKNS_11InstructionEtPNS_6JValueE+738)
+10-17 03:00:04.287  3661  3661 F DEBUG   :     #17 pc 00000000006176c3  /system/lib64/libart.so (MterpInvokeInterface+1283)
+10-17 03:00:04.287  3661  3661 F DEBUG   :     #18 pc 0000000000128b19  /system/lib64/libart.so (artMterpAsmInstructionStart+14617)
+10-17 03:00:04.287  3661  3661 F DEBUG   :     #19 pc 00000000002e1059  /system/lib64/libart.so (_ZN3art11interpreterL7ExecuteEPNS_6ThreadEPKNS_7DexFile8CodeItemERNS_11ShadowFrameENS_6JValueEb+409)
+10-17 03:00:04.287  3661  3661 F DEBUG   :     #20 pc 00000000002e734c  /system/lib64/libart.so (_ZN3art11interpreter33ArtInterpreterToInterpreterBridgeEPNS_6ThreadEPKNS_7DexFile8CodeItemEPNS_11ShadowFrameEPNS_6JValueE+172)
+10-17 03:00:04.287  3661  3661 F DEBUG   :     #21 pc 0000000000309072  /system/lib64/libart.so (_ZN3art11interpreter6DoCallILb0ELb0EEEbPNS_9ArtMethodEPNS_6ThreadERNS_11ShadowFrameEPKNS_11InstructionEtPNS_6JValueE+738)
+10-17 03:00:04.287  3661  3661 F DEBUG   :     #22 pc 0000000000617d9a  /system/lib64/libart.so (MterpInvokeStatic+362)
+10-17 03:00:04.287  3661  3661 F DEBUG   :     #23 pc 0000000000128a99  /system/lib64/libart.so (artMterpAsmInstructionStart+14489)
+10-17 03:00:04.288  3661  3661 F DEBUG   :     #24 pc 00000000002e1059  /system/lib64/libart.so (_ZN3art11interpreterL7ExecuteEPNS_6ThreadEPKNS_7DexFile8CodeItemERNS_11ShadowFrameENS_6JValueEb+409)
+10-17 03:00:04.288  3661  3661 F DEBUG   :     #25 pc 00000000002e734c  /system/lib64/libart.so (_ZN3art11interpreter33ArtInterpreterToInterpreterBridgeEPNS_6ThreadEPKNS_7DexFile8CodeItemEPNS_11ShadowFrameEPNS_6JValueE+172)
+10-17 03:00:04.288  3661  3661 F DEBUG   :     #26 pc 000000000030a3e6  /system/lib64/libart.so (_ZN3art11interpreter6DoCallILb1ELb0EEEbPNS_9ArtMethodEPNS_6ThreadERNS_11ShadowFrameEPKNS_11InstructionEtPNS_6JValueE+550)
+10-17 03:00:04.288  3661  3661 F DEBUG   :     #27 pc 0000000000619bda  /system/lib64/libart.so (MterpInvokeStaticRange+362)
+10-17 03:00:04.288  3661  3661 F DEBUG   :     #28 pc 0000000000128d99  /system/lib64/libart.so (artMterpAsmInstructionStart+15257)
+10-17 03:00:04.288  3661  3661 F DEBUG   :     #29 pc 00000000002e1059  /system/lib64/libart.so (_ZN3art11interpreterL7ExecuteEPNS_6ThreadEPKNS_7DexFile8CodeItemERNS_11ShadowFrameENS_6JValueEb+409)
+10-17 03:00:04.288  3661  3661 F DEBUG   :     #30 pc 00000000002e734c  /system/lib64/libart.so (_ZN3art11interpreter33ArtInterpreterToInterpreterBridgeEPNS_6ThreadEPKNS_7DexFile8CodeItemEPNS_11ShadowFrameEPNS_6JValueE+172)
+10-17 03:00:04.288  3661  3661 F DEBUG   :     #31 pc 000000000030a3e6  /system/lib64/libart.so (_ZN3art11interpreter6DoCallILb1ELb0EEEbPNS_9ArtMethodEPNS_6ThreadERNS_11ShadowFrameEPKNS_11InstructionEtPNS_6JValueE+550)
+10-17 03:00:04.288  3661  3661 F DEBUG   :     #32 pc 0000000000619bda  /system/lib64/libart.so (MterpInvokeStaticRange+362)
+10-17 03:00:04.288  3661  3661 F DEBUG   :     #33 pc 0000000000128d99  /system/lib64/libart.so (artMterpAsmInstructionStart+15257)
+10-17 03:00:04.288  3661  3661 F DEBUG   :     #34 pc 00000000002e1059  /system/lib64/libart.so (_ZN3art11interpreterL7ExecuteEPNS_6ThreadEPKNS_7DexFile8CodeItemERNS_11ShadowFrameENS_6JValueEb+409)
+10-17 03:00:04.288  3661  3661 F DEBUG   :     #35 pc 00000000002e734c  /system/lib64/libart.so (_ZN3art11interpreter33ArtInterpreterToInterpreterBridgeEPNS_6ThreadEPKNS_7DexFile8CodeItemEPNS_11ShadowFrameEPNS_6JValueE+172)
+10-17 03:00:04.288  3661  3661 F DEBUG   :     #36 pc 0000000000309072  /system/lib64/libart.so (_ZN3art11interpreter6DoCallILb0ELb0EEEbPNS_9ArtMethodEPNS_6ThreadERNS_11ShadowFrameEPKNS_11InstructionEtPNS_6JValueE+738)
+10-17 03:00:04.288  3661  3661 F DEBUG   :     #37 pc 00000000006176c3  /system/lib64/libart.so (MterpInvokeInterface+1283)
+10-17 03:00:04.288  3661  3661 F DEBUG   :     #38 pc 0000000000128b19  /system/lib64/libart.so (artMterpAsmInstructionStart+14617)
+10-17 03:00:04.288  3661  3661 F DEBUG   :     #39 pc 00000000002e1059  /system/lib64/libart.so (_ZN3art11interpreterL7ExecuteEPNS_6ThreadEPKNS_7DexFile8CodeItemERNS_11ShadowFrameENS_6JValueEb+409)
+10-17 03:00:04.288  3661  3661 F DEBUG   :     #40 pc 00000000002e734c  /system/lib64/libart.so (_ZN3art11interpreter33ArtInterpreterToInterpreterBridgeEPNS_6ThreadEPKNS_7DexFile8CodeItemEPNS_11ShadowFrameEPNS_6JValueE+172)
+10-17 03:00:04.288  3661  3661 F DEBUG   :     #41 pc 0000000000309072  /system/lib64/libart.so (_ZN3art11interpreter6DoCallILb0ELb0EEEbPNS_9ArtMethodEPNS_6ThreadERNS_11ShadowFrameEPKNS_11InstructionEtPNS_6JValueE+738)
+10-17 03:00:04.288  3661  3661 F DEBUG   :     #42 pc 0000000000617982  /system/lib64/libart.so (MterpInvokeDirect+418)
+10-17 03:00:04.288  3661  3661 F DEBUG   :     #43 pc 0000000000128a19  /system/lib64/libart.so (artMterpAsmInstructionStart+14361)
+10-17 03:00:04.288  3661  3661 F DEBUG   :     #44 pc 00000000002e1059  /system/lib64/libart.so (_ZN3art11interpreterL7ExecuteEPNS_6ThreadEPKNS_7DexFile8CodeItemERNS_11ShadowFrameENS_6JValueEb+409)
+10-17 03:00:04.288  3661  3661 F DEBUG   :     #45 pc 00000000002e734c  /system/lib64/libart.so (_ZN3art11interpreter33ArtInterpreterToInterpreterBridgeEPNS_6ThreadEPKNS_7DexFile8CodeItemEPNS_11ShadowFrameEPNS_6JValueE+172)
+10-17 03:00:04.288  3661  3661 F DEBUG   :     #46 pc 000000000030a3e6  /system/lib64/libart.so (_ZN3art11interpreter6DoCallILb1ELb0EEEbPNS_9ArtMethodEPNS_6ThreadERNS_11ShadowFrameEPKNS_11InstructionEtPNS_6JValueE+550)
+10-17 03:00:04.288  3661  3661 F DEBUG   :     #47 pc 000000000061a335  /system/lib64/libart.so (MterpInvokeVirtualQuickRange+469)
+10-17 03:00:04.288  3661  3661 F DEBUG   :     #48 pc 000000000012c719  /system/lib64/libart.so (artMterpAsmInstructionStart+29977)
+10-17 03:00:04.288  3661  3661 F DEBUG   :     #49 pc 00000000002e1059  /system/lib64/libart.so (_ZN3art11interpreterL7ExecuteEPNS_6ThreadEPKNS_7DexFile8CodeItemERNS_11ShadowFrameENS_6JValueEb+409)
+10-17 03:00:04.288  3661  3661 F DEBUG   :     #50 pc 00000000002e734c  /system/lib64/libart.so (_ZN3art11interpreter33ArtInterpreterToInterpreterBridgeEPNS_6ThreadEPKNS_7DexFile8CodeItemEPNS_11ShadowFrameEPNS_6JValueE+172)
+10-17 03:00:04.288  3661  3661 F DEBUG   :     #51 pc 000000000030a3e6  /system/lib64/libart.so (_ZN3art11interpreter6DoCallILb1ELb0EEEbPNS_9ArtMethodEPNS_6ThreadERNS_11ShadowFrameEPKNS_11InstructionEtPNS_6JValueE+550)
+10-17 03:00:04.288  3661  3661 F DEBUG   :     #52 pc 0000000000619bda  /system/lib64/libart.so (MterpInvokeStaticRange+362)
+10-17 03:00:04.288  3661  3661 F DEBUG   :     #53 pc 0000000000128d99  /system/lib64/libart.so (artMterpAsmInstructionStart+15257)
+10-17 03:00:04.288  3661  3661 F DEBUG   :     #54 pc 00000000002e1059  /system/lib64/libart.so (_ZN3art11interpreterL7ExecuteEPNS_6ThreadEPKNS_7DexFile8CodeItemERNS_11ShadowFrameENS_6JValueEb+409)
+10-17 03:00:04.288  3661  3661 F DEBUG   :     #55 pc 00000000002e734c  /system/lib64/libart.so (_ZN3art11interpreter33ArtInterpreterToInterpreterBridgeEPNS_6ThreadEPKNS_7DexFile8CodeItemEPNS_11ShadowFrameEPNS_6JValueE+172)
+10-17 03:00:04.288  3661  3661 F DEBUG   :     #56 pc 000000000030a3e6  /system/lib64/libart.so (_ZN3art11interpreter6DoCallILb1ELb0EEEbPNS_9ArtMethodEPNS_6ThreadERNS_11ShadowFrameEPKNS_11InstructionEtPNS_6JValueE+550)
+10-17 03:00:04.288  3661  3661 F DEBUG   :     #57 pc 0000000000619bda  /system/lib64/libart.so (MterpInvokeStaticRange+362)
+10-17 03:00:04.288  3661  3661 F DEBUG   :     #58 pc 0000000000128d99  /system/lib64/libart.so (artMterpAsmInstructionStart+15257)
+10-17 03:00:04.288  3661  3661 F DEBUG   :     #59 pc 00000000002e1059  /system/lib64/libart.so (_ZN3art11interpreterL7ExecuteEPNS_6ThreadEPKNS_7DexFile8CodeItemERNS_11ShadowFrameENS_6JValueEb+409)
+10-17 03:00:04.288  3661  3661 F DEBUG   :     #60 pc 00000000002e734c  /system/lib64/libart.so (_ZN3art11interpreter33ArtInterpreterToInterpreterBridgeEPNS_6ThreadEPKNS_7DexFile8CodeItemEPNS_11ShadowFrameEPNS_6JValueE+172)
+10-17 03:00:04.288  3661  3661 F DEBUG   :     #61 pc 0000000000309072  /system/lib64/libart.so (_ZN3art11interpreter6DoCallILb0ELb0EEEbPNS_9ArtMethodEPNS_6ThreadERNS_11ShadowFrameEPKNS_11InstructionEtPNS_6JValueE+738)
+10-17 03:00:04.288  3661  3661 F DEBUG   :     #62 pc 00000000006176c3  /system/lib64/libart.so (MterpInvokeInterface+1283)
+10-17 03:00:04.288  3661  3661 F DEBUG   :     #63 pc 0000000000128b19  /system/lib64/libart.so (artMterpAsmInstructionStart+14617)

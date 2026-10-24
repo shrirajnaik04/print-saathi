@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>PrintSaathi language check</title>
+<style>
+  /* Phase 0 spike (h), PLAN §H5: shown to the shopkeeper ON PAPER. Print on A4 landscape, one page per language.
+     Marathi and Hindi copy are DRAFTS: please correct them in pen. */
+  @font-face { font-family: "Atkinson Hyperlegible Next"; font-weight: 400;
+    src: url(../../node_modules/@fontsource/atkinson-hyperlegible-next/files/atkinson-hyperlegible-next-latin-400-normal.woff2) format("woff2"); }
+  @font-face { font-family: "Atkinson Hyperlegible Next"; font-weight: 700;
+    src: url(../../node_modules/@fontsource/atkinson-hyperlegible-next/files/atkinson-hyperlegible-next-latin-700-normal.woff2) format("woff2"); }
+  :root {
+    --text: #0f172a; --muted: #475569; --bg: #f8fafc; --surface: #ffffff; --primary: #075985;
+    --print: #166534; --warn-bg: #fef3c7; --warn-text: #78350f; --border: #64748b; --desk: #475569;
+    --font: "Atkinson Hyperlegible Next", "Nirmala UI", "Noto Sans Devanagari", system-ui, sans-serif;
+  }
+  @page { size: A4 landscape; margin: 10mm; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #e2e8f0; color: var(--text); font-family: var(--font); }
+  .sheet { width: 277mm; min-height: 190mm; margin: 8mm auto; background: #fff; padding: 6mm 8mm; page-break-after: always; }
+  .sheet header { display: flex; justify-content: space-between; align-items: baseline; border-bottom: 1px solid var(--border); margin-bottom: 4mm; }
+  .sheet h1 { font-size: 16pt; margin: 0 0 2mm; }
+  .draft { color: var(--warn-text); background: var(--warn-bg); padding: 1mm 3mm; font-weight: 700; font-size: 11pt; }
+  .row { display: flex; gap: 8mm; justify-content: center; }
+  .phone { width: 78mm; height: 160mm; border: 2.5mm solid #1e293b; border-radius: 7mm; background: var(--bg);
+    display: flex; flex-direction: column; overflow: hidden; }
+  .bar { display: flex; align-items: center; gap: 2mm; padding: 3mm 3mm 2mm; background: var(--surface); border-bottom: 1px solid #cbd5e1; font-size: 10pt; }
+  .bar .back { color: var(--primary); font-weight: 700; }
+  .bar .title { flex: 1; text-align: center; font-weight: 700; font-size: 11pt; }
+  .content { flex: 1; padding: 3mm; display: flex; flex-direction: column; gap: 2.2mm; font-size: 11pt; line-height: 1.35; }
+  .q { font-size: 13pt; font-weight: 700; margin: 0; }
+  .thumbs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1mm; }
+  .thumbs span { aspect-ratio: 1; background: linear-gradient(135deg, #93c5fd, #fca5a5); border-radius: 1mm; }
+  .tile { display: flex; align-items: center; gap: 3mm; min-height: 12.5mm; padding: 2mm 3mm; background: var(--surface);
+    border: 0.5mm solid var(--border); border-radius: 2.5mm; font-weight: 700; font-size: 11pt; }
+  .tile svg { flex: none; width: 7mm; height: 7mm; }
+  .paper { flex: 1; background: var(--desk); border-radius: 2mm; display: flex; align-items: center; justify-content: center; padding: 3mm; }
+  .page { background: #fff; aspect-ratio: 210 / 297; height: 100%; max-height: 62mm; display: grid; grid-template-columns: repeat(3, 1fr);
+    gap: 1mm; padding: 1.5mm; }
+  .page span { background: linear-gradient(135deg, #93c5fd, #fca5a5); }
+  .page.photo46 { aspect-ratio: 4 / 6; grid-template-columns: repeat(2, 1fr); }
+  .page.photo46 span { background: linear-gradient(180deg, #e2e8f0 30%, #94a3b8); border: 0.3mm dashed #64748b; }
+  .summary { font-weight: 700; font-size: 11pt; }
+  .change { color: var(--primary); font-weight: 700; text-decoration: underline; }
+  .warn { display: flex; gap: 2mm; align-items: flex-start; background: var(--warn-bg); color: var(--warn-text); padding: 2mm; border-radius: 2mm; font-weight: 700; font-size: 10.5pt; }
+  .warn svg { flex: none; width: 5.5mm; height: 5.5mm; }
+  .print { display: flex; align-items: center; justify-content: center; gap: 2.5mm; min-height: 15mm; background: var(--print); color: #fff;
+    border-radius: 3mm; font-size: 13pt; font-weight: 700; margin-top: auto; }
+  .print svg { width: 7mm; height: 7mm; }
+  .label { text-align: center; font-size: 9pt; color: var(--muted); margin-top: 1.5mm; }
+  .ask { margin-top: 4mm; font-size: 10.5pt; }
+  .ask td { padding: 1mm 3mm; border-bottom: 1px solid #cbd5e1; }
+  .box { display: inline-block; width: 4mm; height: 4mm; border: 0.4mm solid var(--text); vertical-align: middle; margin-right: 1mm; }
+  @media print { body { background: #fff; } .sheet { margin: 0; } }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-grid" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></g></symbol>
+    <symbol id="i-pages" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="3" width="12" height="15"/><path d="M3 7v14h12"/></g></symbol>
+    <symbol id="i-files" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="3" width="10" height="13"/><rect x="10" y="8" width="10" height="13"/></g></symbol>
+    <symbol id="i-person" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="2" width="16" height="20" rx="1"/><circle cx="12" cy="9" r="3"/><path d="M7 18c1-3 9-3 10 0"/></g></symbol>
+    <symbol id="i-doc" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2h9l4 4v16H6z"/><path d="M9 11h7M9 15h7M9 19h4"/></g></symbol>
+    <symbol id="i-printer" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2"><path d="M7 9V3h10v6"/><rect x="3" y="9" width="18" height="8" rx="1"/><path d="M7 14h10v7H7z"/></g></symbol>
+    <symbol id="i-warn" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 3 2 21h20z"/><path d="M12 10v5M12 18v.5"/></g></symbol>
+  </defs>
+</svg>
+
+<template id="tpl">
+  <section class="sheet">
+    <header><h1 data-k="sheet"></h1><span class="draft" data-k="draft"></span></header>
+    <div class="row">
+      <div>
+        <div class="phone">
+          <div class="bar"><span class="back" data-k="back"></span><span class="title" data-k="t1"></span><span class="back" data-k="home"></span></div>
+          <div class="content">
+            <p class="q" data-k="received"></p>
+            <div class="thumbs"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+            <p class="q" data-k="ask"></p>
+            <div class="tile"><svg aria-hidden="true"><use href="#i-grid"/></svg><span data-k="c1"></span></div>
+            <div class="tile"><svg aria-hidden="true"><use href="#i-pages"/></svg><span data-k="c2"></span></div>
+            <div class="tile"><svg aria-hidden="true"><use href="#i-files"/></svg><span data-k="c3"></span></div>
+            <div class="tile"><svg aria-hidden="true"><use href="#i-person"/></svg><span data-k="c4"></span></div>
+            <div class="tile"><svg aria-hidden="true"><use href="#i-doc"/></svg><span data-k="c5"></span></div>
+          </div>
+        </div>
+        <p class="label" data-k="l1"></p>
+      </div>
+      <div>
+        <div class="phone">
+          <div class="bar"><span class="back" data-k="back"></span><span class="title" data-k="t2"></span><span class="back" data-k="home"></span></div>
+          <div class="content">
+            <p class="q" data-k="how"></p>
+            <div class="paper"><div class="page"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div></div>
+            <p class="summary" data-k="sum2"></p>
+            <span class="change" data-k="change"></span>
+            <div class="print"><svg aria-hidden="true"><use href="#i-printer"/></svg><span data-k="print"></span></div>
+          </div>
+        </div>
+        <p class="label" data-k="l2"></p>
+      </div>
+      <div>
+        <div class="phone">
+          <div class="bar"><span class="back" data-k="back"></span><span class="title" data-k="t2"></span><span class="back" data-k="home"></span></div>
+          <div class="content">
+            <div class="paper"><div class="page photo46"><span></span><span></span><span></span><span></span><span></span><span></span></div></div>
+            <p class="summary" data-k="sum3"></p>
+            <span class="change" data-k="change"></span>
+            <div class="warn"><svg aria-hidden="true"><use href="#i-warn"/></svg><span data-k="load"></span></div>
+            <div class="print"><svg aria-hidden="true"><use href="#i-printer"/></svg><span data-k="loaded"></span></div>
+          </div>
+        </div>
+        <p class="label" data-k="l3"></p>
+      </div>
+    </div>
+    <table class="ask"><tr>
+      <td><span class="box"></span>the shopkeeper read it without help</td>
+      <td><span class="box"></span>Hesitated / asked</td>
+      <td><span class="box"></span>Prefers this language</td>
+      <td>Words they did not understand: ____________________</td>
+    </tr></table>
+  </section>
+</template>
+
+<script>
+  const T = {
+    en: { sheet: 'English', draft: '', back: '‹ Back', home: 'Home', t1: 'Received', t2: 'Ready to print', received: '7 photos received',
+      ask: 'What did the customer ask?', c1: 'All on one page', c2: 'One on each page', c3: 'Use more pages', c4: 'Passport photos',
+      c5: 'Print as document', how: 'This is how it will print', sum2: '7 photos · 1 page · A4 · Colour · 1 copy', change: 'Change',
+      print: 'PRINT', sum3: '5 passport photos · 4×6 glossy · Colour · 1 sheet · Charge ₹50', load: 'Put 4×6 glossy photo paper in the printer.',
+      loaded: 'PAPER LOADED — PRINT', l1: '1. After sharing from WhatsApp', l2: '2. Before printing', l3: '3. Passport photos' },
+    mr: { sheet: 'मराठी (Marathi)', draft: 'DRAFT — please correct in pen', back: '‹ मागे', home: 'मुख्य', t1: 'फाइल आल्या', t2: 'प्रिंटसाठी तयार',
+      received: '7 फोटो आले', ask: 'ग्राहकाने काय सांगितले?', c1: 'सगळे एका पानावर', c2: 'प्रत्येक फोटो वेगळ्या पानावर', c3: 'जास्त पाने वापरा',
+      c4: 'पासपोर्ट फोटो', c5: 'कागदपत्र म्हणून प्रिंट करा', how: 'असे प्रिंट होईल', sum2: '7 फोटो · 1 पान · A4 · रंगीत · 1 प्रत', change: 'बदला',
+      print: 'प्रिंट करा', sum3: '5 पासपोर्ट फोटो · 4×6 ग्लॉसी · रंगीत · 1 शीट · ₹50 घ्या', load: 'प्रिंटरमध्ये 4×6 ग्लॉसी फोटो पेपर ठेवा.',
+      loaded: 'पेपर ठेवला — प्रिंट करा', l1: '1. WhatsApp वरून शेअर केल्यावर', l2: '2. प्रिंट करण्यापूर्वी', l3: '3. पासपोर्ट फोटो' },
+    hi: { sheet: 'हिन्दी (Hindi)', draft: 'DRAFT — please correct in pen', back: '‹ पीछे', home: 'होम', t1: 'फ़ाइलें आईं', t2: 'प्रिंट के लिए तैयार',
+      received: '7 फ़ोटो आए', ask: 'ग्राहक ने क्या कहा?', c1: 'सब एक पेज पर', c2: 'हर फ़ोटो अलग पेज पर', c3: 'ज़्यादा पेज लें',
+      c4: 'पासपोर्ट फ़ोटो', c5: 'दस्तावेज़ की तरह प्रिंट करें', how: 'ऐसा प्रिंट होगा', sum2: '7 फ़ोटो · 1 पेज · A4 · रंगीन · 1 कॉपी', change: 'बदलें',
+      print: 'प्रिंट करें', sum3: '5 पासपोर्ट फ़ोटो · 4×6 ग्लॉसी · रंगीन · 1 शीट · ₹50 लें', load: 'प्रिंटर में 4×6 ग्लॉसी फ़ोटो पेपर डालें।',
+      loaded: 'पेपर डाल दिया — प्रिंट करें', l1: '1. WhatsApp से शेयर करने के बाद', l2: '2. प्रिंट से पहले', l3: '3. पासपोर्ट फ़ोटो' },
+  };
+  const tpl = document.getElementById('tpl');
+  for (const [lang, words] of Object.entries(T)) {
+    const node = tpl.content.cloneNode(true);
+    node.querySelector('.sheet').lang = lang;
+    for (const el of node.querySelectorAll('[data-k]')) el.textContent = words[el.dataset.k] ?? '';
+    if (!words.draft) node.querySelector('.draft').remove();
+    document.body.appendChild(node);
+  }
+</script>
+</body>
+</html>

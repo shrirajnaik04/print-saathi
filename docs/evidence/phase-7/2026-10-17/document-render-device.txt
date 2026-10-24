@@ -1,0 +1,6 @@
+API 35: INSTRUMENTATION_STATUS: timing=10 B&W pages: 13396 ms, file 140787 bytes
+API 35: INSTRUMENTATION_STATUS: size=B&W text page 414623 bytes
+API 35: OK (5 tests)
+API 24: INSTRUMENTATION_STATUS: timing=10 B&W pages: 2916 ms, file 140787 bytes
+API 24: INSTRUMENTATION_STATUS: size=B&W text page 422401 bytes
+API 24: OK (5 tests)

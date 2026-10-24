@@ -1,0 +1,60 @@
+C:\Users\SHRIRA~1\AppData\Local\Temp\bigs\big-1.jpg: 1 file pushed, 0 skipped. 42.4 MB/s (3233456 bytes in 0.073s)
+C:\Users\SHRIRA~1\AppData\Local\Temp\bigs\big-10.jpg: 1 file pushed, 0 skipped. 48.5 MB/s (3195527 bytes in 0.063s)
+C:\Users\SHRIRA~1\AppData\Local\Temp\bigs\big-11.jpg: 1 file pushed, 0 skipped. 148.0 MB/s (3192294 bytes in 0.021s)
+C:\Users\SHRIRA~1\AppData\Local\Temp\bigs\big-12.jpg: 1 file pushed, 0 skipped. 151.6 MB/s (3190406 bytes in 0.020s)
+C:\Users\SHRIRA~1\AppData\Local\Temp\bigs\big-13.jpg: 1 file pushed, 0 skipped. 176.9 MB/s (3190124 bytes in 0.017s)
+C:\Users\SHRIRA~1\AppData\Local\Temp\bigs\big-14.jpg: 1 file pushed, 0 skipped. 178.1 MB/s (3186210 bytes in 0.017s)
+C:\Users\SHRIRA~1\AppData\Local\Temp\bigs\big-15.jpg: 1 file pushed, 0 skipped. 133.9 MB/s (3183791 bytes in 0.023s)
+C:\Users\SHRIRA~1\AppData\Local\Temp\bigs\big-16.jpg: 1 file pushed, 0 skipped. 137.6 MB/s (3183223 bytes in 0.022s)
+C:\Users\SHRIRA~1\AppData\Local\Temp\bigs\big-17.jpg: 1 file pushed, 0 skipped. 136.5 MB/s (3178999 bytes in 0.022s)
+C:\Users\SHRIRA~1\AppData\Local\Temp\bigs\big-18.jpg: 1 file pushed, 0 skipped. 180.0 MB/s (3177941 bytes in 0.017s)
+C:\Users\SHRIRA~1\AppData\Local\Temp\bigs\big-19.jpg: 1 file pushed, 0 skipped. 82.5 MB/s (3176058 bytes in 0.037s)
+C:\Users\SHRIRA~1\AppData\Local\Temp\bigs\big-2.jpg: 1 file pushed, 0 skipped. 200.8 MB/s (3226161 bytes in 0.015s)
+C:\Users\SHRIRA~1\AppData\Local\Temp\bigs\big-20.jpg: 1 file pushed, 0 skipped. 171.2 MB/s (3171828 bytes in 0.018s)
+C:\Users\SHRIRA~1\AppData\Local\Temp\bigs\big-3.jpg: 1 file pushed, 0 skipped. 122.3 MB/s (3221586 bytes in 0.025s)
+C:\Users\SHRIRA~1\AppData\Local\Temp\bigs\big-4.jpg: 1 file pushed, 0 skipped. 137.2 MB/s (3215135 bytes in 0.022s)
+C:\Users\SHRIRA~1\AppData\Local\Temp\bigs\big-5.jpg: 1 file pushed, 0 skipped. 173.5 MB/s (3208816 bytes in 0.018s)
+C:\Users\SHRIRA~1\AppData\Local\Temp\bigs\big-6.jpg: 1 file pushed, 0 skipped. 135.7 MB/s (3205117 bytes in 0.023s)
+C:\Users\SHRIRA~1\AppData\Local\Temp\bigs\big-7.jpg: 1 file pushed, 0 skipped. 175.6 MB/s (3201933 bytes in 0.017s)
+C:\Users\SHRIRA~1\AppData\Local\Temp\bigs\big-8.jpg: 1 file pushed, 0 skipped. 163.5 MB/s (3197294 bytes in 0.019s)
+C:\Users\SHRIRA~1\AppData\Local\Temp\bigs\big-9.jpg: 1 file pushed, 0 skipped. 206.9 MB/s (3195825 bytes in 0.015s)
+{
+  "serial": "emulator-5580",
+  "when": "2026-10-22T19:32:44.714Z",
+  "coldStartTotalTimeMs": 1395,
+  "coldStartToHomeMs": 2156,
+  "idleKb": {
+    "app": 119360,
+    "engine": 0,
+    "webview": 100891
+  },
+  "share6ToReceivedMs": 3933,
+  "share6ToThumbnailsMs": 4004,
+  "choiceToReadyScreen6Ms": 6682,
+  "choiceToReadyFile6Ms": 8725,
+  "marks6": {
+    "choiceToReady": 114,
+    "choiceToFileMade": 2416,
+    "choiceToFileShown": 2719,
+    "blackEdgeCheck": 61
+  },
+  "share20ToReceivedMs": 11390,
+  "share20ToThumbnailsMs": 17222,
+  "twentyBigChoiceToReadyScreenMs": 13580,
+  "twentyBigChoiceToReadyFileMs": 14893,
+  "marks20": {
+    "choiceToReady": 3674,
+    "choiceToFileShown": 11790,
+    "blackEdgeCheck": 3641
+  },
+  "twentyBigOnTwoPagesMs": 2093,
+  "marks20TwoPages": {
+    "readyToFileShown": null
+  },
+  "peakKbTwentyBig": {
+    "app": 119762,
+    "engine": 34698,
+    "webview": 123257,
+    "total": 277717
+  }
+}

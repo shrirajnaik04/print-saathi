@@ -1,0 +1,15 @@
+
+file:///D:/Projects/PrintSaathi/node_modules/pdfjs-dist/legacy/build/pdf.mjs:6666
+  BaseException.prototype = new Error();
+                            ^
+Error
+    at BaseExceptionClosure (file:///D:/Projects/PrintSaathi/node_modules/pdfjs-dist/legacy/build/pdf.mjs:6666:29)
+    at file:///D:/Projects/PrintSaathi/node_modules/pdfjs-dist/legacy/build/pdf.mjs:6669:2
+    at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+    at async node:internal/modules/esm/loader:633:26
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5) {
+  message: 'Invalid PDF structure.',
+  name: 'InvalidPDFException'
+}
+
+Node.js v24.17.0

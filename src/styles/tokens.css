@@ -1,0 +1,134 @@
+/* Design tokens (PLAN §H1; Phase 13 Office / Fluent look, spec 2026-10-23). Light theme only; every text pair is
+   measured at 7:1 or more and every non-text pair at 3:1 or more by tokens.test.ts. */
+:root {
+  color-scheme: light;
+  --text: #111827; /* 16:1 on bg */
+  --text-muted: #3f4b5b; /* 8.1:1 on bg, 8.9:1 on cards, 7.2:1 on primary-soft */
+  --bg: #f3f4f6; /* cool grey app background */
+  --surface: #ffffff; /* cards, tiles, sheets */
+  --primary: #3730a3; /* indigo: 9.9:1 with a white label; links, focus, selected outline */
+  --primary-soft: #e0e7ff; /* a selected choice's background (with its outline, ✓ and "Selected") */
+  --print: #3730a3; /* PRINT is the screen's one primary button */
+  --warn-bg: #fef3c7;
+  --warn-text: #78350f; /* 8.2:1 */
+  --error-bg: #fef2f2;
+  --error-text: #991b1b; /* 7.6:1 */
+  --border: #64748b; /* 4.8:1 non-text: inputs and secondary outlines */
+  --stage: #e5e7eb; /* behind paper previews and photo thumbnails: white paper still stands out */
+  --desk: #475569; /* behind the crop and passport frames only: their white frame lines need a dark backdrop */
+  --info-bg: #e0f2fe; /* information panels */
+  --pressed: #f4f7fa; /* a tile while pressed: its helper text and icon stay at 7:1 (Phase 11 review M1) */
+  --divider: #d1d5db; /* thin lines between rows (decoration) */
+  --edge: #737b8a; /* a card's and a paper sheet's 1 px edge: 3.9:1 on bg, 3.4:1 on the stage (review I2/I7) */
+  --disabled: #94a3b8; /* a control that cannot be used now (WCAG exempts disabled controls) */
+  /* Coloured icon badges (Home's four jobs): glyph on badge 3:1 or more (non-text; the title names the job). */
+  --badge-photos-bg: #dbeafe;
+  --badge-photos-fg: #1d4ed8;
+  --badge-passport-bg: #ede9fe;
+  --badge-passport-fg: #6d28d9;
+  --badge-cards-bg: #ffedd5;
+  --badge-cards-fg: #9a3412;
+  --badge-documents-bg: #dcfce7;
+  --badge-documents-fg: #166534;
+  --badge-neutral-bg: #eef2ff;
+  --badge-neutral-fg: #3730a3;
+  /* The PS printer logo only (brand v3, assets/brand/): never the app's own text, buttons or meanings. */
+  --brand-cobalt: #304bee;
+  --brand-tangerine: #ff854a;
+  --brand-ink: #111b35;
+  /* Depth (Fluent): cards and tiles float slightly; pinned bars and the paper sheet a little more. */
+  --elev-1: 0 1px 2px rgb(17 24 39 / 6%), 0 4px 12px rgb(17 24 39 / 7%);
+  --elev-2: 0 2px 4px rgb(17 24 39 / 8%), 0 8px 24px rgb(17 24 39 / 10%);
+  --elev-up:
+    0 -1px 0 #d1d5db, 0 -8px 24px rgb(17 24 39 / 6%); /* a bar pinned at the bottom, floating over the content */
+  --radius-sm: 0.625rem;
+  /* Motion (spec Part 1): transform and opacity only; all of it switched off by prefers-reduced-motion. */
+  --dur-press: 120ms;
+  --dur-screen: 240ms;
+  --dur-rise: 240ms;
+  --stagger: 40ms; /* six at most: the wave ends within 400 ms */
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --font: "Atkinson Hyperlegible Next", system-ui, "Noto Sans Devanagari", sans-serif;
+  --gutter: 24px; /* owner 2026-10-23: curved phone sides hide anything closer */
+}
+
+html {
+  font-size: 100%;
+}
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 1.0625rem;
+  line-height: 1.45;
+  padding: var(--safe-area-inset-top, env(safe-area-inset-top, 0px)) var(--gutter)
+    var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));
+}
+h1 {
+  font-size: 1.5rem;
+  margin: 1rem 0;
+}
+.fact {
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--border);
+}
+.fact dt {
+  font-weight: 700;
+}
+.fact dd {
+  margin: 0;
+}
+.thumbs {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 12px;
+}
+.thumbs img {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border: 2px solid var(--border);
+  border-radius: 8px;
+}
+.file-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 1;
+  border: 2px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  text-align: center;
+  padding: 8px;
+}
+.spike-buttons {
+  display: grid;
+  gap: 12px;
+}
+.spike-button {
+  min-height: 64px;
+  font: inherit;
+  font-weight: 700;
+  color: #fff;
+  background: var(--primary);
+  border: 0;
+  border-radius: 12px;
+  padding: 12px 16px;
+  text-align: left;
+}
+.report {
+  white-space: pre-wrap;
+  font-size: 0.9rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  padding: 8px;
+}
+.spike-thumb {
+  display: block;
+  max-width: 12rem;
+  margin: 0.5rem 0;
+  border: 1px solid var(--border);
+}

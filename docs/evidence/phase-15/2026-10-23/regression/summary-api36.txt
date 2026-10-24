@@ -1,0 +1,10 @@
+tests/fixtures-large/108mp.jpg: 1 file pushed, 0 skipped. 219.3 MB/s (18083168 bytes in 0.079s)
+tests/fixtures-large/108mp-420.jpg: 1 file pushed, 0 skipped. 193.3 MB/s (10847586 bytes in 0.054s)
+tests/fixtures-large/108mp-prog-odd.jpg: 1 file pushed, 0 skipped. 259.2 MB/s (9472367 bytes in 0.035s)
+tests/fixtures-large/48mp-odd.png: 1 file pushed, 0 skipped. 107.5 MB/s (20967215 bytes in 0.186s)
+docs/evidence/phase-15/2026-10-23/regression/instrumentation-api36.txt: 71 passed, 0 failed, 0 skipped
+api36 share:      15 "verdict": "PASS" 
+Android 16 (API 36)
+render check exit 0
+share matrix exit 0
+privacy hits in app log lines: 0

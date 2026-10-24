@@ -1,0 +1,13 @@
+{
+  "device": "API 24",
+  "steps": [
+    "release APK installed",
+    "old WebView: the update screen shows (no web app on this image)"
+  ],
+  "webViewGate": true,
+  "appLogLines": 127,
+  "infoOrDebugLines": 0,
+  "appCrash": false,
+  "appRunning": true,
+  "pass": true
+}
