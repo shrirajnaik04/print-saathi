@@ -7,10 +7,8 @@ describe('shop settings (PLAN §I-15, §V defaults)', () => {
     expect(normalizeSettings(null)).toEqual(DEFAULT_SETTINGS);
     expect(DEFAULT_SETTINGS.retention).toBe('1d');
     expect(DEFAULT_SETTINGS.passport).toEqual({ preset: '35x45', count: 5, prices: { 5: 50 }, border: 1.5 });
-    expect(DEFAULT_SETTINGS.defaults).toEqual({
-      photos: { colour: 'colour', paper: 'A4' },
-      documents: { colour: 'bw' },
-    });
+    // No colour setting: every job starts in colour (owner, round 3).
+    expect(DEFAULT_SETTINGS.defaults).toEqual({ photos: { paper: 'A4' } });
     expect(DEFAULT_SETTINGS.photoPaperReminder).toBe(true);
     expect(DEFAULT_SETTINGS.edges).toBe('normal');
   });
@@ -28,8 +26,10 @@ describe('shop settings (PLAN §I-15, §V defaults)', () => {
     });
     expect(s.shopName).toBe('Star Xerox & Printing Centre on Station'); // at most 40 characters, trimmed
     expect(s.retention).toBe('1d');
-    expect(s.passport).toEqual({ preset: '20x25', count: 60, prices: { 4: 41, 5: 50 }, border: 1.5 });
-    expect(s.defaults).toEqual({ photos: { colour: 'bw', paper: 'A4' }, documents: { colour: 'bw' } });
+    // Counts go up to 100 (owner, round 3; was 60).
+    expect(s.passport).toEqual({ preset: '20x25', count: 100, prices: { 4: 41, 5: 50 }, border: 1.5 });
+    // Colour is no longer a setting (owner, round 3: every job starts in colour): an old file's colours are ignored.
+    expect(s.defaults).toEqual({ photos: { paper: 'A4' } });
     expect(s.photoPaperReminder).toBe(true);
     expect(s.edges).toBe('more');
     expect(s.screenshotsUntil).toBe(0);
@@ -66,8 +66,8 @@ describe('shop settings (PLAN §I-15, §V defaults)', () => {
 describe('paper for photo jobs (Phase 10c)', () => {
   it('A4 unless 4×6 photo paper was chosen', () => {
     expect(DEFAULT_SETTINGS.defaults.photos.paper).toBe('A4');
+    // An older file's colour is dropped (no colour setting since round 3); its paper stays.
     expect(normalizeSettings({ defaults: { photos: { colour: 'bw', paper: 'PHOTO_4x6' } } }).defaults.photos).toEqual({
-      colour: 'bw',
       paper: 'PHOTO_4x6',
     });
     expect(normalizeSettings({ defaults: { photos: { paper: 'A3' } } }).defaults.photos.paper).toBe('A4');

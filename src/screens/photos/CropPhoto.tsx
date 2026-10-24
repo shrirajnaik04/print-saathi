@@ -2,7 +2,14 @@ import { useEffect, useState } from 'preact/hooks';
 import type { JobAction } from '../../core/job/job';
 import { FULL } from '../../core/layout/crop';
 import { recropSpot } from '../../core/layout/free';
-import { boxOfSquareQuad, moveCorner, quadOfBox, shownQuad, straightAspect, uprightQuad } from '../../core/layout/quad';
+import {
+  boxOfSquareQuad,
+  moveSideStraight,
+  quadOfBox,
+  shownQuad,
+  straightAspect,
+  uprightQuad,
+} from '../../core/layout/quad';
 import { en } from '../../i18n/en';
 import { fill } from '../../i18n/fill';
 import { Button } from '../../ui/Button';
@@ -10,6 +17,7 @@ import { CropBar } from '../../ui/CropBar';
 import { CropFrame } from '../../ui/CropFrame';
 import { Panel } from '../../ui/Panel';
 import { turnedStyle } from '../../ui/PaperPreview';
+import { SideNudge } from '../../ui/SideNudge';
 import { TopBar } from '../../ui/TopBar';
 import { JobGone } from '../JobGone';
 import type { ScreenProps } from '../types';
@@ -38,7 +46,7 @@ export function CropPhoto({ go, params }: ScreenProps) {
   const { job, aspects, srcOf, gone, failed, retry, change, busy, saveFailed } = useJob(jobId);
   // The frame being made, on the upright photo (so a turn keeps it on the same part of the photo).
   const [edited, setEdited] = useState<number[] | null>(null);
-  const [chosen, setChosen] = useState(0);
+  const [side, setSide] = useState<0 | 1 | 2 | 3>(0);
   // Where the frame starts: its straightened frame, else its crop, else (unless the shopkeeper removed the edges and
   // then chose the whole photo) the edges found, else the whole photo (gate M-1).
   const start =
@@ -70,8 +78,7 @@ export function CropPhoto({ go, params }: ScreenProps) {
         })
       : fill(t.cropTitle, { n: Math.max(1, at + 1) });
   const setShown = (next: number[]) => setEdited(uprightQuad(next, turns));
-  const nudge = (dx: number, dy: number) =>
-    setShown(moveCorner(q, chosen, (q[2 * chosen] as number) + dx, (q[2 * chosen + 1] as number) + dy));
+  const nudge = (d: number) => setShown(moveSideStraight(q, side, d));
   const done = async () => {
     const box = boxOfSquareQuad(upright);
     const whole = !!box && nearWhole(box);
@@ -110,36 +117,14 @@ export function CropPhoto({ go, params }: ScreenProps) {
           aspect={shown}
           quad={q}
           onChange={setShown}
-          chosen={chosen}
-          onChoose={setChosen}
+          side={side}
+          onSide={setSide}
           label={t.cropLabel}
-          cornerLabel={c.cornerLabel}
-          cornerNames={c.cornerNames}
+          sideLabel={c.sideLabel}
+          sideNames={c.sideNames}
         />
       )}
-      <p role="status" class="corner-now">
-        {fill(c.corner, { k: chosen + 1, name: c.cornerNames[chosen] ?? '' })}
-      </p>
-      <div class="nudge-grid">
-        <Button variant="secondary" icon="next" onClick={() => setChosen((chosen + 1) % 4)}>
-          {c.nextCorner}
-        </Button>
-        <Button variant="secondary" icon="up" onClick={() => nudge(0, -STEP)}>
-          {c.up}
-        </Button>
-        <Button variant="secondary" icon="left" onClick={() => nudge(-STEP, 0)}>
-          {c.left}
-        </Button>
-        <Button variant="secondary" icon="right" onClick={() => nudge(STEP, 0)}>
-          {c.right}
-        </Button>
-        <Button variant="secondary" icon="down" onClick={() => nudge(0, STEP)}>
-          {c.down}
-        </Button>
-        <Button variant="secondary" icon="undo" onClick={() => setEdited(null)}>
-          {c.reset}
-        </Button>
-      </div>
+      <SideNudge side={side} onSide={setSide} move={nudge} reset={() => setEdited(null)} step={STEP} />
       {!square && (
         <>
           <h2>{c.preview}</h2>

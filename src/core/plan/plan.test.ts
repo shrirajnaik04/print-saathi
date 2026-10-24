@@ -1,9 +1,11 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
+import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import { jobFromIntake, jobReducer } from '../job/job';
 import { overlaps } from '../layout/free';
 import { straightAspect } from '../layout/quad';
+import { outline } from '../layout/tilt';
 import { buildPlan, paperOf, planHash } from './plan';
 
 const intake = {
@@ -172,7 +174,8 @@ describe('PrintPlan contract: documents', () => {
   };
   // Pages go sideways only when Landscape is chosen (spec Part 4), so the fixture chooses it to keep a sideways page.
   it('the shared black & white document plan (pages 3 and 1, Landscape chosen, 2 copies) is what buildPlan makes', () => {
-    let job = jobReducer(jobFromIntake('job5', pdfIntake, 1), { type: 'setDocument' }, 2);
+    // Black & white chosen (documents start in colour since round 3): the fixture keeps its grey plan.
+    let job = jobReducer(jobFromIntake('job5', pdfIntake, 1), { type: 'setDocument', colour: 'bw' }, 2);
     job = jobReducer(
       job,
       {
@@ -190,7 +193,7 @@ describe('PrintPlan contract: documents', () => {
     write('plan-v1-document.json', buildPlan(job, new Map(), undefined, undefined, docs));
   });
   it('the shared untouched plan is what buildPlan makes', () => {
-    let job = jobReducer(jobFromIntake('job6', pdfIntake, 1), { type: 'setDocument' }, 2);
+    let job = jobReducer(jobFromIntake('job6', pdfIntake, 1), { type: 'setDocument', colour: 'bw' }, 2);
     job = jobReducer(job, { type: 'setColour', colour: 'colour' }, 3);
     write('plan-v1-exact.json', buildPlan(job, new Map(), undefined, undefined, docs));
   });
@@ -520,6 +523,8 @@ describe('PrintPlan contract: photos placed by hand at Narrow margins (Phases 21
     let job = jobReducer(jobFromIntake('job9', three, 1), { type: 'setLayout', layout: 'allOnOne' }, 2);
     job = jobReducer(job, { type: 'setQuad', item: 2, quad: [0.05, 0.02, 0.45, 0.06, 0.48, 0.45, 0.02, 0.48] }, 3);
     job = jobReducer(job, { type: 'turnItem', index: 2 }, 4);
+    // A photo turned to any angle (round 3): photo 1 tilted 10°, so the device prints a tilted photo too.
+    job = jobReducer(job, { type: 'rotateItem', index: 1, angle: 10 }, 5);
     job = jobReducer(
       job,
       {
@@ -533,6 +538,7 @@ describe('PrintPlan contract: photos placed by hand at Narrow margins (Phases 21
     const MM = 72 / 25.4;
     expect(plan.pages.map((p) => p.placements.map((x) => x.itemIndex))).toEqual([[1, 2], [3]]);
     expect(overlaps(plan)).toEqual([[1, 2]]);
+    expect(plan.pages[0]?.placements[0]?.tilt?.deg).toBe(10);
     const straight = plan.pages[0]?.placements[1];
     expect(straight?.quad).toBeDefined();
     expect(straight?.turns).toBe(1);
@@ -553,5 +559,110 @@ describe('PrintPlan contract: photos placed by hand at Narrow margins (Phases 21
 `;
     if (process.env.UPDATE_CONTRACT) writeFileSync(fixture, json);
     expect(JSON.parse(readFileSync(fixture, 'utf8'))).toEqual(JSON.parse(json));
+  });
+});
+
+describe('photos turned to any angle (owner, round 3: the rotate handle)', () => {
+  const four = {
+    intakeId: 'in10',
+    rejected: 0,
+    refusedByPolicy: 0,
+    files: [1, 2, 3, 4].map((i) => ({ index: i, path: `/p/${i}.jpg`, sniffedType: 'jpeg', bytes: 1, sha256: `t${i}` })),
+  } as never;
+  const shapes = new Map([
+    [1, 0.75],
+    [2, 1.5],
+    [3, 1],
+    [4, 0.6],
+  ]);
+  const MM = 72 / 25.4;
+  const all = (plan: ReturnType<typeof buildPlan>) => plan.pages.flatMap((p) => p.placements);
+
+  it('a tilted photo is laid out by its turned outline and carries its own size', () => {
+    let job = jobReducer(jobFromIntake('jt', four, 1), { type: 'setLayout', layout: 'allOnOne' }, 2);
+    job = jobReducer(job, { type: 'rotateItem', index: 1, angle: 20 }, 3);
+    const plan = buildPlan(job, shapes);
+    const p = all(plan).find((x) => x.itemIndex === 1);
+    if (!p?.tilt) throw new Error('no tilt');
+    expect(p.tilt.deg).toBe(20);
+    expect(p.tilt.w / p.tilt.h).toBeCloseTo(0.75, 6);
+    const o = outline(p.tilt.w, p.tilt.h, 20);
+    expect(o.w).toBeCloseTo(p.box.w, 6);
+    expect(o.h).toBeCloseTo(p.box.h, 6);
+    expect(
+      all(plan)
+        .filter((x) => x.itemIndex !== 1)
+        .every((x) => x.tilt === undefined),
+    ).toBe(true);
+  });
+
+  it("a size chosen is the photo's own long side, tilted or not (as in Word)", () => {
+    let job = jobReducer(jobFromIntake('jt', four, 1), { type: 'setLayout', layout: 'allOnOne' }, 2);
+    job = jobReducer(job, { type: 'setSizes', sizes: { 1: 80, 2: 60, 3: 50, 4: 40 } }, 3);
+    job = jobReducer(job, { type: 'rotateItem', index: 1, angle: 30 }, 4);
+    const p = all(buildPlan(job, shapes)).find((x) => x.itemIndex === 1);
+    expect(Math.max(p?.tilt?.w ?? 0, p?.tilt?.h ?? 0) / MM).toBeCloseTo(80, 6);
+  });
+
+  it('a tilted photo placed by hand at the page edge keeps its outline inside the margins', () => {
+    let job = jobReducer(jobFromIntake('jt', four, 1), { type: 'setLayout', layout: 'allOnOne' }, 2);
+    job = jobReducer(
+      job,
+      { type: 'setSpots', spots: { 1: { page: 0, x: 205, y: 290, z: 1 } }, sizes: { 1: 150, 2: 60, 3: 50, 4: 40 } },
+      3,
+    );
+    job = jobReducer(job, { type: 'rotateItem', index: 1, angle: 33 }, 4);
+    const plan = buildPlan(job, shapes);
+    const p = plan.pages[0]?.placements.find((x) => x.itemIndex === 1);
+    if (!p) throw new Error('no placement');
+    const e = 12.7 * MM;
+    expect(p.box.x + p.box.w).toBeLessThanOrEqual(plan.paper.wPt - e + 1e-6);
+    expect(p.box.y + p.box.h).toBeLessThanOrEqual(plan.paper.hPt - e + 1e-6);
+    expect(p.tilt?.deg).toBe(33);
+  });
+
+  it('random tilts on every photo layout: outlines inside the margins, flowing photos never overlap (property)', () => {
+    const e = 12.7 * MM;
+    fc.assert(
+      fc.property(
+        fc.constantFrom('allOnOne', 'morePages', 'onePerPage'),
+        fc.array(fc.double({ min: -44.9, max: 45, noNaN: true }), { minLength: 4, maxLength: 4 }),
+        fc.boolean(),
+        (layout, tilts, sized) => {
+          let job = jobReducer(jobFromIntake('jp', four, 1), { type: 'setLayout', layout }, 2);
+          tilts.forEach((t, i) => {
+            job = jobReducer(job, { type: 'rotateItem', index: i + 1, angle: t }, 3 + i);
+          });
+          if (sized) job = jobReducer(job, { type: 'setSizes', sizes: { 1: 200, 2: 90, 3: 70, 4: 120 } }, 9);
+          const plan = buildPlan(job, shapes);
+          expect(all(plan)).toHaveLength(4);
+          for (const page of plan.pages) {
+            const [w, h] =
+              page.orientation === 'landscape' ? [plan.paper.hPt, plan.paper.wPt] : [plan.paper.wPt, plan.paper.hPt];
+            for (const { box: b, tilt } of page.placements) {
+              expect(b.x).toBeGreaterThanOrEqual(e - 1e-6);
+              expect(b.y).toBeGreaterThanOrEqual(e - 1e-6);
+              expect(b.x + b.w).toBeLessThanOrEqual(w - e + 1e-6);
+              expect(b.y + b.h).toBeLessThanOrEqual(h - e + 1e-6);
+              if (tilt) {
+                const o = outline(tilt.w, tilt.h, tilt.deg);
+                expect(o.w).toBeCloseTo(b.w, 6);
+                expect(o.h).toBeCloseTo(b.h, 6);
+              }
+            }
+            const bs = page.placements.map((p) => p.box);
+            for (let i = 0; i < bs.length; i++)
+              for (let j = i + 1; j < bs.length; j++) {
+                const a = bs[i] as (typeof bs)[number];
+                const c = bs[j] as (typeof bs)[number];
+                const ox = Math.min(a.x + a.w, c.x + c.w) - Math.max(a.x, c.x);
+                const oy = Math.min(a.y + a.h, c.y + c.h) - Math.max(a.y, c.y);
+                expect(ox <= 1e-6 || oy <= 1e-6).toBe(true);
+              }
+          }
+        },
+      ),
+      { numRuns: 300 },
+    );
   });
 });

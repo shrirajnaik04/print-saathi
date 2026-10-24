@@ -361,6 +361,18 @@ Please also note: how many of your real card photos were found without Fix corne
 | Y9 | Passport photos → Fit the face | Zoom out is on the left, Zoom in on the right | ☐ ☐ |
 | Y10 | Adjust on an ID card copy, a passport sheet and a PDF page: drag the round corner out and in, then print | Each one grows and shrinks as you drag, in the same steps as Smaller / Bigger, and prints at the size shown | ☐ ☐ |
 
+## §Z Card edges, the back side, side bars, passport count, colour, big preview, turn to any angle (Phases 25–28) — 25 min
+
+| # | What to do | What to check | Result |
+|---|---|---|---|
+| Z1 | Home, Settings and Recent jobs on your phone: look at the left and right edges of the tiles and cards | Every card's edge shows on the left, the right and the top, also at the curved sides; nothing is cut off | ☐ ☐ |
+| Z2 | Home → Aadhaar & ID cards → Photos of the card → pick the front photo from the gallery → **Add the back side** → Photos of the card → pick the back photo | "2 ID cards found": front and back (the back is no longer lost); Card copy → Real card size prints both | ☐ ☐ |
+| Z3 | Any crop: a photo's Crop, a page's Crop, an ID card's **Fix edges** | No corner circles; only the bars in the middle of each side. Dragging a bar moves that side straight in or out; the arrows move the chosen side; Start again puts the frame back | ☐ ☐ |
+| Z4 | Passport photos → Change → How many photos? → type **40** → Done | Ready says 2 sheets; the print has 30 on the first A4 sheet and 10 on the second (on 4×6 paper: as many sheets as needed). Typing 0, 101 or letters says "Type a number from 1 to 100." | ☐ ☐ |
+| Z5 | Start any new job (photos, a PDF, passport, ID card) | Ready shows **Colour** chosen. Tap **Black & white**: the preview turns grey and it prints grey; tap **Colour**: back to colour. One tap each | ☐ ☐ |
+| Z6 | Adjust on photos, a PDF page, a passport sheet and an ID card copy, on your phone | The page is big (edge to edge); the tools are one row at the bottom that slides sideways; Done is always there | ☐ ☐ |
+| Z7 | Adjust a photo: press the round handle above it and move your finger around the photo; let go. Then Tilt left / Tilt right; print | The photo turns with your finger and shows the angle (e.g. "10°"); near straight it clicks straight; Tilt left / right turn it 1° a tap; it prints at that angle, as sharp as before, inside the margins | ☐ ☐ |
+
 ## Decisions only you can make
 
 | Topic | Choice | My recommendation |

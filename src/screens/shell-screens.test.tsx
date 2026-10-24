@@ -48,7 +48,7 @@ describe('other shell screens', () => {
     for (const k of [
       'shop',
       'passport',
-      'paper',
+      'photosPaper',
       'deleteAfter',
       'deleteAll',
       'testPage',

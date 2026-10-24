@@ -15,6 +15,7 @@ import { passwords } from '../../native/passwords';
 import { PrintEngine, type RenderResult, type ThumbResult } from '../../native/printEngine';
 import { ActionBar } from '../../ui/ActionBar';
 import { Button } from '../../ui/Button';
+import { ColourSwitch } from '../../ui/ColourSwitch';
 import { Panel } from '../../ui/Panel';
 import { FilePage, PaperPreview } from '../../ui/PaperPreview';
 import { TopBar } from '../../ui/TopBar';
@@ -749,6 +750,17 @@ export function Ready({ go, params }: ScreenProps) {
               );
             })}
           </ol>
+          {/* Owner, round 3: every print starts in colour; one tap here prints this job in black & white (and back). */}
+          <ColourSwitch
+            value={job.colour}
+            disabled={opening}
+            onChange={async (colour) => {
+              const next = await saveJobChange(job, { type: 'setColour', colour }).catch(() => null);
+              // Not saved: it says so (review M1); the switch stays on what will print.
+              if (next) setJob(next);
+              else setNote(en.change.saveFailed);
+            }}
+          />
           <ActionBar>
             {view.state === 'preparing' && (
               <>

@@ -22,13 +22,6 @@ type Choice = {
 };
 type Question = { title: string; help: string; choices: Choice[] };
 
-const colour = (key: 'photos' | 'documents'): Choice[] =>
-  (['colour', 'bw'] as const).map((c) => ({
-    title: c === 'bw' ? en.ready.bw : en.ready.colour,
-    selected: (s) => s.defaults[key].colour === c,
-    apply: (s) => ({ ...s, defaults: { ...s.defaults, [key]: { ...s.defaults[key], colour: c } } }),
-  }));
-
 /** Every one-choice setting (PLAN §I-15, one decision per screen): its question, help line and choices. */
 const QUESTIONS: Record<string, Question> = {
   retention: {
@@ -67,7 +60,6 @@ const QUESTIONS: Record<string, Question> = {
       apply: (s) => ({ ...s, margins: m }),
     })),
   },
-  photosColour: { title: t.photosColour, help: t.colourHelp, choices: colour('photos') },
   photosPaper: {
     title: t.photosPaper,
     help: t.photosPaperHelp,
@@ -78,7 +70,6 @@ const QUESTIONS: Record<string, Question> = {
       needsPhotoPaper: paper === 'PHOTO_4x6',
     })),
   },
-  documentsColour: { title: t.documentsColour, help: t.colourHelp, choices: colour('documents') },
   passportSize: {
     title: t.passportSize,
     help: t.sizeHelp,

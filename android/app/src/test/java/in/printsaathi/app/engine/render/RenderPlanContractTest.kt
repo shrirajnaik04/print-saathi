@@ -239,4 +239,69 @@ class RenderPlanContractTest {
         }
         assertEquals(8, plan.guides.single().size)
     }
+
+    /**
+     * Owner, round 3 (spec 2026-10-24 Phase 28): the web app's own hand-placed plan (tests/fixtures/plan-v1-free.json,
+     * kept equal to buildPlan by plan.test.ts) turns photo 1 by 10°. Its box is the turned photo's outline; the photo
+     * keeps its own size, centred in that outline, and is made at 300 dpi of its own long side (never the outline's).
+     */
+    @Test fun aTiltedPhotoIsAcceptedAndMadeAt300DpiOfItsOwnSize() {
+        val json = JSONObject(java.io.File("../../tests/fixtures/plan-v1-free.json").readText()).getJSONObject("plan")
+        val p = RenderPlan.parse(json).pages[0][0]
+        val own = json.getJSONArray("pages").getJSONObject(0).getJSONArray("placements").getJSONObject(0).getJSONObject("tilt")
+        assertEquals(10.0, p.tiltCw, 1e-9)
+        val inner = p.inner!!
+        assertEquals(own.getDouble("w"), inner.w, 1e-9)
+        assertEquals(own.getDouble("h"), inner.h, 1e-9)
+        assertEquals("centred in its outline (x)", p.box.x + p.box.w / 2, inner.x + inner.w / 2, 1e-9)
+        assertEquals("centred in its outline (y)", p.box.y + p.box.h / 2, inner.y + inner.h / 2, 1e-9)
+        assertEquals("300 dpi of its own long side", Math.ceil(own.getDouble("h") * 300 / 72).toInt(), p.longSidePx)
+        // A photo that is not tilted has no own box: it fills its box as before.
+        assertEquals(null, RenderPlan.parse(json).pages[1][0].inner)
+    }
+
+    /** A sideways page turns the photo's own box onto the portrait sheet with its outline; the tilt stays the same. */
+    @Test fun aTiltedPhotoOnASidewaysPageKeepsItsTilt() {
+        val (bw, bh) = 300.0 to 200.0
+        val deg = -20.0
+        val r = Math.toRadians(deg)
+        val c = Math.abs(Math.cos(r))
+        val s = Math.abs(Math.sin(r))
+        // Own size 150 tall, aspect 1.5; its outline is the box.
+        val oh = bw / (1.5 * c + s)
+        val ow = 1.5 * oh
+        val plan = JSONObject(sample.getJSONObject("plan").toString())
+        val page = plan.getJSONArray("pages").getJSONObject(0).put("orientation", "landscape")
+        val p0 = page.getJSONArray("placements").getJSONObject(0)
+        p0.put("box", JSONObject().put("x", 40.0).put("y", 30.0).put("w", bw).put("h", ow * s + oh * c))
+        p0.put("tilt", JSONObject().put("deg", deg).put("w", ow).put("h", oh))
+        page.put("placements", org.json.JSONArray().put(p0))
+        val p = RenderPlan.parse(plan).pages[0][0]
+        assertEquals(1, p.quarterTurnsCcw)
+        assertEquals(deg, p.tiltCw, 1e-9)
+        val inner = p.inner!!
+        assertEquals("the own box turns with the page", oh, inner.w, 1e-9)
+        assertEquals(ow, inner.h, 1e-9)
+        assertEquals(p.box.x + p.box.w / 2, inner.x + inner.w / 2, 1e-9)
+        assertEquals(p.box.y + p.box.h / 2, inner.y + inner.h / 2, 1e-9)
+    }
+
+    /** A tilt past 45°, an own size whose outline is not the box, a tilted PDF page or passport photo are refused. */
+    @Test fun aBadTiltIsRefused() {
+        val json = JSONObject(java.io.File("../../tests/fixtures/plan-v1-free.json").readText()).getJSONObject("plan")
+        fun with(change: (JSONObject) -> Unit): Throwable? {
+            val plan = JSONObject(json.toString())
+            change(plan.getJSONArray("pages").getJSONObject(0).getJSONArray("placements").getJSONObject(0))
+            return runCatching { RenderPlan.parse(plan) }.exceptionOrNull()
+        }
+        val tilt = { p: JSONObject -> p.getJSONObject("tilt") }
+        assertEquals(null, with {})
+        assertTrue("over 45°", with { tilt(it).put("deg", 50) } is PlanInvalid)
+        assertTrue("under -45°", with { tilt(it).put("deg", -46) } is PlanInvalid)
+        assertTrue("own size too small for its outline", with { tilt(it).put("w", 150.0) } is PlanInvalid)
+        assertTrue("own size too big for its outline", with { tilt(it).put("h", 300.0) } is PlanInvalid)
+        assertTrue("an empty own size", with { tilt(it).put("w", 0.0) } is PlanInvalid)
+        assertTrue("a tilted PDF page", with { it.put("pdfPage", 0) } is PlanInvalid)
+        assertTrue("a tilted photo with a border", with { it.put("border", 1.0) } is PlanInvalid)
+    }
 }

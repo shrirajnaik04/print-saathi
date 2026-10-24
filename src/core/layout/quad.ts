@@ -107,6 +107,13 @@ function shift(q: number[], ks: number[], dx: number, dy: number): number[] {
 export const moveSide = (q: number[], side: 0 | 1 | 2 | 3, dx: number, dy: number): number[] =>
   shift(q, [side, (side + 1) % 4], dx, dy);
 
+/**
+ * Side [side] moved straight in or out by [d] (owner, round 3: only the middle bars move a frame): the top and bottom
+ * up or down, the left and right sideways; both of its corners together, so a slanted frame keeps its slant.
+ */
+export const moveSideStraight = (q: number[], side: 0 | 1 | 2 | 3, d: number): number[] =>
+  side % 2 === 0 ? moveSide(q, side, 0, d) : moveSide(q, side, d, 0);
+
 /** The whole frame moved, stopping at the photo's edges. */
 export const moveQuad = (q: number[], dx: number, dy: number): number[] => shift(q, [0, 1, 2, 3], dx, dy);
 

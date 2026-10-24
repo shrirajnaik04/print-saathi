@@ -302,3 +302,84 @@ test('passport: dragging the round corner out makes every photo bigger, keeping 
   expect(w).toBeGreaterThan(3.5);
   expect(w / h).toBeCloseTo(35 / 45, 1);
 });
+
+// Owner, round 3 ("Increase the size of preview so that we have enough space to do the changes in preview for all
+// categories, just like this app", Doc Scanner): the page across the screen, the tools in one sliding row above Done.
+const kinds: Record<string, (page: Page) => Promise<void>> = {
+  photos: async (page) => {
+    await page.goto('/?mockIntake=4');
+    await button(page, 'All on one page').click();
+    await button(page, 'Adjust photos').click();
+  },
+  pages: async (page) => {
+    await page.goto('/?mockIntake=1&mockPdfAt=1');
+    await button(page, 'Adjust pages').click();
+  },
+  passport: async (page) => {
+    await page.goto('/?mockIntake=1');
+    await button(page, 'Passport photos').click();
+    await button(page, 'Next').click();
+    await button(page, 'Adjust passport photo').click();
+  },
+  cards: async (page) => {
+    await page.goto('/?mockIntake=2');
+    await button(page, 'ID card copy').click();
+    await button(page, 'Card copy').click();
+    await button(page, /^Real card size/).click();
+    await button(page, 'Adjust cards').click();
+  },
+};
+
+test.describe('a big preview on a phone (owner, round 3)', () => {
+  test.use({ viewport: { width: 360, height: 800 } });
+  for (const [kind, open] of Object.entries(kinds))
+    test(`Adjust ${kind}: the page is at least 90 % of the screen's width; the tools are one sliding row above Done`, async ({
+      page,
+    }) => {
+      await open(page);
+      await expect(page.locator('.adjust-paper figure')).toBeVisible();
+      const paper = await page.locator('.adjust-paper figure').boundingBox();
+      expect(paper?.width ?? 0).toBeGreaterThanOrEqual(360 * 0.9);
+      // One row: every tool on the same line, the row wider than the screen (it slides), its last visible tool cut.
+      const row = page.locator('.actionbar .tool-row');
+      await expect(row).toBeVisible();
+      const tops = await row
+        .locator('.btn')
+        .evaluateAll((els) => els.map((e) => Math.round(e.getBoundingClientRect().top)));
+      expect(new Set(tops).size).toBe(1);
+      const fits = await row.evaluate((e) => e.scrollWidth <= e.clientWidth);
+      if (!fits) {
+        const cut = await row.locator('.btn').evaluateAll((els) =>
+          els.some((e) => {
+            const r = e.getBoundingClientRect();
+            return r.left < innerWidth && r.right > innerWidth;
+          }),
+        );
+        expect(cut).toBe(true);
+      }
+      // Done still below the tools.
+      const done = await button(page, 'Done').boundingBox();
+      const rowBox = await row.boundingBox();
+      expect((done?.y ?? 0) >= (rowBox?.y ?? 0) + (rowBox?.height ?? 0) - 1).toBe(true);
+    });
+
+  test('every tool in the row can be reached: Tab brings it into view', async ({ page }) => {
+    await kinds.photos?.(page);
+    const row = page.locator('.actionbar .tool-row');
+    const last = row.locator('.btn').last();
+    await last.focus();
+    const b = await last.boundingBox();
+    expect((b?.x ?? -1) >= 0 && (b?.x ?? 999) + (b?.width ?? 0) <= 360 + 0.5).toBe(true);
+  });
+});
+
+test.describe('held sideways (800 × 360)', () => {
+  test.use({ viewport: { width: 800, height: 360 } });
+  test('the tools sit beside the page, not in a row under it', async ({ page }) => {
+    await kinds.photos?.(page);
+    await expect(page.locator('.actionbar .tool-row')).toHaveCount(0);
+    const grid = await page.locator('.adjust-body .tool-grid').boundingBox();
+    const paper = await page.locator('.adjust-paper figure').boundingBox();
+    expect((grid?.x ?? 0) >= (paper?.x ?? 0) + (paper?.width ?? 0) - 1).toBe(true);
+  });
+});

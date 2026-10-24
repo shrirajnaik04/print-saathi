@@ -110,7 +110,7 @@ export function Received({ go, params }: ScreenProps) {
         }
         // A PDF, or PDFs with photos: printed as a document, straight to Ready (PLAN §I-2: this screen is skipped).
         if (n?.items.some((i) => i.type === 'pdf')) {
-          await saveJobChange(n, { type: 'setDocument', colour: (await loadSettings()).defaults.documents.colour });
+          await saveJobChange(n, { type: 'setDocument' });
           if (live) go({ type: 'replace', screen: { name: 'ready', params: { jobId } } });
           return;
         }
@@ -194,9 +194,7 @@ export function Received({ go, params }: ScreenProps) {
     try {
       let next = await saveJobChange(
         job,
-        layout === 'document'
-          ? { type: 'setDocument', colour: (await loadSettings()).defaults.documents.colour }
-          : { type: 'setLayout', layout },
+        layout === 'document' ? { type: 'setDocument' } : { type: 'setLayout', layout },
       );
       // Not answered yet: what this choice finds replaces any earlier suggestion (another choice may have allowed
       // white edges, gate I-2); asked only when something was found. Meanwhile the way-up check (Phase 15) ends

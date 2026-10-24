@@ -11,7 +11,6 @@ const t = en.settings;
 /** Settings for the shop owner (PLAN §I-15): every row shows its value now and opens one decision. */
 export function Settings({ go }: ScreenProps) {
   const { settings: s } = useSettings();
-  const colourOf = (c: 'colour' | 'bw') => (c === 'bw' ? en.ready.bw : en.ready.colour);
   const rows: { label: string; value: string; open: () => void }[] = [
     { label: t.shop, value: s.shopName || en.ui.notSet, open: () => go(push('shopname')) },
     {
@@ -23,9 +22,9 @@ export function Settings({ go }: ScreenProps) {
       open: () => go(push('passportsettings')),
     },
     {
-      label: t.paper,
-      value: `${t.photosColour}: ${colourOf(s.defaults.photos.colour)} · ${t.documentsColour}: ${colourOf(s.defaults.documents.colour)}`,
-      open: () => go(push('papersettings')),
+      label: t.photosPaper,
+      value: s.defaults.photos.paper === 'PHOTO_4x6' ? en.change.paperPhoto : en.change.paperA4,
+      open: () => go(push('setting', { key: 'photosPaper' })),
     },
     {
       label: t.reminder,

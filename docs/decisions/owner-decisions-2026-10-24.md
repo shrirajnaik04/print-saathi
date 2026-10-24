@@ -20,3 +20,16 @@ The owner's requests and their answers to the questions asked, in order. The spe
 | 13 | Building | "Approve, build it all." | Spec and plan in the repository, built to closure without further check-ins |
 | 14 | Publishing | Push the result to the public repository? **Yes, as a new commit** | After the security scan, one new commit on the public repository |
 | 15 | Resize everywhere | During the closure, with a screenshot of Adjust on an ID card: "Allow to resize. Told u resizes must be allowed for all sections that have photos in the preview." | The round corner resizes ID cards, document pages and passport photos too, as Smaller / Bigger do (Phase 24 report) |
+
+## Round 3 (after testing 1.0.224, same day)
+
+| # | Topic | The owner's words or choice | Built as |
+|---|---|---|---|
+| 16 | Crop frame | "Remove those corner circles. Don't allow stretch from corners. Must be draggable from the horizontal and vertical lines only from middle bar." Question: where? Answer: **everywhere** | Photos, document pages and ID cards: the four middle bars only; automatic straightening kept (spec 2026-10-24 round 3, 25c) |
+| 17 | ID card back side | "Add back side functionality not working after we select photo from the gallery." | Bug fixed (25b) |
+| 18 | Passport count | "Add custom number for passport size photos, auto adjust on next page if space isn't enough." | Type any number 1–100; extra sheets as needed (25d) |
+| 19 | Card edges | "Left right borders inside the container … being hidden … check all areas … I have told so many times." | Root cause fixed for every screen, with a test of the painted pixels (25a) |
+| 20 | Colour | "All print output must be colour; a Colour / B&W toggle on Ready to print, extremely user friendly." Question: remember a B&W choice? Answer: **always colour** for new jobs | Colour by default for every kind; Colour \| Black & white switch on Ready (26) |
+| 21 | Bigger preview | "Increase the size of preview … for all categories, just like this app" (Doc Scanner). Question: where do the tools go? Answer: **one row at the bottom** | The page across the screen on every Adjust screen; one sliding row of tools (27) |
+| 22 | Rotate handle | "Allow to rotate images from the image itself, like this" (WPS). Question: how? Answer: **any angle, snaps straight** | A handle above the chosen photo; any angle, snapping within 3°; Tilt buttons (28) |
+| 23 | Building | "Approve, build it all." | Spec and plan in the repository, built to closure; APK, report and a public-repo commit |

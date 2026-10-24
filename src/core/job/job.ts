@@ -3,7 +3,8 @@ import { problemMessages } from '../intake/messages';
 import { type CropBox, isFull, validBox } from '../layout/crop';
 import type { Spot } from '../layout/free';
 import { passportSize } from '../layout/passport';
-import { CUSTOM_MAX_MM, CUSTOM_MIN_MM, PASSPORT_BORDERS } from '../settings/settings';
+import { partsOf } from '../layout/tilt';
+import { CUSTOM_MAX_MM, CUSTOM_MIN_MM, MAX_PASSPORT_COUNT, PASSPORT_BORDERS } from '../settings/settings';
 
 export type JobItem = { index: number; path: string; type: SniffedType; bytes: number; sha256: string };
 
@@ -43,6 +44,11 @@ export type Job = {
    * upright photo, top-left, top-right, bottom-right, bottom-left. A photo has a crop or a frame, never both.
    */
   quads?: Record<number, number[]>;
+  /**
+   * Photos turned to any angle (owner, round 3: the rotate handle): the tilt beyond their quarter turns, degrees
+   * clockwise, −45 < t ≤ 45, 0.1° steps; never 0 stored (src/core/layout/tilt.ts).
+   */
+  tilts?: Record<number, number>;
   /** Black edges the detector found, per photo; applied only when the shopkeeper says "Remove black edges". */
   suggested?: Record<number, CropBox>;
   /** The shopkeeper's answer to "Black edges?" (asked once per job). */
@@ -181,6 +187,22 @@ const emptyToUndefined = <T extends object>(o: T): T | undefined => (Object.keys
 const validFrame = (q: unknown): q is number[] => validQuad(q) && q.every((v) => v >= 0 && v <= 1);
 
 /** Only valid frames of photos in the job. */
+/** Tilts of photos in the job only, each in (−45, 45] and not 0 (a saved job, round 3). */
+function keepTilts(job: Pick<Job, 'items'>, tilts: Record<number, unknown>): Record<number, number> {
+  const out: Record<number, number> = {};
+  for (const [k, t] of Object.entries(tilts ?? {}))
+    if (
+      job.items.some((i) => i.index === Number(k)) &&
+      typeof t === 'number' &&
+      Number.isFinite(t) &&
+      t > -45 &&
+      t <= 45 &&
+      t !== 0
+    )
+      out[Number(k)] = t;
+  return out;
+}
+
 function keepQuads(job: Pick<Job, 'items'>, quads: Record<number, unknown>): Record<number, number[]> {
   const out: Record<number, number[]> = {};
   for (const [k, q] of Object.entries(quads ?? {}))
@@ -253,6 +275,8 @@ export type JobAction =
   | { type: 'setCrop'; item: number; crop: CropBox | null }
   /** The scanner-style crop (owner, 2026-10-24): a straightened frame on the upright photo; null = none. */
   | { type: 'setQuad'; item: number; quad: number[] | null }
+  /** A photo turned to [angle] (degrees clockwise, any value): its quarter turns and its tilt (round 3). */
+  | { type: 'rotateItem'; index: number; angle: number }
   | { type: 'setCopies'; copies: number }
   | { type: 'removeItem'; index: number }
   /** Undo of a removal: the item back at position [at] of the print order. */
@@ -319,7 +343,6 @@ export type JobAction =
   | { type: 'undoAutoTurn' };
 
 const DEFAULT_PASSPORT_COUNT = 5;
-const MAX_PASSPORT_COUNT = 60;
 const clampCount = (n: number) => Math.min(MAX_PASSPORT_COUNT, Math.max(1, Math.round(Number.isFinite(n) ? n : 1)));
 const validCrop = (c: { x: number; y: number; w: number; h: number }) =>
   [c.x, c.y, c.w, c.h].every(Number.isFinite) &&
@@ -503,6 +526,7 @@ export function normalizeJob(o: unknown): Job | null {
     style: [...COLOUR_STYLES, ...BW_STYLES].includes(j.style as StyleId) ? (j.style as StyleId) : undefined,
     crops: emptyToUndefined(keepCrops({ items } as Job, j.crops ?? {})),
     quads: emptyToUndefined(keepQuads({ items } as Job, j.quads ?? {})),
+    tilts: emptyToUndefined(keepTilts({ items } as Job, (j as { tilts?: Record<number, unknown> }).tilts ?? {})),
     suggested: emptyToUndefined(keepCrops({ items } as Job, j.suggested ?? {})),
     edges: j.edges === 'removed' || j.edges === 'kept' ? j.edges : undefined,
   };
@@ -623,7 +647,9 @@ export function jobReducer(job: Job, action: JobAction, nowMs: number): Job {
       if (job.layout !== 'document')
         next = {
           layout: 'document',
-          ...(job.docPages === undefined && !job.docChosen ? { colour: action.colour ?? 'bw', docChosen: true } : {}),
+          ...(job.docPages === undefined && !job.docChosen
+            ? { colour: action.colour ?? 'colour', docChosen: true }
+            : {}),
         };
       break;
     case 'setDocPages': {
@@ -869,8 +895,8 @@ export function jobReducer(job: Job, action: JobAction, nowMs: number): Job {
       const used = [
         ...job.items.map((i) => i.index),
         ...job.order,
-        ...[job.turns, job.crops ?? {}, job.suggested ?? {}, job.quads ?? {}, job.spots ?? {}].flatMap((r) =>
-          Object.keys(r).map(Number),
+        ...[job.turns, job.crops ?? {}, job.suggested ?? {}, job.quads ?? {}, job.spots ?? {}, job.tilts ?? {}].flatMap(
+          (r) => Object.keys(r).map(Number),
         ),
         ...(job.passport ? [job.passport.item] : []),
         ...Object.keys(job.docTurns ?? {}).map((k) => Number(k.split(':')[0])),
@@ -926,6 +952,18 @@ export function jobReducer(job: Job, action: JobAction, nowMs: number): Job {
       order[a] = other;
       order[b] = action.index;
       next = { order };
+      break;
+    }
+    case 'rotateItem': {
+      if (!job.items.some((i) => i.index === action.index) || !Number.isFinite(action.angle)) break;
+      const { turns, tilt } = partsOf(action.angle);
+      const { [action.index]: _was, ...others } = job.tilts ?? {};
+      const { [action.index]: _auto, ...auto } = job.autoTurned ?? {};
+      next = {
+        turns: { ...job.turns, [action.index]: turns },
+        tilts: emptyToUndefined(tilt === 0 ? others : { ...others, [action.index]: tilt }),
+        autoTurned: emptyToUndefined(auto),
+      };
       break;
     }
     case 'turnItem': {

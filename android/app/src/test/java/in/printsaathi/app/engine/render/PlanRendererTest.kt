@@ -337,4 +337,53 @@ class PlanRendererTest {
         assertEquals(300, r.dpi[1])
         assertEquals(150, r.dpi[2])
     }
+
+    /**
+     * Owner, round 3 (Phase 28): a photo turned to any angle is drawn at its own size, turned about its outline's
+     * centre, and a tilted straightened photo is made at its own size (never its bigger outline's).
+     */
+    @Test fun aTiltedPhotoIsDrawnAtItsOwnSizeTurnedAboutItsOutlinesCentre() {
+        // Own box 100 x 200 at (100, 100), tilted 30° clockwise; its outline is 186.6 x 223.2 about the same centre.
+        val own = RectD(100.0, 100.0, 100.0, 200.0)
+        val outline = RectD(150 - 93.30127, 200 - 111.60254, 186.60254, 223.20508)
+        val tilted = listOf(RenderPlacement(1, outline, 0, 1250, tiltCw = 30.0, inner = own))
+        val r = PlanRenderer(decoder, counter).render(plan(1, tilted), items(1), work, out, CancelToken()) as RenderOutcome.Done
+        // Centre (150, 641.8898) in PDF space; the top edge 100 long pointing right and down, the side 200 long.
+        assertTrue(r.pdf.readText(Charsets.ISO_8859_1).contains("86.6025 -50.0000 100.0000 173.2051 56.6987 580.2872 cm"))
+
+        val quad = listOf(0.1, 0.1, 0.6, 0.12, 0.58, 0.45, 0.12, 0.43)
+        val asked = mutableListOf<List<Int>>()
+        val cards = CardDecoder { _, dst, w, h, _, _, _ ->
+            asked += listOf(w, h)
+            dst.writeBytes(jpeg)
+            DecodeOutcome.Ok(w, h)
+        }
+        // 85.6 × 54 mm card tilted 20°: made at 1012 × 638 px (300 dpi of its own size), not its outline's.
+        val card = RectD(100.0, 100.0, 242.6457, 153.0709)
+        val cardOutline = RectD(80.0, 60.0, 280.36, 226.83)
+        val tiltedCard = RenderPlacement(1, cardOutline, 0, 1012, quad = quad, tiltCw = 20.0, inner = card)
+        PlanRenderer(decoder, counter, cards = cards).render(plan(1, listOf(tiltedCard)), items(1), work, tmp.root.resolve("out2"), CancelToken())
+        assertEquals(listOf(listOf(1012, 638)), asked)
+    }
+
+    /** Review (round 3) coverage: a photo in as it is with its camera's turn, then tilted: the turn first, then the tilt. */
+    @Test fun aCameraTurnedPhotoTiltedIsTurnedThenTilted() {
+        val asIs = PlacementDecoder { _, dst, _, _, _ ->
+            dst.writeBytes(jpeg)
+            DecodeOutcome.Ok(2, 2, turnsCw = 1)
+        }
+        val own = RectD(100.0, 100.0, 100.0, 200.0)
+        val outline = RectD(150 - 93.30127, 200 - 111.60254, 186.60254, 223.20508)
+        val p = RenderPlacement(1, outline, 0, 1250, tiltCw = 30.0, inner = own)
+        val s = (PlanRenderer(asIs, counter).render(plan(1, listOf(p)), items(1), work, out, CancelToken()) as RenderOutcome.Done)
+            .pdf.readText(Charsets.ISO_8859_1)
+        val m = Regex("""q (.*) cm /Im""").find(s)!!.groupValues[1].split(" ").map { it.toDouble() }
+        // Three quarter turns anticlockwise (the camera's one clockwise), less 30°: 240° in PDF space.
+        val angle = Math.floorMod(Math.round(Math.toDegrees(Math.atan2(m[1], m[0]))).toInt(), 360)
+        assertEquals(240, angle)
+        // About the own box's centre (150, 641.8898), not mirrored.
+        assertEquals(150.0, m[4] + 0.5 * m[0] + 0.5 * m[2], 1e-3)
+        assertEquals(641.8898, m[5] + 0.5 * m[1] + 0.5 * m[3], 1e-3)
+        assertTrue(m[0] * m[3] - m[1] * m[2] > 0)
+    }
 }

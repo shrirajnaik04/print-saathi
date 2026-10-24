@@ -2,6 +2,21 @@ import { useEffect, useState } from 'preact/hooks';
 import { en } from '../i18n/en';
 import { fill } from '../i18n/fill';
 
+/**
+ * The first photo just added to [jobId], kept until [forgetAddedChoice] (ID cards: the back photo is looked at again if
+ * the screen closed before its card was saved, review I1, round 3); else null.
+ */
+export function peekAddedChoice(jobId: string): number | null {
+  try {
+    const v = JSON.parse(sessionStorage.getItem('ps.addChoose') ?? 'null') as { jobId?: string; item?: number } | null;
+    return v?.jobId === jobId && typeof v.item === 'number' ? v.item : null;
+  } catch {
+    return null;
+  }
+}
+
+export const forgetAddedChoice = () => sessionStorage.removeItem('ps.addChoose');
+
 /** The first photo just added to [jobId], once (Adjust chooses it when it comes back on screen); else null. */
 export function takeAddedChoice(jobId: string): number | null {
   const raw = sessionStorage.getItem('ps.addChoose');

@@ -222,29 +222,34 @@ result.checks.theOthersStay = first.filter((_, k) => k !== 1).every((b) => moved
 result.checks.movedPhotoPrintsOnTop = !!added[0] && same(moved[moved.length - 1] ?? [], added[0]);
 await shot('04-ready-after-moving');
 
-// 3. Scanner-style crop: drag the bottom-right corner (the magnifier shows while held); a slanted frame prints
-// straightened.
+// 3. The crop frame (owner, round 3: the middle bars only): drag the top bar down (the magnifier shows while held);
+// the photo is cropped from the top.
 await tap('Adjust photos');
 await until('Adjust', () => has('Photo'));
 await tap('Crop');
 await until('Crop', () => has('Crop photo'));
 await sleep(1500);
-const corner = await onScreen('[aria-label="The bottom right corner"]');
+const topBar = await onScreen('[aria-label="The top side"]');
 {
-  const [x, y] = [corner.x + corner.w / 2, corner.y + corner.h / 2];
-  await press(x, y, 300, x - 120, y - 80, async () => shot('05-crop-magnifier'));
+  const [x, y] = [topBar.x + topBar.w / 2, topBar.y + topBar.h / 2];
+  await press(x, y, 300, x + 60, y + 120, async () => shot('05-crop-magnifier'));
 }
 await sleep(800);
-await shot('06-crop-slanted');
+await shot('06-crop-top-bar');
 const beforeCrop = newestPrint();
 await tap('Done');
 await until('Adjust', () => has('Photo'));
 await tap('Done');
 await waitNewFile(beforeCrop);
 const job = newestJob();
-result.crop = { quads: runAs('cat', `no_backup/jobs/${job}/job.json`).match(/"quads":\{[^}]*\}/)?.[0] ?? null };
-result.checks.slantedFrameSavedAsStraightened = !!result.crop.quads;
-await shot('07-ready-straightened');
+{
+  const saved = JSON.parse(runAs('cat', `no_backup/jobs/${job}/job.json`));
+  const crop = saved.crops?.[1] ?? Object.values(saved.crops ?? {})[0];
+  result.crop = { crop: crop ?? null, quads: saved.quads ?? null };
+  // Dragged slanting, the top bar moved only down: a plain crop from the top, never a straightened frame.
+  result.checks.topBarCropsFromTheTop = !!crop && crop.y > 0.02 && crop.x === 0 && !saved.quads;
+}
+await shot('07-ready-cropped');
 
 // 3b. Word's crop: photo 3's right side dragged 20 mm in; placed by hand, its left side, top and height stay, and it
 // prints 20 mm narrower (spec Part 5, sides to crop).

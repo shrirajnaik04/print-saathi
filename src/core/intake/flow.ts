@@ -22,11 +22,10 @@ export async function takeNewIntakes(engine: Engine, nowMs: number): Promise<Job
   return (await takeNewIntakesDetailed(engine, nowMs)).jobs;
 }
 
-/** [colour]: how new photo jobs start (Settings, PLAN §V3). */
+/** New jobs start in colour (owner, round 3); [paper]: the paper new photo jobs start on (Settings, PLAN §V3). */
 export async function takeNewIntakesDetailed(
   engine: Engine,
   nowMs: number,
-  colour: 'colour' | 'bw' = 'colour',
   paper: 'A4' | 'PHOTO_4x6' = 'A4',
 ): Promise<TakenIntakes> {
   const { intakes } = await engine.listIntakes();
@@ -40,7 +39,7 @@ export async function takeNewIntakesDetailed(
       await engine.ackIntake({ intakeId: intake.intakeId });
       continue;
     }
-    const fresh = jobFromIntake(intake.intakeId, intake, nowMs, colour, paper);
+    const fresh = jobFromIntake(intake.intakeId, intake, nowMs, 'colour', paper);
     const { saved } = await engine.saveJob({ job: fresh });
     // Refused because the job already exists: the app stopped after saving it but before acknowledging the
     // intake last time. Acknowledge now, or it would be listed on every start (gate review #7).

@@ -39,8 +39,11 @@ export type Settings = {
     /** The shop's own size, offered beside the standard ones ('custom' uses it). */
     custom?: { wMm: number; hMm: number };
   };
-  /** Colour for new jobs of each type when nothing was remembered (PLAN §V3). */
-  defaults: { photos: { colour: Colour; paper: 'A4' | 'PHOTO_4x6' }; documents: { colour: Colour } };
+  /**
+   * The paper new photo jobs start on (the paper printed last). No colour here: every job starts in colour (owner,
+   * round 3); an older file's colours are ignored.
+   */
+  defaults: { photos: { paper: 'A4' | 'PHOTO_4x6' } };
   /** "Put 4×6 photo paper in the printer" on passport jobs (PLAN §J4). */
   photoPaperReminder: boolean;
   /** Advanced: "Space at paper edges" — more for printers that cut off the edge despite calibration. */
@@ -55,7 +58,8 @@ export type Settings = {
   cardSize: 'real' | 'big' | 'sets' | 'page';
 };
 
-export const MAX_PASSPORT_COUNT = 60;
+/** Passport photos in one job or as the shop's usual count (owner, round 3: up to 100; extra sheets as needed). */
+export const MAX_PASSPORT_COUNT = 100;
 const MAX_PRICE = 99_999;
 const MAX_SHOP_NAME = 40;
 
@@ -64,7 +68,7 @@ export const DEFAULT_SETTINGS: Settings = {
   shopName: '',
   retention: '1d',
   passport: { preset: '35x45', count: 5, prices: { 5: 50 }, border: 1.5 },
-  defaults: { photos: { colour: 'colour', paper: 'A4' }, documents: { colour: 'bw' } },
+  defaults: { photos: { paper: 'A4' } },
   photoPaperReminder: true,
   edges: 'normal',
   margins: 'narrow',
@@ -120,10 +124,8 @@ export function normalizeSettings(o: unknown): Settings {
     },
     defaults: {
       photos: {
-        colour: colourOf(obj(s.defaults).photos, d.defaults.photos.colour),
         paper: oneOf(obj(obj(s.defaults).photos).paper, ['A4', 'PHOTO_4x6'] as const, d.defaults.photos.paper),
       },
-      documents: { colour: colourOf(obj(s.defaults).documents, d.defaults.documents.colour) },
     },
     photoPaperReminder: typeof s.photoPaperReminder === 'boolean' ? s.photoPaperReminder : d.photoPaperReminder,
     edges: oneOf(s.edges, ['normal', 'more'] as const, d.edges),

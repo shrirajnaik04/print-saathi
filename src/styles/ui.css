@@ -140,12 +140,12 @@ textarea:focus-visible {
   border-right-color: transparent;
   border-radius: 50%;
 }
-/* A slide-in never makes the page scroll sideways (review M7): the host stays put and clips its sliding screen.
-   Clip, not hidden: clip makes no scroll container, so the pinned PRINT bar and page buttons keep sticking. */
-.screen-host {
+/* A slide-in never makes the page scroll sideways (review M7): the page itself clips sideways. Not the screen host:
+   Chromium ignores overflow-clip-margin unless both axes clip, so a host clipping only sideways cut off the outer side
+   of every card's ring that touches the gutter (owner, round 3: "left borders are being hidden"). Clip, not hidden:
+   clip makes no scroll container, so the pinned PRINT bar and page buttons keep sticking. */
+html {
   overflow-x: clip;
-  /* Focus rings reach 0.4rem outside full-width buttons: the clip leaves them room (inside the 16 px gutter). */
-  overflow-clip-margin: 0.5rem;
 }
 .sent-mark circle {
   fill: var(--primary-soft);
@@ -717,6 +717,46 @@ main h2 {
   color: var(--text);
 }
 /* Unlock PDF: big labelled fields; Show writes the password large below the field (it stays hidden in it). */
+/* A typed value that cannot be used: what to type instead, under its box (and tied to it for screen readers). */
+.field-wrong {
+  margin: calc(-1 * var(--space-1)) 0 var(--space-2);
+  color: var(--error-text);
+  font-weight: 700;
+}
+/* Colour | Black & white on Ready (owner, round 3): two big halves, the chosen one filled and ticked. */
+.colour-switch {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 8rem), 1fr));
+  gap: var(--space-1);
+  min-width: 0;
+  margin: var(--space-2) 0;
+  padding: 0;
+  border: 0;
+}
+.colour-half {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  min-height: 3.5rem;
+  padding: var(--space-1) var(--space-2);
+  border: 0;
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--ring);
+  color: var(--primary);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+.colour-on {
+  background: var(--primary);
+  color: #fff;
+}
+.colour-half:focus-visible {
+  outline: 0.1875rem solid var(--primary);
+  outline-offset: 0.1875rem;
+}
 .field {
   display: flex;
   flex-direction: column;
@@ -1392,10 +1432,90 @@ main h2 {
   touch-action: none;
   cursor: nwse-resize;
 }
+/* At the page's right or bottom edge the handles sit just inside the photo, their touch area too (at least 56 px):
+   outside, it would reach past the screen's edge at big text. */
+.adjust-handle.adjust-in {
+  right: 0.25rem;
+  bottom: 0.25rem;
+}
+.adjust-handle.adjust-in::before {
+  inset: -1.5rem -0.25rem -0.25rem -1.5rem;
+}
+.adjust-side-r.adjust-in {
+  right: 0;
+}
+.adjust-side-b.adjust-in {
+  bottom: 0;
+}
+.adjust-side-l.adjust-in {
+  left: 0;
+}
+.adjust-side-t.adjust-in {
+  top: 0;
+}
 .adjust-handle::before {
   content: "";
   position: absolute;
   inset: -1rem; /* a 64 px place to touch around the 32 px dot */
+}
+/* A photo turned to any angle (owner, round 3): its outline and handles on its own frame, turned with it, over the
+   photos drawn after it; taps go through the frame to the photo. */
+.adjust-tilt {
+  position: absolute;
+  z-index: 2;
+  pointer-events: none;
+}
+.adjust-tilt > * {
+  pointer-events: auto;
+}
+/* Turn to any angle (WPS's handle): a round dot on a short stick above the photo's top edge, the whole square above
+   the edge (56 px at normal text) the place to touch. */
+.adjust-rotate {
+  position: absolute;
+  z-index: 2;
+  left: 50%;
+  bottom: 100%;
+  width: 3.5rem;
+  height: 3.5rem;
+  margin-left: -1.75rem;
+  touch-action: none;
+  cursor: grab;
+}
+.adjust-rotate::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  width: 0.1875rem;
+  height: 0.875rem;
+  margin-left: -0.09375rem;
+  background: var(--primary);
+}
+.adjust-rotate::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: 0.875rem;
+  width: 2rem;
+  height: 2rem;
+  margin-left: -1rem;
+  border: 0.1875rem solid #fff;
+  border-radius: 50%;
+  background: var(--primary);
+  box-shadow: 0 0 0 0.0625rem var(--primary);
+}
+/* The angle while the handle turns the photo, on the photo's centre (white on the main colour, 7.6 : 1). */
+.adjust-degrees {
+  position: absolute;
+  z-index: 4;
+  padding: 0.25rem 0.75rem;
+  border-radius: 1rem;
+  background: var(--primary);
+  color: #fff;
+  font-weight: 700;
+  white-space: nowrap;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
 }
 .sheets li {
   cursor: pointer;
@@ -1418,12 +1538,53 @@ main h2 {
   font-size: 0.9375rem;
   line-height: 1.2;
 }
-/* On Adjust the page is a little smaller than on Ready, so more of the tools show without scrolling. */
+/* The page as big as the screen allows (owner, round 3: "increase the size of preview … like this app"): on a phone the
+   grey stage runs to the screen's edges and the page fills it, 12 px in from each side (clear of curved edges), no
+   taller than the screen leaves under the bars. */
 .adjust-paper .paper {
-  width: min(100%, 34vh);
+  width: min(100%, calc((100vh - 12rem) * var(--paper-aspect, 0.707)));
 }
-.adjust-paper .paper-wide {
-  width: min(100%, 60vh);
+/* The screen's height without the browser's own bars, where the WebView knows it (Chrome 108+; review M8). */
+@supports (height: 100dvh) {
+  .adjust-paper .paper {
+    width: min(100%, calc((100dvh - 12rem) * var(--paper-aspect, 0.707)));
+  }
+}
+/* Not a wide screen held sideways, written so a WebView before Chrome 104 reads it too (review M8). */
+@media (max-width: 44.999rem), (orientation: portrait) {
+  /* Edge to edge: its ring shows as a line above and below (its sides are off the screen). */
+  .adjust-stage {
+    margin-inline: calc(-1 * var(--gutter));
+    padding-inline: var(--space-2);
+    border-radius: 0;
+  }
+}
+/* The tools in one row above Done that slides sideways (Doc Scanner's editor); the row reaches the screen's edges, so
+   the last tool showing is cut at the edge and it is plain there are more. */
+.tool-row {
+  display: flex;
+  gap: var(--space-1);
+  margin-inline: calc(-1 * var(--gutter));
+  /* Room for a tool's focus ring inside the sliding row (it clips whatever reaches outside it). */
+  padding: 0.5rem var(--gutter);
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-padding-inline: var(--gutter);
+  scrollbar-width: none;
+}
+.tool-row::-webkit-scrollbar {
+  display: none;
+}
+.tool-row .btn {
+  flex: none;
+  flex-direction: column;
+  flex-wrap: nowrap;
+  gap: 0.125rem;
+  width: 5.75rem;
+  min-height: 4.25rem;
+  padding: var(--space-1) 0.25rem;
+  font-size: 0.9375rem;
+  line-height: 1.2;
 }
 
 /* Adjust on a wide screen held sideways: the page on the left, its tools on the right (equal halves, so large text
@@ -1476,43 +1637,40 @@ main h2 {
 }
 .scan-handle {
   position: absolute;
-  width: 3.5rem;
-  height: 3.5rem;
-  margin: -1.75rem 0 0 -1.75rem;
+  /* A finger's size, not the text's (56 px): at 200 % text a text-sized box made neighbouring bars cover each other on
+     a small picture. */
+  width: 56px;
+  height: 56px;
+  margin: -28px 0 0 -28px;
   padding: 0;
   border: 0;
   background: transparent;
   touch-action: none;
   cursor: grab;
 }
-.scan-corner::after {
-  content: "";
-  position: absolute;
-  inset: 1rem;
-  border-radius: 50%;
-  background: rgb(0 0 0 / 35%);
-  box-shadow:
-    0 0 0 0.1875rem #fff,
-    0 0 0 0.3125rem var(--brand-cobalt);
-}
-.scan-corner-on::after {
-  background: var(--brand-cobalt);
-}
-.scan-corner:focus-visible {
-  outline: 0.1875rem solid var(--primary);
-  border-radius: 50%;
-}
+/* A side's bar (owner, round 3: the middle bars are the only handles): a white pill along its side, the chosen one
+   filled; touched at 56 px. */
 .scan-side::after {
   content: "";
   position: absolute;
   left: 50%;
   top: 50%;
-  width: 1.75rem;
-  height: 0.5rem;
-  border-radius: 0.25rem;
+  width: 2.5rem;
+  height: 0.625rem;
+  border-radius: 0.3125rem;
   background: #fff;
-  box-shadow: 0 0 0 0.125rem var(--brand-cobalt);
+  box-shadow: 0 0 0 0.1875rem var(--brand-cobalt);
   transform: translate(-50%, -50%) rotate(var(--angle, 0deg));
+}
+.scan-side-on::after {
+  background: var(--brand-cobalt);
+  box-shadow:
+    0 0 0 0.125rem #fff,
+    0 0 0 0.3125rem var(--brand-cobalt);
+}
+.scan-side:focus-visible {
+  outline: 0.1875rem solid var(--primary);
+  border-radius: 0.5rem;
 }
 /* The magnifier: what is under the finger, 2.5 × larger, with a + on the exact point. */
 .scan-loupe {

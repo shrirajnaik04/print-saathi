@@ -6,11 +6,12 @@ import { readFileSync } from 'node:fs';
 import { validatePdf } from '../validate-pdf.mjs';
 
 /**
- * [actual]: validatePdf() output. [expected]: { pages: [{ widthPt, heightPt, boxes: [{x, y, w, h, turns}] }] }
- * (turns = quarter turns anticlockwise; older expectations with `turned` are compared as turns 1 / 0).
+ * [actual]: validatePdf() output. [expected]: { pages: [{ widthPt, heightPt, boxes: [{x, y, w, h, turns, angle?}] }] }
+ * (turns = quarter turns anticlockwise; older expectations with `turned` are compared as turns 1 / 0). A photo turned
+ * to any angle has `angle` (degrees anticlockwise, its box the outline): compared within [tolDeg] instead of turns.
  * Returns the differences in words; empty means the file matches.
  */
-export function compareRender(actual, expected, tol = 0.1) {
+export function compareRender(actual, expected, tol = 0.1, tolDeg = 0.1) {
   const problems = [];
   if (actual.pages !== expected.pages.length) return [`page count ${actual.pages}, expected ${expected.pages.length}`];
   expected.pages.forEach((want, i) => {
@@ -27,8 +28,13 @@ export function compareRender(actual, expected, tol = 0.1) {
       const off = ['x', 'y', 'w', 'h'].filter((k) => Math.abs(g[k] - b[k]) > tol);
       if (off.length)
         problems.push(`page ${n} photo ${j + 1}: ${off.map((k) => `${k} ${g[k]} vs ${b[k]}`).join(', ')}`);
-      const want = b.turns ?? (b.turned ? 1 : 0);
-      if (g.turns !== want) problems.push(`page ${n} photo ${j + 1}: quarter turns ${g.turns}, expected ${want}`);
+      if (b.angle !== undefined) {
+        const off = Math.abs(((((g.angle - b.angle) % 360) + 540) % 360) - 180);
+        if (!(off <= tolDeg)) problems.push(`page ${n} photo ${j + 1}: angle ${g.angle}, expected ${b.angle}`);
+      } else {
+        const want = b.turns ?? (b.turned ? 1 : 0);
+        if (g.turns !== want) problems.push(`page ${n} photo ${j + 1}: quarter turns ${g.turns}, expected ${want}`);
+      }
       if (g.mirrored) problems.push(`page ${n} photo ${j + 1}: drawn mirrored`);
     });
   });

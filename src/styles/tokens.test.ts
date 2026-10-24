@@ -133,3 +133,23 @@ describe('medium size (owner, 2026-10-23: "font and components too big, make it 
     expect(rule(ui, '.tile-grid .tile', 'min-height')).toBe('6.5rem');
   });
 });
+
+// Review M8 (round 3): the WebView floor is Chrome 92 (PLAN §D6). `dvh` needs 108 and `@media not (…)` 104: an older
+// WebView drops a rule using them, so the big Adjust preview would quietly not be big.
+describe('the stylesheet works on the oldest WebView the app takes (Chrome 92)', () => {
+  const ui = readFileSync(join(__dirname, 'ui.css'), 'utf8').replace(/\s+/g, ' ');
+  it('dvh only inside @supports (height: 100dvh), after the same rule in vh', () => {
+    const blocks = [...ui.matchAll(/@supports \(height: 100dvh\) \{ ([^{}]+?) \{([^{}]*)\} \}/g)];
+    expect(blocks.length).toBeGreaterThan(0);
+    let rest = ui;
+    for (const [whole, selector, body] of blocks) {
+      rest = rest.replace(whole, '');
+      const fallback = `${selector} { ${(body ?? '').replace(/dvh/g, 'vh').trim()} }`;
+      expect(ui.slice(0, ui.indexOf(whole))).toContain(fallback);
+    }
+    expect(rest).not.toMatch(/\d+dvh/);
+  });
+  it('no `@media not (…)` (Media Queries 4 negation)', () => {
+    expect(ui).not.toMatch(/@media\s+not\s*\(/);
+  });
+});

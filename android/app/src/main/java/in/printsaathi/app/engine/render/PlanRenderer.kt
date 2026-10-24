@@ -246,8 +246,10 @@ class PlanRenderer(
     /** One image per photo, size, cut, page, style and card corners; a card is made at its box's size at 300 dpi. */
     private fun keyOf(plan: RenderPlan, p: RenderPlacement): ImageKey {
         if (p.quad == null) return ImageKey(p.itemIndex, p.longSidePx, p.crop, p.pdfPage, styleOf(plan, p))
-        val w = Math.ceil(p.box.w * RenderPlan.DPI / 72.0 - 1e-9).toInt()
-        val h = Math.ceil(p.box.h * RenderPlan.DPI / 72.0 - 1e-9).toInt()
+        // A tilted photo is made at its own size, not its outline's.
+        val drawn = p.inner ?: p.box
+        val w = Math.ceil(drawn.w * RenderPlan.DPI / 72.0 - 1e-9).toInt()
+        val h = Math.ceil(drawn.h * RenderPlan.DPI / 72.0 - 1e-9).toInt()
         // The box is on the portrait sheet; the image stands as it will be turned onto it.
         val (ow, oh) = if (p.quarterTurnsCcw % 2 == 1) h to w else w to h
         return ImageKey(p.itemIndex, p.longSidePx, p.crop, p.pdfPage, styleOf(plan, p), p.quad, ow, oh)
@@ -272,7 +274,8 @@ class PlanRenderer(
                         page.map {
                             // A photo in as it is still carries the camera's turn: the page turns it (owner, 2026-10-23).
                             val turnsCw = decoded.getValue(keyOf(plan, it)).second.turnsCw
-                            PlacedImage(images.getValue(keyOf(plan, it)), it.box, Math.floorMod(it.quarterTurnsCcw - turnsCw, 4))
+                            // Turned to any angle: its own box, tilted about the outline's centre (owner, round 3).
+                            PlacedImage(images.getValue(keyOf(plan, it)), it.inner ?: it.box, Math.floorMod(it.quarterTurnsCcw - turnsCw, 4), it.tiltCw)
                         },
                         rects = plan.borders.getOrNull(n).orEmpty(),
                         lines = plan.guides.getOrNull(n).orEmpty(),

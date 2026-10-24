@@ -112,8 +112,9 @@ export function onePerPageAt(
 /** The sizes a plan's photos have now (long side, mm): Adjust starts from these at the first size change. */
 export function freezeSizes(plan: PrintPlan): Record<number, number> {
   const out: Record<number, number> = {};
+  // A photo turned to any angle: its own long side, not its outline's (round 3).
   for (const page of plan.pages)
     for (const p of page.placements)
-      if (out[p.itemIndex] === undefined) out[p.itemIndex] = Math.max(p.box.w, p.box.h) / MM;
+      if (out[p.itemIndex] === undefined) out[p.itemIndex] = Math.max(p.tilt?.w ?? p.box.w, p.tilt?.h ?? p.box.h) / MM;
   return out;
 }

@@ -2,7 +2,7 @@ import { Capacitor } from '@capacitor/core';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { type IdCardSide, type IdCardSize, validQuad } from '../../core/job/job';
 import { FULL } from '../../core/layout/crop';
-import { moveCorner, quadOfBox } from '../../core/layout/quad';
+import { moveSideStraight, quadOfBox } from '../../core/layout/quad';
 import { maxCardSets } from '../../core/plan/plan';
 import { en } from '../../i18n/en';
 import { fill } from '../../i18n/fill';
@@ -13,11 +13,12 @@ import { Button } from '../../ui/Button';
 import { CropBar } from '../../ui/CropBar';
 import { CropFrame } from '../../ui/CropFrame';
 import { Panel } from '../../ui/Panel';
+import { SideNudge } from '../../ui/SideNudge';
 import { Tile } from '../../ui/Tile';
 import { TopBar } from '../../ui/TopBar';
 import { JobGone } from '../JobGone';
 import { push, type ScreenProps } from '../types';
-import { takeAddedChoice } from '../useAddNotice';
+import { forgetAddedChoice, peekAddedChoice } from '../useAddNotice';
 import { useJob } from '../useJob';
 import { loadSettings, settingsStore } from '../useSettings';
 import { useStraightImages } from '../useStraightImages';
@@ -105,21 +106,38 @@ export function CardsFound({ go, params }: ScreenProps) {
   const [lockedItem, setLockedItem] = useState<number | null>(null);
   const [attempt, setAttempt] = useState(0);
   // A back side just added from the phone (owner, 2026-10-24): its photo is looked at, and its card goes after the front.
-  const [addedBack, setAddedBack] = useState(() => takeAddedChoice(jobId));
+  // It stays noted until its card is saved: leaving while it is looked at and coming back looks again (review I1).
+  const [addedBack] = useState(() => peekAddedChoice(jobId));
+  const [looking, setLooking] = useState(false);
+  const backStarted = useRef(false);
+  // The cards as they are now (a look that ends later adds the back to these, never to the ones it started with).
+  const latest = useRef<IdCardSide[] | undefined>(undefined);
+  latest.current = job?.idCard?.cards;
   // The back left out by "Print front only", for Undo.
   const [leftOut, setLeftOut] = useState<IdCardSide | null>(null);
   const started = useRef(-1);
+  // Open while the screen is: the look for a back card ends only when the screen closes. Not with the effect: clearing
+  // the note redraws the screen and ended it, so on a phone (slower than the tests' engine) no back was ever added
+  // (owner, round 3).
+  const open = useRef(true);
+  useEffect(
+    () => () => {
+      open.current = false;
+    },
+    [],
+  );
   useEffect(() => {
     const cards = job?.idCard?.cards;
-    if (!job || addedBack === null || !cards || cards.length !== 1 || !job.items.some((i) => i.index === addedBack))
-      return;
+    if (!job || addedBack === null || !cards || backStarted.current) return;
+    // Already two sides, or the photo is gone: nothing left to look at.
+    if (cards.length !== 1 || !job.items.some((i) => i.index === addedBack)) return forgetAddedChoice();
+    backStarted.current = true;
     const item = addedBack;
-    setAddedBack(null);
-    let live = true;
+    setLooking(true);
     void (async () => {
       try {
         const { items } = await PrintEngine.findCards({ jobId, passwords: passwords.forJob(jobId) });
-        if (!live) return;
+        if (!open.current) return;
         // The surest card in the added photo; none found: a starting frame to fix (as for any photo).
         const back = pickCards(items.filter((f) => f.index === item))[0] ?? {
           item,
@@ -127,14 +145,14 @@ export function CardsFound({ go, params }: ScreenProps) {
           turns: 0 as const,
           sure: false,
         };
-        await change({ type: 'setIdCards', cards: [...cards, back] });
+        const now = latest.current;
+        if (now?.length === 1 && (await change({ type: 'setIdCards', cards: [...now, back] }))) forgetAddedChoice();
       } catch {
-        if (live) setState('failed');
+        if (open.current) setState('failed');
+      } finally {
+        if (open.current) setLooking(false);
       }
     })();
-    return () => {
-      live = false;
-    };
   }, [job?.id, job?.rev, addedBack]);
   useEffect(() => {
     if (!job || started.current === attempt) return;
@@ -202,6 +220,7 @@ export function CardsFound({ go, params }: ScreenProps) {
       )}
       {saveFailed && <Panel kind="error" title={en.change.saveFailed} />}
       {state === 'finding' && <p role="status">{t.finding}</p>}
+      {state === 'ready' && looking && <p role="status">{t.lookingBack}</p>}
       {state === 'locked' && lockedItem !== null && (
         <Panel
           kind="warn"
@@ -236,6 +255,7 @@ export function CardsFound({ go, params }: ScreenProps) {
                     <Button
                       variant="secondary"
                       icon="crop"
+                      disabled={looking}
                       label={`${t.fix} (${side})`}
                       onClick={() => go(push('fixcorners', { jobId, at: i }))}
                     >
@@ -244,7 +264,7 @@ export function CardsFound({ go, params }: ScreenProps) {
                     <Button
                       variant="secondary"
                       icon="turn"
-                      disabled={busy}
+                      disabled={busy || looking}
                       label={`${t.turn} (${side})`}
                       onClick={() => void change({ type: 'turnIdCard', at: i })}
                     >
@@ -287,7 +307,7 @@ export function CardsFound({ go, params }: ScreenProps) {
               }}
             />
           )}
-          {cards.length === 1 && !leftOut && (
+          {cards.length === 1 && !leftOut && !looking && (
             <Panel
               kind="info"
               title={t.oneSide}
@@ -298,7 +318,7 @@ export function CardsFound({ go, params }: ScreenProps) {
       )}
       {state === 'ready' && cards && (
         <ActionBar>
-          <Button icon="next" busy={busy} onClick={() => go(push('cardsize', { jobId }))}>
+          <Button icon="next" busy={busy} disabled={looking} onClick={() => go(push('cardsize', { jobId }))}>
             {t.next}
           </Button>
         </ActionBar>
@@ -310,8 +330,9 @@ export function CardsFound({ go, params }: ScreenProps) {
 const STEP = 0.01;
 
 /**
- * Fix corners (spec Part 2; the scanner app's frame since 2026-10-24): the photo with the card's frame. Drag a corner or
- * a side, or pick a corner ("Next corner") and move it with the arrows, 1 % a tap (no precision needed, PLAN §H2.5).
+ * Fix the edges (spec Part 2; the scanner app's frame since 2026-10-24; round 3: the middle bars only): the photo with
+ * the card's frame as found. Drag a side's bar, or pick a side ("Next side") and move it with the arrows, 1 % a tap (no
+ * precision needed, PLAN §H2.5).
  * The straightened card shows below as it will print; Upside down turns it; Done keeps it.
  */
 export function FixCorners({ go, params }: ScreenProps) {
@@ -320,7 +341,7 @@ export function FixCorners({ go, params }: ScreenProps) {
   const { job, aspects, srcOf, gone, change, busy, saveFailed } = useJob(jobId);
   const card = job?.idCard?.cards[at];
   const [quad, setQuad] = useState<number[] | null>(null);
-  const [corner, setCorner] = useState(0);
+  const [side, setSide] = useState<0 | 1 | 2 | 3>(0);
   const [pageSrc, setPageSrc] = useState<string | undefined>(undefined);
   const [pageAspect, setPageAspect] = useState<number>(595 / 842);
   const q = quad ?? card?.quad ?? null;
@@ -355,8 +376,7 @@ export function FixCorners({ go, params }: ScreenProps) {
   if (gone) return <JobGone go={go} title={t.fixTitle} />;
   const aspect = card?.page !== undefined ? pageAspect : (aspects.get(card?.item ?? -1) ?? 4 / 3);
   const src = card?.page !== undefined ? pageSrc : srcOf(card?.item ?? -1);
-  const nudge = (dx: number, dy: number) =>
-    q && setQuad(moveCorner(q, corner, (q[2 * corner] ?? 0) + dx, (q[2 * corner + 1] ?? 0) + dy));
+  const nudge = (d: number) => q && setQuad(moveSideStraight(q, side, d));
   const preSrc = card && shown ? preview({ ...card, quad: shown }) : undefined;
   return (
     <main class="screen">
@@ -370,36 +390,14 @@ export function FixCorners({ go, params }: ScreenProps) {
           aspect={aspect}
           quad={q}
           onChange={setQuad}
-          chosen={corner}
-          onChoose={setCorner}
+          side={side}
+          onSide={setSide}
           label={t.fixTitle}
-          cornerLabel={c.cornerLabel}
-          cornerNames={c.cornerNames}
+          sideLabel={c.sideLabel}
+          sideNames={c.sideNames}
         />
       )}
-      <p role="status" class="corner-now">
-        {fill(c.corner, { k: corner + 1, name: c.cornerNames[corner] ?? '' })}
-      </p>
-      <div class="nudge-grid">
-        <Button variant="secondary" icon="next" onClick={() => setCorner((corner + 1) % 4)}>
-          {c.nextCorner}
-        </Button>
-        <Button variant="secondary" icon="up" onClick={() => nudge(0, -STEP)}>
-          {c.up}
-        </Button>
-        <Button variant="secondary" icon="left" onClick={() => nudge(-STEP, 0)}>
-          {c.left}
-        </Button>
-        <Button variant="secondary" icon="right" onClick={() => nudge(STEP, 0)}>
-          {c.right}
-        </Button>
-        <Button variant="secondary" icon="down" onClick={() => nudge(0, STEP)}>
-          {c.down}
-        </Button>
-        <Button variant="secondary" icon="undo" onClick={() => setQuad(card?.quad ?? null)}>
-          {c.reset}
-        </Button>
-      </div>
+      <SideNudge side={side} onSide={setSide} move={nudge} reset={() => setQuad(card?.quad ?? null)} step={STEP} />
       <h2>{t.preview}</h2>
       <div class="card-shot">
         {preSrc ? (

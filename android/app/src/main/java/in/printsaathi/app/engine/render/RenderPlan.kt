@@ -32,6 +32,12 @@ data class RenderPlacement(
     val style: Int = Styles.ORIGINAL,
     /** Phase 14: an ID card's corners on the upright photo or page (8 fractions, TL TR BR BL): straightened to the box. */
     val quad: List<Double>? = null,
+    /**
+     * Owner, round 3: a photo turned to any angle, degrees clockwise beyond its quarter turns (−45…45). [box] is then
+     * its turned outline and [inner] the photo's own size centred in it, before the tilt (on the portrait sheet).
+     */
+    val tiltCw: Double = 0.0,
+    val inner: RectD? = null,
 )
 
 /**
@@ -65,6 +71,10 @@ class RenderPlan(
         private const val MAX_GUIDES = 64
         private const val MIN_BORDER_PT = 0.25
         private const val MAX_BORDER_PT = 6.0
+        private const val MAX_TILT = 45.0
+
+        /** How far a tilted photo's outline may be from its box (rounding slack only). */
+        private const val OUTLINE_TOLERANCE_PT = 0.5
 
         /** Pages a customer PDF may have (far beyond anything a shop prints; refused, never truncated). */
         const val MAX_PDF_PAGES = 100_000
@@ -167,10 +177,35 @@ class RenderPlan(
                     box.x + box.w <= pw + TOLERANCE_PT && box.y + box.h <= ph + TOLERANCE_PT,
                 "box outside the page",
             )
-            val px = ceil(max(box.w, box.h) * DPI / 72.0 - 1e-9).toInt()
+            // Turned to any angle (owner, round 3): the photo keeps its own size; the box is its turned outline.
+            val tilt = p.optJSONObject("tilt")?.let { t ->
+                val deg = t.optDouble("deg", Double.NaN)
+                val ow = t.optDouble("w", Double.NaN)
+                val oh = t.optDouble("h", Double.NaN)
+                check(deg.isFinite() && abs(deg) <= MAX_TILT, "tilt out of range")
+                check(ow.isFinite() && oh.isFinite() && ow > 0 && oh > 0, "empty own size")
+                val r = Math.toRadians(deg)
+                val c = abs(Math.cos(r))
+                val s = abs(Math.sin(r))
+                check(
+                    abs(ow * c + oh * s - box.w) <= OUTLINE_TOLERANCE_PT && abs(ow * s + oh * c - box.h) <= OUTLINE_TOLERANCE_PT,
+                    "own size does not fit its outline",
+                )
+                // Pages and passport photos keep the 90° Turn (spec 2026-10-24 Phase 28).
+                check(!p.has("pdfPage"), "a tilted page")
+                check(!p.has("border"), "a tilted passport photo")
+                Triple(deg, ow, oh)
+            }
+            // 300 dpi of what is drawn: the photo's own long side when tilted, never its (bigger) outline's.
+            val px = ceil((tilt?.let { max(it.second, it.third) } ?: max(box.w, box.h)) * DPI / 72.0 - 1e-9).toInt()
             // Sideways page (x along its long side) onto the portrait sheet, turned anticlockwise: its top edge
             // becomes the sheet's left edge.
             val onSheet = if (sideways) RectD(box.y, sheetH - box.x - box.w, box.h, box.w) else box
+            // The own size turns with the page and stays centred in its outline; the tilt is the same on the sheet.
+            val inner = tilt?.let { (_, ow, oh) ->
+                val (iw, ih) = if (sideways) oh to ow else ow to oh
+                RectD(onSheet.x + (onSheet.w - iw) / 2, onSheet.y + (onSheet.h - ih) / 2, iw, ih)
+            }
             val pdfPage = if (p.has("pdfPage")) p.getInt("pdfPage").also { check(it in 0 until MAX_PDF_PAGES, "bad pdf page") } else null
             // An ID card (Phase 14) or a straightened photo (owner, 2026-10-24): its corners instead of a crop, never
             // both. Any style: OCV Black is straightened first, then made 1-bit.
@@ -187,6 +222,8 @@ class RenderPlan(
                 pdfPage,
                 style,
                 quad,
+                tilt?.first ?: 0.0,
+                inner,
             )
         }
 

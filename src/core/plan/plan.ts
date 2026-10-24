@@ -6,6 +6,7 @@ import { allOnOne, bestPages, onPages } from '../layout/layouts';
 import { A4, type Box, EDGE_MM, onePerPage, type Paper } from '../layout/onePerPage';
 import { passportSheets, passportSize } from '../layout/passport';
 import { straightAspect } from '../layout/quad';
+import { innerOf, outline as turnedOutline } from '../layout/tilt';
 import { MARGIN_MM, type Margins } from '../settings/settings';
 
 export type Placement = {
@@ -26,6 +27,12 @@ export type Placement = {
   quad?: number[];
   /** A black border drawn inside the box, in points (passport photos, owner 2026-10-23). */
   border?: number;
+  /**
+   * A photo turned to any angle (owner, round 3): [deg] degrees clockwise beyond its quarter turns (−45…45) and its own
+   * size [w] × [h] (points, the turned shape), centred in [box], which is its turned outline. The engine makes the
+   * photo at 300 dpi of its own size and the print file draws it at that angle.
+   */
+  tilt?: { deg: number; w: number; h: number };
 };
 
 /** The one geometry both preview and print follow (PLAN §G1). Versioned; validated again natively. */
@@ -198,20 +205,33 @@ export function buildPlan(
   aspects = cropped;
   const byIndex = new Map(job.items.map((i) => [i.index, i]));
   const turnsOf = (index: number) => (job.turns?.[index] ?? 0) as 0 | 1 | 2 | 3;
+  // Turned to any angle (owner, round 3): laid out by its turned outline; its size stays its own (as in Word).
+  const tiltOf = (index: number) => job.tilts?.[index] ?? 0;
+  const own = new Map<number, number>();
   const items = (job.order ?? job.items.map((i) => i.index))
     .map((index) => byIndex.get(index))
     .filter((i): i is (typeof job.items)[number] => !!i && PHOTO.has(i.type) && (aspects.get(i.index) ?? 0) > 0)
     .map((i) => {
       const a = aspects.get(i.index) as number;
-      return { index: i.index, aspect: turnsOf(i.index) % 2 === 1 ? 1 / a : a };
+      const shape = turnsOf(i.index) % 2 === 1 ? 1 / a : a;
+      own.set(i.index, shape);
+      const o = turnedOutline(shape, 1, tiltOf(i.index));
+      return { index: i.index, aspect: o.w / o.h };
     });
+  /** The long side of a photo's turned outline when its own long side is [longMm]. */
+  const outlineLong = (index: number, longMm: number) => {
+    const a = own.get(index) ?? 1;
+    const o =
+      a >= 1 ? turnedOutline(longMm, longMm / a, tiltOf(index)) : turnedOutline(longMm * a, longMm, tiltOf(index));
+    return Math.max(o.w, o.h);
+  };
   // Upright paper unless the shopkeeper chose sideways (owner, 2026-10-23).
   const direction = job.direction ?? 'portrait';
   const chosen = job.sizes && Object.keys(job.sizes).length > 0 ? sizeOf(job.sizes) : undefined;
   const layoutPages = (() => {
     // Sizes chosen on Adjust (owner, 2026-10-23): one on each page keeps its pages; the others flow (Square wrap).
     if (chosen) {
-      const sized = items.map((i) => ({ ...i, longMm: chosen(i.index) }));
+      const sized = items.map((i) => ({ ...i, longMm: outlineLong(i.index, chosen(i.index)) }));
       const flow = (list: typeof sized) =>
         job.layout === 'allOnOne' || job.layout === 'morePages'
           ? flowPages(list, sheet, direction)
@@ -244,6 +264,11 @@ export function buildPlan(
         turns: turnsOf(pl.itemIndex),
         style: styleOf(job),
         box: pl.box,
+        ...(tiltOf(pl.itemIndex)
+          ? {
+              tilt: { deg: tiltOf(pl.itemIndex), ...innerOf(pl.box, own.get(pl.itemIndex) ?? 1, tiltOf(pl.itemIndex)) },
+            }
+          : {}),
       }),
     ),
   }));

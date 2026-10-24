@@ -1,8 +1,8 @@
-import { useRef, useState } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 import { panPhoto, zoomPhoto } from '../../core/layout/panZoom';
 import { passportSize } from '../../core/layout/passport';
 import { centredFrame, passportFrame } from '../../core/plan/plan';
-import { PASSPORT_BORDERS } from '../../core/settings/settings';
+import { MAX_PASSPORT_COUNT, PASSPORT_BORDERS } from '../../core/settings/settings';
 import { en } from '../../i18n/en';
 import { fill } from '../../i18n/fill';
 import { ActionBar } from '../../ui/ActionBar';
@@ -230,10 +230,50 @@ export function PassportCrop({ go, params }: ScreenProps) {
 
 const QUICK = [4, 5, 6, 8];
 
+/** A typed count: digits only (spaces around are fine), 1 to [MAX_PASSPORT_COUNT]; anything else is null. */
+export function typedCount(s: string): number | null {
+  const v = s.trim();
+  if (!/^\d{1,3}$/.test(v)) return null;
+  const n = Number(v);
+  return n >= 1 && n <= MAX_PASSPORT_COUNT ? n : null;
+}
+
 /** How many passport photos? (PLAN §J4): quick choices 4 · 5 · 6 · 8, then big − / +. */
 export function PassportCount({ go, params }: ScreenProps) {
   const jobId = String(params?.jobId ?? '');
   const { job, gone, failed, retry, change, busy, saveFailed } = useJob(jobId);
+  // Or type how many (owner, round 3): saved a moment after a good number is typed, at once on Enter or on leaving the
+  // box; anything else says what to type, only then (not while typing).
+  const [typed, setTyped] = useState('');
+  const [wrong, setWrong] = useState(false);
+  const later = useRef<ReturnType<typeof setTimeout>>();
+  // The text last saved: leaving the box never saves it again over a count changed since (review M2).
+  const saved = useRef('');
+  useEffect(() => () => clearTimeout(later.current), []);
+  const take = (s: string, now: boolean) => {
+    clearTimeout(later.current);
+    const count = typedCount(s);
+    if (count === null) {
+      if (now) setWrong(true);
+      return;
+    }
+    setWrong(false);
+    if (now && s === saved.current) return;
+    const save = () => {
+      saved.current = s;
+      void change({ type: 'setPassportCount', count });
+    };
+    if (now) save();
+    else later.current = setTimeout(save, 600);
+  };
+  // 4 · 5 · 6 · 8 and − / +: the count they show wins; the box empties.
+  const pick = (count: number) => {
+    clearTimeout(later.current);
+    setTyped('');
+    setWrong(false);
+    saved.current = '';
+    void change({ type: 'setPassportCount', count });
+  };
   if (gone) return <JobGone go={go} title={t.count} />;
   const n = job?.passport?.count ?? 5;
   return (
@@ -245,12 +285,7 @@ export function PassportCount({ go, params }: ScreenProps) {
       {saveFailed && <Panel kind="error" title={en.change.saveFailed} />}
       <div class="quick-counts">
         {QUICK.map((q) => (
-          <Button
-            key={q}
-            variant={q === n ? 'primary' : 'secondary'}
-            disabled={busy}
-            onClick={() => void change({ type: 'setPassportCount', count: q })}
-          >
+          <Button key={q} variant={q === n ? 'primary' : 'secondary'} disabled={busy} onClick={() => pick(q)}>
             {String(q)}
           </Button>
         ))}
@@ -261,10 +296,40 @@ export function PassportCount({ go, params }: ScreenProps) {
         moreLabel={t.more}
         value={n}
         min={1}
-        max={60}
+        max={MAX_PASSPORT_COUNT}
         disabled={busy}
-        onChange={(count) => void change({ type: 'setPassportCount', count })}
+        onChange={pick}
       />
+      <label class="field">
+        <span>{t.typeCount}</span>
+        <input
+          type="text"
+          inputMode="numeric"
+          enterKeyHint="done"
+          autoComplete="off"
+          maxLength={6}
+          value={typed}
+          aria-invalid={wrong}
+          aria-describedby={wrong ? 'count-wrong' : undefined}
+          onInput={(e) => {
+            const v = (e.target as HTMLInputElement).value;
+            setTyped(v);
+            setWrong(false);
+            take(v, false);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') take((e.target as HTMLInputElement).value, true);
+          }}
+          onBlur={(e) => {
+            if ((e.target as HTMLInputElement).value !== '') take((e.target as HTMLInputElement).value, true);
+          }}
+        />
+      </label>
+      {wrong && (
+        <p id="count-wrong" class="field-wrong" role="alert">
+          {t.typeCountError}
+        </p>
+      )}
       <ActionBar>
         <Button icon="check" onClick={() => go({ type: 'backTo', name: 'ready' })}>
           {en.change.done}

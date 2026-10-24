@@ -28,6 +28,8 @@ function imageBox(m, pageH) {
   const xs = pts.map((p) => p[0]);
   const ys = pts.map((p) => p[1]);
   const r = (n) => +n.toFixed(4);
+  // Degrees anticlockwise the image's own x axis is turned on the page, 0 to 360 (a photo turned to any angle).
+  const angle = ((((Math.atan2(m[1], m[0]) * 180) / Math.PI) % 360) + 360) % 360;
   return {
     x: r(Math.min(...xs)),
     y: r(pageH - Math.max(...ys)),
@@ -35,8 +37,9 @@ function imageBox(m, pageH) {
     h: r(Math.max(...ys) - Math.min(...ys)),
     turned: Math.abs(m[1]) > 1e-9,
     // Quarter turns anticlockwise of the image on the page: 0 upright, 1 top to the left, 2 upside down, 3 top
-    // to the right (from the signs of the matrix).
-    turns: m[1] > 1e-9 ? 1 : m[1] < -1e-9 ? 3 : m[0] < 0 ? 2 : 0,
+    // to the right (the nearest quarter turn of a tilted image).
+    turns: Math.round(angle / 90) % 4,
+    angle: r(angle),
     // A mirrored image (negative determinant) is never right on paper, whatever its turn.
     mirrored: m[0] * m[3] - m[1] * m[2] < 0,
   };

@@ -31,14 +31,13 @@ const allThree = [
 describe('document plans (PLAN §G4, §J5)', () => {
   const three = new Map([[1, facts([A4P, A4P, A4P])]]);
 
-  it('a document starts in black & white (PLAN §V3) and prints every page of every file in order', () => {
+  it('a document starts in colour (owner, round 3) and prints every page of every file in order', () => {
     const job = docJob(['pdf']);
     expect(job.layout).toBe('document');
-    expect(job.colour).toBe('bw');
+    expect(job.colour).toBe('colour');
     const plan = buildPlan(job, new Map(), undefined, undefined, three);
     expect(plan.contentType).toBe('document');
     expect(plan.pages.map((p) => p.placements[0]?.pdfPage)).toEqual([0, 1, 2]);
-    expect(plan.exact).toBeUndefined();
   });
 
   it('the untouched path: one unlocked PDF, every page in order, Colour, 1 copy', () => {
@@ -51,7 +50,7 @@ describe('document plans (PLAN §G4, §J5)', () => {
   it('anything changed means the processed path (never a customer file that differs from the preview)', () => {
     const colour = jobReducer(docJob(['pdf']), { type: 'setColour', colour: 'colour' }, 3);
     const cases = [
-      ['black & white', docJob(['pdf']), three],
+      ['black & white', jobReducer(docJob(['pdf']), { type: 'setColour', colour: 'bw' }, 3), three],
       ['2 copies', jobReducer(colour, { type: 'setCopies', copies: 2 }, 4), three],
       [
         'a page left out',
@@ -108,7 +107,8 @@ describe('document plans (PLAN §G4, §J5)', () => {
 
   // Spec Part 4: upright paper unless Landscape is chosen; a wide page is fitted across it (review, 2026-10-24).
   it('a page fits upright A4 inside 6 mm edges, keeping its shape (a wide page fitted across it)', () => {
-    const job = docJob(['pdf']);
+    // The processed path (black & white): a colour PDF printed as it is keeps its own pages.
+    const job = jobReducer(docJob(['pdf']), { type: 'setColour', colour: 'bw' }, 3);
     const plan = buildPlan(job, new Map(), undefined, undefined, new Map([[1, facts([A4P, A4L, [72, 72]])]]));
     for (const [i, [w, h]] of ([A4P, A4L, [72, 72]] as [number, number][]).entries()) {
       const page = plan.pages[i];

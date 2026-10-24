@@ -44,6 +44,12 @@ rm -f "$OUT/render-$LABEL.pdf"
 node scripts/device/render-check.mjs "$OUT/render-free-$LABEL.pdf" "$OUT/render-free-expected-$LABEL.json" > "$OUT/render-check-free-$LABEL.json" 2>&1
 echo "render check (placed by hand) exit $?" >> "$OUT/device-$LABEL.txt"
 rm -f "$OUT/render-free-$LABEL.pdf"
+# Phase 28: a photo turned to any angle, on an upright and a sideways page: each outline and its angle within 0.1°.
+"$ADB" -s "$S" exec-out run-as in.printsaathi.app cat files/render-check-tilt/print.pdf > "$OUT/render-tilt-$LABEL.pdf" 2>/dev/null
+"$ADB" -s "$S" exec-out run-as in.printsaathi.app cat files/render-check-tilt/expected.json > "$OUT/render-tilt-expected-$LABEL.json" 2>/dev/null
+node scripts/device/render-check.mjs "$OUT/render-tilt-$LABEL.pdf" "$OUT/render-tilt-expected-$LABEL.json" > "$OUT/render-check-tilt-$LABEL.json" 2>&1
+echo "render check (any angle) exit $?" >> "$OUT/device-$LABEL.txt"
+rm -f "$OUT/render-tilt-$LABEL.pdf"
 "$ADB" -s "$S" shell am start -n in.printsaathi.app/.MainActivity > /dev/null; sleep 6
 EVIDENCE="$OUT/share-matrix-$LABEL.json" node scripts/device/share.mjs "$S" > /dev/null 2>&1
 echo "share matrix exit $?" >> "$OUT/device-$LABEL.txt"

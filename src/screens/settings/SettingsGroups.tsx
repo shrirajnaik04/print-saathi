@@ -58,35 +58,6 @@ export function PassportSettings({ go }: ScreenProps) {
   );
 }
 
-/** Paper and colour (PLAN §I-15, §V3): how new photo and document jobs start. */
-export function PaperSettings({ go }: ScreenProps) {
-  const { settings: s } = useSettings();
-  const colourOf = (c: 'colour' | 'bw') => (c === 'bw' ? en.ready.bw : en.ready.colour);
-  return (
-    <main class="screen">
-      <TopBar title={t.paper} onBack={() => go({ type: 'back' })} onHome={() => go({ type: 'home' })} />
-      <p>{t.colourHelp}</p>
-      <div class="rows">
-        <ChangeRow
-          label={t.photosColour}
-          value={colourOf(s.defaults.photos.colour)}
-          onClick={() => go(push('setting', { key: 'photosColour' }))}
-        />
-        <ChangeRow
-          label={t.photosPaper}
-          value={s.defaults.photos.paper === 'PHOTO_4x6' ? en.change.paperPhoto : en.change.paperA4}
-          onClick={() => go(push('setting', { key: 'photosPaper' }))}
-        />
-        <ChangeRow
-          label={t.documentsColour}
-          value={colourOf(s.defaults.documents.colour)}
-          onClick={() => go(push('setting', { key: 'documentsColour' }))}
-        />
-      </div>
-    </main>
-  );
-}
-
 /** How many passport photos a new passport job starts with: big − / +, then Done. */
 export function PassportCountSetting({ go }: ScreenProps) {
   const { settings, ready } = useSettings();

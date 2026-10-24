@@ -1,4 +1,5 @@
 import type { ComponentChildren } from 'preact';
+import { ownBox } from '../core/layout/tilt';
 import type { Placement } from '../core/plan/plan';
 
 type Props = {
@@ -45,17 +46,20 @@ export function PaperPreview({ wPt, hPt, placements, srcOf, label, mini, grey, c
     >
       {placements.map((p, i) => {
         const src = srcOfPlacement ? srcOfPlacement(p) : srcOf(p.itemIndex, p.pdfPage);
+        // Turned to any angle (owner, round 3): drawn at its own size, turned about its outline's centre, as it prints.
+        const box = ownBox(p);
         const style = {
-          left: pct(p.box.x, wPt),
-          top: pct(p.box.y, hPt),
-          width: pct(p.box.w, wPt),
-          height: pct(p.box.h, hPt),
+          left: pct(box.x, wPt),
+          top: pct(box.y, hPt),
+          width: pct(box.w, wPt),
+          height: pct(box.h, hPt),
+          ...(p.tilt ? { transform: `rotate(${p.tilt.deg}deg)` } : {}),
         };
         const full = p.crop.x === 0 && p.crop.y === 0 && p.crop.w === 1 && p.crop.h === 1;
         if (src && !full) {
           // The whole photo as shown, scaled and shifted so only the cropped part fills the box (passport frame).
-          const sw = p.box.w / p.crop.w;
-          const sh = p.box.h / p.crop.h;
+          const sw = box.w / p.crop.w;
+          const sh = box.h / p.crop.h;
           return (
             <span key={`${i}-${p.itemIndex}`} class="paper-photo paper-crop" style={style}>
               <span
@@ -75,7 +79,7 @@ export function PaperPreview({ wPt, hPt, placements, srcOf, label, mini, grey, c
         if (src && p.turns)
           return (
             <span key={`${i}-${p.itemIndex}`} class="paper-photo paper-turned" style={style}>
-              <img src={src} alt="" style={turnedStyle(p.turns, p.box.w, p.box.h)} />
+              <img src={src} alt="" style={turnedStyle(p.turns, box.w, box.h)} />
             </span>
           );
         return src ? (

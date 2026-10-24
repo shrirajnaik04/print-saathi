@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import AxeBuilder from '@axe-core/playwright';
 import { expect, type Page, test } from '@playwright/test';
+import jpeg from 'jpeg-js';
 
 // PLAN §R5 + Phase 1 exit: every screen at every viewport and text size: no horizontal scroll, nothing outside
 // the screen, every control the shopkeeper presses >= 56 px, and no WCAG 2.2 AA violations; text contrast AAA (7:1, PLAN §H1).
@@ -81,7 +82,7 @@ const SCREENS: Record<string, Reach> = {
   },
   cards: { url: '/?mockIntake=2', taps: ['ID card copy'], title: 'ID card copy' },
   cardsource: { url: '/', taps: [/^Aadhaar & ID cards/], title: 'Where is the card?' },
-  fixcorners: { url: '/?mockIntake=2', taps: ['ID card copy', 'Fix corners (Front)'], title: 'Fix corners' },
+  fixcorners: { url: '/?mockIntake=2', taps: ['ID card copy', 'Fix edges (Front)'], title: 'Fix the edges' },
   cardsize: { url: '/?mockIntake=2', taps: ['ID card copy', 'Card copy'], title: 'How big?' },
   readyDocument: { url: '/?mockIntake=2&mockPdfAt=2&mockPdfForms=1&mockTier=NONE', title: 'Ready to print' },
   unlock: { url: '/?mockIntake=1&mockPdfAt=1&mockPdfLocked=1', taps: ['Unlock'], title: 'Unlock PDF' },
@@ -111,7 +112,7 @@ const SCREENS: Record<string, Reach> = {
     taps: [/^Passport photos and prices/, /^How many photos/],
     title: 'How many photos',
   },
-  papersettings: { url: '/?screen=settings', taps: [/^Paper and colour/], title: 'Paper and colour' },
+  photospaper: { url: '/?screen=settings', taps: [/^Paper for photos/], title: 'Paper for photos' },
   screenshots: { url: '/?screen=settings', taps: [/^Allow screenshots/], title: 'Allow screenshots for 15 minutes' },
   report: { url: '/?screen=settings', taps: [/^Send problem report/], title: 'Send problem report' },
   welcome: { url: '/?mockFirstRun=1', title: 'Welcome to PrintSaathi' },
@@ -143,10 +144,19 @@ async function layoutProblems(page: Page) {
     const doc = document.documentElement;
     if (doc.scrollWidth > doc.clientWidth + 1)
       problems.push(`horizontal scroll: ${doc.scrollWidth} > ${doc.clientWidth}`);
+    // A row that slides sideways on its own (Adjust's tools, owner round 3): what is in it is reached by sliding, so it
+    // may sit past or at the screen's side; the row itself must still fit the screen (checked like everything else).
+    const inSlidingRow = (el: Element) => {
+      for (let e = el.parentElement; e && e !== document.body; e = e.parentElement) {
+        const x = getComputedStyle(e).overflowX;
+        if (x === 'auto' || x === 'scroll') return true;
+      }
+      return false;
+    };
     for (const el of Array.from(document.querySelectorAll<HTMLElement>('main *'))) {
       const r = el.getBoundingClientRect();
       if (r.width === 0 || r.height === 0) continue;
-      if (r.right > window.innerWidth + 1 || r.left < -1)
+      if ((r.right > window.innerWidth + 1 || r.left < -1) && !inSlidingRow(el))
         problems.push(
           `outside screen: <${el.tagName.toLowerCase()} class="${el.className}"> ${Math.round(r.left)}..${Math.round(r.right)}`,
         );
@@ -184,7 +194,7 @@ async function layoutProblems(page: Page) {
       const r = b.getBoundingClientRect();
       // Controls keep clear of the screen's sides: 24 px side space (owner 2026-10-23: curved sides hide what is closer);
       // 20 px is the floor.
-      if (r.width > 0 && (r.left < 20 || r.right > window.innerWidth - 20))
+      if (r.width > 0 && (r.left < 20 || r.right > window.innerWidth - 20) && !inSlidingRow(b))
         problems.push(
           `control touches the screen side (${Math.round(r.left)}..${Math.round(r.right)}): ${b.textContent?.trim().slice(0, 30)}`,
         );
@@ -228,6 +238,63 @@ for (const vp of VIEWPORTS) {
     }
   }
 }
+
+// Owner, 2026-10-24 round 3 ("left borders are being hidden … I have told so many times"): the screen's sideways clip
+// cut the outer side of every card's ring off (Chromium ignores its clip margin unless both axes clip). The test above
+// read the CSS; this one reads the painted pixels just outside the left, right and top of every card's ring.
+for (const width of [360, 412])
+  for (const [screen, reach] of Object.entries(SCREENS))
+    test(`every card's edge is painted on its left, right and top: ${screen} @ ${width}`, async ({ page }) => {
+      await page.emulateMedia({ reducedMotion: 'reduce' });
+      await page.setViewportSize({ width, height: width === 360 ? 800 : 915 });
+      if (reach.route === 'bars') await serveBars(page);
+      await page.goto(reach.url);
+      for (const name of reach.taps ?? []) await page.getByRole('button', { name }).click();
+      if (reach.share) {
+        await expect(page.locator('main h1')).not.toHaveText('Files received');
+        await shareAgain(page, reach.share);
+      }
+      if (reach.title) await expect(page.locator('main h1')).toHaveText(reach.title);
+      await expect(page.locator('main h1')).toBeVisible();
+      await page.evaluate(() => document.fonts.ready);
+      await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+      // Cards drawn with the ring (--edge), wholly on screen, and the points just outside their sides where nothing
+      // else is drawn on top (a pinned bar may cover a card: that side is not looked at).
+      const spots = await page.evaluate(() => {
+        const out: { name: string; side: string; x: number; y: number }[] = [];
+        const vw = innerWidth;
+        const vh = innerHeight;
+        for (const el of Array.from(document.querySelectorAll<HTMLElement>('main *'))) {
+          // The 2 px card ring (--ring); paper sheets keep their own 1 px outline.
+          if (!getComputedStyle(el).boxShadow.includes('rgb(115, 123, 138) 0px 0px 0px 2px')) continue;
+          const r = el.getBoundingClientRect();
+          if (r.width < 24 || r.height < 24 || r.left < 0 || r.top < 0 || r.right > vw || r.bottom > vh) continue;
+          const name = `${el.tagName.toLowerCase()}.${String(el.className).split(' ')[0]} "${(el.textContent ?? '').trim().slice(0, 20)}"`;
+          const sides = [
+            { side: 'left', x: Math.floor(r.left) - 1, y: Math.round(r.top + r.height / 2) },
+            { side: 'right', x: Math.ceil(r.right), y: Math.round(r.top + r.height / 2) },
+            { side: 'top', x: Math.round(r.left + r.width / 2), y: Math.floor(r.top) - 1 },
+          ];
+          for (const s of sides) {
+            if (s.x < 0 || s.x >= vw || s.y < 0) continue;
+            const at = document.elementFromPoint(s.x, s.y);
+            if (at && !at.contains(el)) continue; // something else is drawn there
+            out.push({ name, ...s });
+          }
+        }
+        return out;
+      });
+      const shot = jpeg.decode(await page.screenshot({ type: 'jpeg', quality: 100 }), { useTArray: true });
+      const lightness = (x: number, y: number) => {
+        const i = (y * shot.width + x) * 4;
+        return 0.299 * (shot.data[i] ?? 0) + 0.587 * (shot.data[i + 1] ?? 0) + 0.114 * (shot.data[i + 2] ?? 0);
+      };
+      // The ring is about 123 light; the page about 244, a card 255: a side without its ring reads as the page.
+      const missing = spots.filter((s) => lightness(s.x, s.y) > 190).map((s) => `${s.name} ${s.side}`);
+      // Home always has its tiles (most screens have cards; some, like Help, have none).
+      if (screen === 'home') expect(spots.length).toBeGreaterThan(3);
+      expect(missing).toEqual([]);
+    });
 
 // Owner, 2026-10-24 ("fix invisible border for the cards, also check other places"; their phone's screenshot of Home):
 // every card or tile on the grey page shows its edge — a border or ring of 2 px or more at 3:1 against the page.
@@ -338,7 +405,7 @@ test('a WhatsApp share opens Received with numbered photos; a choice not ready y
   await expect(page.getByText('These photos are the same')).toHaveCount(0);
   // Every choice works since Phase 9: Print as document prints the photos as pages, black & white.
   await page.getByRole('button', { name: 'Print as document' }).click();
-  await expect(page.getByText('6 photos · 6 pages · A4 · Black & white · 1 copy')).toBeVisible();
+  await expect(page.getByText('6 photos · 6 pages · A4 · Colour · 1 copy')).toBeVisible();
 });
 
 test('J1: all on one page in 2 taps — one sheet with every photo, then PRINT', async ({ page }) => {
@@ -1484,10 +1551,10 @@ test('one photo that cannot be printed: Choose another photo goes back to Receiv
 
 // ---- Phase 7: documents and locked PDFs ----
 
-test('J5: a shared PDF goes straight to Ready in black & white and prints in 1 tap', async ({ page }) => {
+test('J5: a shared PDF goes straight to Ready in colour (owner, round 3) and prints in 1 tap', async ({ page }) => {
   await page.goto('/?mockIntake=1&mockPdfAt=1');
   await expect(page.locator('main h1')).toHaveText('Ready to print');
-  await expect(page.getByText('1 PDF · 3 pages · A4 · Black & white · 1 copy')).toBeVisible();
+  await expect(page.getByText('1 PDF · 3 pages · A4 · Colour · 1 copy')).toBeVisible();
   await page.getByRole('button', { name: 'PRINT', exact: true }).click(); // 1
   await expect(page.locator('main h1')).toHaveText('Printing');
 });
@@ -1499,7 +1566,7 @@ test('Pages to print: leaving a page out prints the others', async ({ page }) =>
   await expect(page.locator('main h1')).toHaveText('Pages to print');
   await page.getByRole('checkbox', { name: 'Page 2' }).uncheck();
   await page.getByRole('button', { name: 'Done' }).click();
-  await expect(page.getByText('1 PDF · 2 pages · A4 · Black & white · 1 copy')).toBeVisible();
+  await expect(page.getByText('1 PDF · 2 pages · A4 · Colour · 1 copy')).toBeVisible();
   // Review M2: Change says how many of how many.
   await page.getByRole('button', { name: 'Change' }).click();
   await expect(page.getByRole('button', { name: /^Pages to print/ })).toContainText('2 of 3 pages');
@@ -1643,7 +1710,7 @@ test('a PDF of more than 500 pages says only the first 500 can be printed', asyn
 test('photos and a PDF together print as pages, in received order', async ({ page }) => {
   await page.goto('/?mockIntake=2&mockPdfAt=2');
   await expect(page.locator('main h1')).toHaveText('Ready to print');
-  await expect(page.getByText('1 photo · 1 PDF · 4 pages · A4 · Black & white · 1 copy')).toBeVisible();
+  await expect(page.getByText('1 photo · 1 PDF · 4 pages · A4 · Colour · 1 copy')).toBeVisible();
 });
 
 // ---- Phase 8: print styles (PLAN §F4, §I-7, §J7) ----
@@ -1786,13 +1853,13 @@ test('Keep as they are: nothing is cut, and the question is not asked again', as
     .toEqual([1, 1]);
 });
 
-test('J6: a photo printed as a document — black edges removed, black & white', async ({ page }) => {
+test('J6: a photo printed as a document — black edges removed, in colour (owner, round 3)', async ({ page }) => {
   await serveBars(page);
   await page.goto('/?mockIntake=1&mockBars=1');
   await page.getByRole('button', { name: 'Print as document' }).click();
   await expect(page.getByText('This photo has black or white edges.')).toBeVisible();
   await page.getByRole('button', { name: 'Remove the edges' }).click();
-  await expect(page.getByText('1 photo · 1 page · A4 · Black & white · 1 copy')).toBeVisible();
+  await expect(page.getByText('1 photo · 1 page · A4 · Colour · 1 copy')).toBeVisible();
 });
 
 test('photos without black edges go straight to Ready (no question)', async ({ page }) => {
@@ -1805,7 +1872,7 @@ type Placed = { crop: { x: number; y: number; w: number; h: number } };
 const crops = async (page: import('@playwright/test').Page) =>
   (await lastPlan(page))?.pages.flatMap((pg) => pg.placements.map((x) => (x as unknown as Placed).crop));
 
-// The scanner-style crop (owner, 2026-10-24): the arrows move one corner at a time; a side moved straight is a crop.
+// The crop frame (owner, round 3: the middle bars only): the arrows move the chosen side; a side moved is a crop.
 test('manual crop: the top side moved down with the arrows, then printed that way; Whole photo puts it back', async ({
   page,
 }) => {
@@ -1816,8 +1883,6 @@ test('manual crop: the top side moved down with the arrows, then printed that wa
   await page.getByRole('button', { name: 'Photo 1' }).click();
   await page.getByRole('button', { name: /^Crop/ }).click();
   await expect(page.locator('main h1')).toHaveText('Crop photo 1');
-  for (let i = 0; i < 3; i++) await page.getByRole('button', { name: 'Down' }).click();
-  await page.getByRole('button', { name: 'Next corner' }).click();
   for (let i = 0; i < 3; i++) await page.getByRole('button', { name: 'Down' }).click();
   await page.getByRole('button', { name: 'Done' }).click();
   await expect(page.getByRole('button', { name: /^Crop · Cropped/ })).toBeVisible();
@@ -1944,10 +2009,10 @@ const framePoints = async (page: Page) =>
 const shrinkFrame = async (page: Page) => {
   const b = await page.locator('.scan-stage').boundingBox();
   if (!b) throw new Error('no stage');
-  await dragBy(page, '.scan-side >> nth=3', b.width / 5, 0); // left side
-  await dragBy(page, '.scan-side >> nth=1', -b.width / 5, 0); // right side
-  await dragBy(page, '.scan-side >> nth=0', 0, b.height / 5); // top side
-  await dragBy(page, '.scan-side >> nth=2', 0, -b.height / 5); // bottom side
+  await dragBy(page, '[aria-label="The left side"]', b.width / 5, 0);
+  await dragBy(page, '[aria-label="The right side"]', -b.width / 5, 0);
+  await dragBy(page, '[aria-label="The top side"]', 0, b.height / 5);
+  await dragBy(page, '[aria-label="The bottom side"]', 0, -b.height / 5);
 };
 
 test('Crop: dragging inside the frame moves it (owner, 2026-10-23)', async ({ page }) => {
@@ -1996,15 +2061,15 @@ test.describe('two fingers on Crop', () => {
   });
 });
 
-test('after one corner is dragged, another corner still drags (re-review I-B)', async ({ page }) => {
+test('after one side bar is dragged, another still drags (re-review I-B)', async ({ page }) => {
   await openCrop(page);
   const before = await framePoints(page);
-  await dragBy(page, '.scan-corner >> nth=1', -100, 0); // the top-right corner, in
+  await dragBy(page, '[aria-label="The right side"]', -100, 0); // the right side, in
   const narrow = await framePoints(page);
-  // The first drag really moved the corner (a browser drag must never cancel it after one step).
+  // The first drag really moved the side (a browser drag must never cancel it after one step).
   expect(narrow[1]?.[0] ?? 100).toBeLessThan((before[1]?.[0] ?? 0) - 10);
-  // Another corner (the top-left one: the bottom ones may sit under the action bar in this short window) still drags.
-  await dragBy(page, '.scan-corner >> nth=0', 0, 80);
+  // Another bar (the top one: the bottom one may sit under the action bar in this short window) still drags.
+  await dragBy(page, '[aria-label="The top side"]', 0, 80);
   const after = await framePoints(page);
   expect(after[0]?.[1] ?? 0).toBeGreaterThan((narrow[0]?.[1] ?? 0) + 10);
 });
@@ -2352,16 +2417,18 @@ test('photo paper reminder off: passport photos print with a plain PRINT', async
   await expect(page.getByText('Put 4×6 photo paper in the printer', { exact: false })).toHaveCount(0);
 });
 
-test("new jobs start in the owner's colours: photos in black & white, PDFs in colour", async ({ page }) => {
-  await withSettings(page, { defaults: { photos: { colour: 'bw' }, documents: { colour: 'colour' } } });
+// Owner, round 3: "for all print preview print output must be colour; let user change if they want B&W". Every new job
+// starts in colour, whatever an older version's Settings said (they set B&W for documents) and whatever was printed last.
+test('every new job starts in colour, even with Settings from 1.0.224 saying black & white', async ({ page }) => {
+  await withSettings(page, { defaults: { photos: { colour: 'bw', paper: 'A4' }, documents: { colour: 'bw' } } });
   await page.goto('/?mockIntake=2');
   await page.getByRole('button', { name: 'One on each page' }).click();
-  await expect(page.getByText('2 photos · 2 pages · A4 · Black & white · 1 copy')).toBeVisible();
+  await expect(page.getByText('2 photos · 2 pages · A4 · Colour · 1 copy')).toBeVisible();
   await page.goto('/?mockIntake=1&mockPdfAt=1');
   await expect(page.getByText('1 PDF · 3 pages · A4 · Colour · 1 copy')).toBeVisible();
 });
 
-test('the colour printed last is how the next photo job starts (PLAN §G0)', async ({ page }) => {
+test('a job printed in black & white never makes the next job start in black & white', async ({ page }) => {
   await page.goto('/?mockIntake=2');
   await page.getByRole('button', { name: 'One on each page' }).click();
   await page.getByRole('button', { name: 'Change' }).click();
@@ -2372,7 +2439,7 @@ test('the colour printed last is how the next photo job starts (PLAN §G0)', asy
   await expect(page.locator('main h1')).toHaveText('PrintSaathi');
   await shareAgain(page, 3);
   await page.getByRole('button', { name: 'One on each page' }).click();
-  await expect(page.getByText('3 photos · 3 pages · A4 · Black & white · 1 copy')).toBeVisible();
+  await expect(page.getByText('3 photos · 3 pages · A4 · Colour · 1 copy')).toBeVisible();
 });
 
 test('Space at paper edges: More keeps at least 9 mm clear on the print', async ({ page }) => {
@@ -2886,12 +2953,10 @@ test('Settings offers 4×6 paper for photos only once the printer’s 4×6 paper
   page,
 }) => {
   await page.goto('/?screen=settings');
-  await page.getByRole('button', { name: /^Paper and colour/ }).click();
   await page.getByRole('button', { name: /^Paper for photos/ }).click();
   await expect(page.getByRole('button', { name: /4×6 photo paper/ })).toHaveCount(0);
   await expect(page.getByText('print the 4×6 test page', { exact: false })).toBeVisible();
   await page.goto('/?screen=settings&mockPhotoPaper=1');
-  await page.getByRole('button', { name: /^Paper and colour/ }).click();
   await page.getByRole('button', { name: /^Paper for photos/ }).click();
   await expect(page.getByRole('button', { name: /4×6 photo paper/ })).toHaveCount(1);
 });

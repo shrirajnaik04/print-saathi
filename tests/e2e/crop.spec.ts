@@ -1,8 +1,9 @@
 import { expect, type Page, test } from '@playwright/test';
 
-// The scanner app's crop (owner, 2026-10-24): the picture with a frame, a round handle at each corner (each free: a
-// slanted photo is straightened), a pill on each side, a magnifier under the finger, and a bottom bar of Cancel, Whole
-// photo, Turn left, Turn right and Done.
+// The scanner app's crop (owner, 2026-10-24): the picture with a frame, a magnifier under the finger, and a bottom bar
+// of Cancel, Whole photo, Turn left, Turn right and Done. Round 3 (owner): no corner circles, only the four middle bars,
+// each moving its side straight in or out. A frame straightened before (or found on an ID card) keeps its slant;
+// `mockQuad=1` gives photo 1 such a frame, as a job saved by 1.0.224 would have.
 const button = (page: Page, name: string | RegExp) =>
   page.getByRole('button', { name, exact: typeof name === 'string' });
 const title = (page: Page) => page.locator('main h1');
@@ -22,8 +23,8 @@ const corners = async (page: Page) =>
     .split(' ')
     .map((p) => p.split(',').map((v) => Math.round(Number(v) * 1000) / 1000));
 
-const openCrop = async (page: Page) => {
-  await page.goto('/?mockIntake=2');
+const openCrop = async (page: Page, more = '') => {
+  await page.goto(`/?mockIntake=2${more}`);
   await button(page, 'One on each page').click();
   await expect(title(page)).toHaveText('Ready to print');
   await button(page, 'Adjust photos').click();
@@ -42,80 +43,99 @@ const drag = async (page: Page, sel: string, dx: number, dy: number, during?: ()
   await page.mouse.up();
 };
 
-test('the scanner-style frame: four corner handles, four side handles and the bottom bar', async ({ page }) => {
+test('the frame has no corner circles: four side bars in reading order, and the bottom bar', async ({ page }) => {
   await openCrop(page);
-  await expect(page.locator('.scan-corner')).toHaveCount(4);
-  await expect(page.locator('.scan-side')).toHaveCount(4);
+  await expect(page.locator('.scan-corner')).toHaveCount(0);
+  // Buttons for screen readers, read top, left, right, bottom.
+  expect(await page.locator('.scan-side').evaluateAll((els) => els.map((e) => e.getAttribute('aria-label')))).toEqual([
+    'The top side',
+    'The left side',
+    'The right side',
+    'The bottom side',
+  ]);
   for (const name of ['Cancel', 'Whole photo', 'Turn left', 'Turn right', 'Done'])
     await expect(button(page, name)).toBeVisible();
-  await expect(page.getByText('Corner 1 of 4: top left')).toBeVisible();
+  await expect(page.getByText('Side 1 of 4: top')).toBeVisible();
 });
 
-test('a corner moves on its own and a side moves both its corners; a crossed frame is never taken', async ({
+test('a side bar moves its side straight in or out, never across the other side', async ({ page }) => {
+  await openCrop(page);
+  const before = await corners(page);
+  await drag(page, '[aria-label="The top side"]', 40, 30); // dragged slanting: only up or down is taken
+  const top = await corners(page);
+  expect(top[0]?.[1]).toBeGreaterThan((before[0]?.[1] ?? 0) + 5);
+  expect(top[1]?.[1]).toBeGreaterThan((before[1]?.[1] ?? 0) + 5);
+  expect([top[0]?.[0], top[1]?.[0]]).toEqual([before[0]?.[0], before[1]?.[0]]);
+  expect(top.slice(2)).toEqual(before.slice(2));
+  await drag(page, '[aria-label="The right side"]', -40, 30); // only sideways is taken
+  const right = await corners(page);
+  expect(right[1]?.[0]).toBeLessThan((top[1]?.[0] ?? 0) - 5);
+  expect([right[1]?.[1], right[2]?.[1]]).toEqual([top[1]?.[1], top[2]?.[1]]);
+  // The top dragged below the bottom: refused (the frame keeps its last good shape).
+  await drag(page, '[aria-label="The top side"]', 0, 900);
+  const kept = await corners(page);
+  expect(kept[0]?.[1]).toBeLessThan(kept[3]?.[1] ?? 0);
+});
+
+test('Next side and the arrows move the chosen side 1 % a tap; arrows that cannot move it are greyed', async ({
   page,
 }) => {
   await openCrop(page);
-  const before = await corners(page);
-  await drag(page, '[aria-label="The bottom right corner"]', -40, -30); // bottom right
-  const after = await corners(page);
-  expect(after[2]?.[0]).toBeLessThan((before[2]?.[0] ?? 0) - 5);
-  expect(after[0]).toEqual(before[0]);
-  expect(after[1]).toEqual(before[1]);
-  await drag(page, '.scan-side >> nth=0', 0, 30); // the top side
-  const top = await corners(page);
-  expect(top[0]?.[1]).toBeGreaterThan((after[0]?.[1] ?? 0) + 5);
-  expect(top[1]?.[1]).toBeGreaterThan((after[1]?.[1] ?? 0) + 5);
-  expect(top[2]).toEqual(after[2]);
-  // The top-left corner dragged past the bottom-right one: refused (the frame keeps its last good shape).
-  await drag(page, '[aria-label="The top left corner"]', 600, 600);
-  const kept = await corners(page);
-  expect(kept[0]?.[0]).toBeLessThan(kept[2]?.[0] ?? 0);
+  await expect(page.getByText('Side 1 of 4: top')).toBeVisible();
+  await expect(button(page, 'Left')).toBeDisabled();
+  await expect(button(page, 'Right')).toBeDisabled();
+  await button(page, 'Down').click();
+  expect((await corners(page))[0]?.[1]).toBe(1);
+  await button(page, 'Next side').click();
+  await expect(page.getByText('Side 2 of 4: right')).toBeVisible();
+  await expect(button(page, 'Up')).toBeDisabled();
+  await button(page, 'Left').click();
+  expect((await corners(page))[1]?.[0]).toBe(99);
+  // A bar tapped is the chosen side.
+  await page.locator('[aria-label="The bottom side"]').click();
+  await expect(page.getByText('Side 3 of 4: bottom')).toBeVisible();
+  await expect(page.locator('[aria-label="The bottom side"]')).toHaveAttribute('aria-pressed', 'true');
 });
 
-test('the magnifier shows what is under the finger while a handle is held, and goes after', async ({ page }) => {
+test('the magnifier shows what is under the finger while a bar is held, and goes after', async ({ page }) => {
   await openCrop(page);
   await expect(page.locator('.scan-loupe')).toHaveCount(0);
-  await drag(page, '[aria-label="The bottom right corner"]', -20, -20, async () => {
+  await drag(page, '[aria-label="The bottom side"]', 0, -20, async () => {
     await expect(page.locator('.scan-loupe')).toHaveCount(1);
     await expect(page.locator('.scan-loupe img')).toHaveCount(1);
   });
   await expect(page.locator('.scan-loupe')).toHaveCount(0);
-  // Near the top-left corner it moves out of the way, to the top-right.
-  await drag(page, '[aria-label="The top left corner"]', 10, 10, async () => {
+  // Held in the top-left third (the left bar of a short frame), it moves out of the way, to the top-right.
+  const stage = await page.locator('.scan-stage').boundingBox();
+  await drag(page, '[aria-label="The bottom side"]', 0, -(stage?.height ?? 0) * 0.55);
+  await drag(page, '[aria-label="The left side"]', 10, 0, async () => {
     await expect(page.locator('.scan-loupe')).toHaveClass(/scan-loupe-right/);
   });
 });
 
-test('Done keeps a square frame as a plain crop and a slanted one as a straightened frame', async ({ page }) => {
+test('Done keeps a square frame as a plain crop, and a straightened frame stays straightened', async ({ page }) => {
   await openCrop(page);
-  // The top side down, by buttons: two corners, three taps each (1 % a tap).
-  for (let i = 0; i < 3; i++) await button(page, 'Down').click();
-  await button(page, 'Next corner').click();
+  // The top side down, by buttons: three taps (1 % a tap).
   for (let i = 0; i < 3; i++) await button(page, 'Down').click();
   await button(page, 'Done').click();
   await button(page, 'Done').click();
   await expect(title(page)).toHaveText('Ready to print');
   await expect.poll(async () => (await first(page))?.crop.y).toBeCloseTo(0.03, 5);
   expect((await first(page))?.quad).toBeUndefined();
-  // Now one corner alone: slanted, so straightened.
-  await button(page, 'Adjust photos').click();
-  await button(page, 'Crop').click();
-  await button(page, 'Next corner').click();
-  await button(page, 'Next corner').click();
-  for (let i = 0; i < 5; i++) await button(page, 'Left').click();
+  // A photo straightened by an earlier version: its frame keeps its slant while a side moves.
+  await openCrop(page, '&mockQuad=1');
+  for (let i = 0; i < 3; i++) await button(page, 'Down').click();
   await button(page, 'Done').click();
   await button(page, 'Done').click();
-  await expect.poll(async () => (await first(page))?.quad?.length).toBe(8);
+  // The frame had 8 values from the start: wait for the moved top itself, never the plan from before.
+  await expect.poll(async () => (await first(page))?.quad?.[1] ?? 0).toBeCloseTo(0.08, 5);
   const p = await first(page);
   expect(p?.crop).toEqual({ x: 0, y: 0, w: 1, h: 1 });
-  expect(p?.quad?.[4]).toBeCloseTo(0.95, 5);
-  expect(p?.quad?.[1]).toBeCloseTo(0.03, 5);
+  expect(p?.quad?.[3]).toBeCloseTo(0.13, 5);
 });
 
 test('a slanted frame shows how it will print, made straight; Adjust shows it straight too', async ({ page }) => {
-  await openCrop(page);
-  await button(page, 'Next corner').click();
-  for (let i = 0; i < 4; i++) await button(page, 'Down').click();
+  await openCrop(page, '&mockQuad=1');
   await expect(page.getByRole('img', { name: 'The photo, made straight' })).toBeVisible();
   await button(page, 'Done').click();
   await expect(title(page)).toHaveText('Photo 1 of 2');
@@ -127,20 +147,11 @@ test('a slanted frame shows how it will print, made straight; Adjust shows it st
 test('Whole photo, Turn left and Turn right: the photo turns and the frame stays on the same part', async ({
   page,
 }) => {
-  await openCrop(page);
-  await button(page, 'Next corner').click();
-  for (let i = 0; i < 10; i++) await button(page, 'Left').click(); // top right 10 % in
+  await openCrop(page, '&mockQuad=1');
   const before = await corners(page);
   await button(page, 'Turn right').click();
-  // Turned clockwise: the slanted top-right corner comes to the right side, near the bottom.
-  await expect
-    .poll(async () => corners(page))
-    .toEqual([
-      [0, 0],
-      [100, 0],
-      [100, 90],
-      [0, 100],
-    ]);
+  // Turned clockwise: the frame turns with the photo (another shape on screen), and back again.
+  await expect.poll(async () => JSON.stringify(await corners(page))).not.toBe(JSON.stringify(before));
   await button(page, 'Turn left').click();
   await expect.poll(async () => corners(page)).toEqual(before);
   await button(page, 'Turn right').click();
@@ -168,12 +179,12 @@ test('Cancel saves nothing', async ({ page }) => {
   expect((await first(page))?.quad).toBeUndefined();
 });
 
-test('Fix corners (ID cards) uses the same frame: Upside down, and the straightened card below', async ({ page }) => {
+test('Fix edges (ID cards) uses the same frame: Upside down, and the straightened card below', async ({ page }) => {
   await page.goto('/?mockIntake=2');
   await button(page, 'ID card copy').click();
-  await button(page, 'Fix corners (Front)').click();
-  await expect(title(page)).toHaveText('Fix corners');
-  await expect(page.locator('.scan-corner')).toHaveCount(4);
+  await button(page, 'Fix edges (Front)').click();
+  await expect(title(page)).toHaveText('Fix the edges');
+  await expect(page.locator('.scan-corner')).toHaveCount(0);
   await expect(page.locator('.scan-side')).toHaveCount(4);
   for (const name of ['Cancel', 'Whole photo', 'Upside down', 'Done']) await expect(button(page, name)).toBeVisible();
   await expect(button(page, 'Turn left')).toHaveCount(0);
@@ -187,6 +198,8 @@ test.describe('the crop screen at 200 % text on a small phone', () => {
     await page.evaluate(() => {
       document.documentElement.style.fontSize = '200%';
     });
+    // The bottom bar re-lays itself out a frame after the text size changes (as in the layout matrix).
+    await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(320);
     await expect(page.locator('.crop-bar .btn')).toHaveCount(5);
     for (const b of await page.locator('.crop-bar .btn').all()) {
@@ -197,26 +210,23 @@ test.describe('the crop screen at 200 % text on a small phone', () => {
   });
 });
 
-test('a document’s photo page straightened in Crop shows straight in its page tools', async ({ page }) => {
-  await page.goto('/?mockIntake=1');
+test('a document’s straightened photo page shows straight in its page tools', async ({ page }) => {
+  await page.goto('/?mockIntake=1&mockQuad=1');
   await button(page, 'Print as document').click();
   await expect(title(page)).toHaveText('Ready to print');
   await button(page, 'Change').click();
   await button(page, /^Page order/).click();
   await button(page, 'Page 1').click();
   await button(page, /^Crop/).click();
-  await button(page, 'Next corner').click();
-  for (let i = 0; i < 5; i++) await button(page, 'Left').click();
+  for (let i = 0; i < 5; i++) await button(page, 'Down').click();
   await button(page, 'Done').click();
   await expect(title(page)).toHaveText('Page 1');
   await expect(page.locator('.doc-page-preview img[src*="Card%201%20"]')).toHaveCount(1);
 });
 
 test('turned a quarter, the straightened preview fills its box undistorted (review I3)', async ({ page }) => {
-  await openCrop(page);
+  await openCrop(page, '&mockQuad=1');
   await button(page, 'Turn right').click();
-  await button(page, 'Next corner').click();
-  for (let i = 0; i < 6; i++) await button(page, 'Down').click();
   const shot = page.getByRole('img', { name: 'The photo, made straight' });
   await expect(shot.locator('img')).toHaveCount(1);
   const box = await shot.boundingBox();
@@ -242,9 +252,7 @@ test('cropping a photo placed by hand keeps the part left where it was, at its s
   const before = (await placed())?.box;
   await button(page, 'Adjust photos').click();
   await button(page, 'Crop').click();
-  // The top side 10 % down: two corners, ten taps each.
-  for (let i = 0; i < 10; i++) await button(page, 'Down').click();
-  await button(page, 'Next corner').click();
+  // The top side 10 % down: ten taps.
   for (let i = 0; i < 10; i++) await button(page, 'Down').click();
   await button(page, 'Done').click();
   await button(page, 'Done').click();

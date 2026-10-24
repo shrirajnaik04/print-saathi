@@ -15,11 +15,9 @@ import { passwords } from './native/passwords';
 import { PrintEngine } from './native/printEngine';
 import { Change } from './screens/change/Change';
 import { Colour, Copies, Direction, Layout, Pages, PaperChoice, Quality } from './screens/change/Choices';
-import { BlackEdges } from './screens/edges/BlackEdges';
 import { Help } from './screens/help/Help';
 import { Welcome } from './screens/help/Welcome';
 import { Home } from './screens/home/Home';
-import { NewFiles } from './screens/newfiles/NewFiles';
 import { Photos, PhotoTools } from './screens/photos/Photos';
 import { forgetRemoved } from './screens/photos/undo';
 import { Problem } from './screens/problem/Problem';
@@ -56,11 +54,14 @@ const PassportCustom = lazyScreen(() => groups().then((m) => m.PassportCustom));
 const CropPhoto = lazyScreen(() => import('./screens/photos/CropPhoto').then((m) => m.CropPhoto));
 const AddSource = lazyScreen(() => import('./screens/add/AddSource').then((m) => m.AddSource));
 const Adjust = lazyScreen(() => import('./screens/adjust/Adjust').then((m) => m.Adjust));
+// Screens that only follow another one (black edges found; files arriving during a job): loaded when needed, so the
+// first screen stays within the startup budget (PLAN §C, 60 KB).
+const BlackEdges = lazyScreen(() => import('./screens/edges/BlackEdges').then((m) => m.BlackEdges));
+const NewFiles = lazyScreen(() => import('./screens/newfiles/NewFiles').then((m) => m.NewFiles));
 const DeleteAll = lazyScreen(() => import('./screens/settings/DeleteAll').then((m) => m.DeleteAll));
 const SettingChoice = lazyScreen(() => import('./screens/settings/SettingChoice').then((m) => m.SettingChoice));
 const Settings = lazyScreen(() => import('./screens/settings/Settings').then((m) => m.Settings));
 const ShopName = lazyScreen(() => import('./screens/settings/ShopName').then((m) => m.ShopName));
-const PaperSettings = lazyScreen(() => groups().then((m) => m.PaperSettings));
 const PassportCountSetting = lazyScreen(() => groups().then((m) => m.PassportCountSetting));
 const PassportSettings = lazyScreen(() => groups().then((m) => m.PassportSettings));
 const Prices = lazyScreen(() => groups().then((m) => m.Prices));
@@ -90,7 +91,6 @@ const LAZY = [
   SettingChoice,
   Settings,
   ShopName,
-  PaperSettings,
   PassportCountSetting,
   PassportSettings,
   Prices,
@@ -150,7 +150,6 @@ const SCREENS: Record<string, (p: ScreenProps) => preact.JSX.Element> = {
   setting: SettingChoice,
   shopname: ShopName,
   passportsettings: PassportSettings,
-  papersettings: PaperSettings,
   passportcountsetting: PassportCountSetting,
   prices: Prices,
   screenshots: Screenshots,
@@ -281,11 +280,10 @@ export function App() {
   // Shares from WhatsApp become jobs as soon as the app can see them: at start, and on every new share.
   useEffect(() => {
     const runner = intakeRunner(async (open) => {
-      const { defaults } = await loadSettings(); // new jobs start in the owner's colour for photos
+      const { defaults } = await loadSettings(); // new photo jobs start on the paper printed last; all in colour
       const { jobs, empty, picks, cancelled } = await takeNewIntakesDetailed(
         PrintEngine,
         Date.now(),
-        defaults.photos.colour,
         defaults.photos.paper,
       );
       // Any batch from the phone's picker uses up an "Add photos" wish, even one cancelled, empty or not opened: a later

@@ -56,19 +56,19 @@ test('the card with a face is the front; Swap front and back swaps them in the p
   await expect.poll(async () => (await lastPlan(page))?.pages[0]?.placements[0]?.quad?.[1]).toBeCloseTo(0.1, 5);
 });
 
-test('Fix corners: Next corner and the arrows move the chosen corner by 1 %; Done keeps it for the print', async ({
+test('Fix edges: Next side and the arrows move the chosen side by 1 %; Done keeps it for the print', async ({
   page,
 }) => {
   await page.goto('/?mockIntake=2');
   await button(page, 'ID card copy').click();
-  await button(page, 'Fix corners (Front)').click();
-  await expect(title(page)).toHaveText('Fix corners');
-  await expect(page.getByText('Corner 1 of 4: top left')).toBeVisible();
-  await button(page, 'Next corner').click();
-  await expect(page.getByText('Corner 2 of 4: top right')).toBeVisible();
+  await button(page, 'Fix edges (Front)').click();
+  await expect(title(page)).toHaveText('Fix the edges');
+  await expect(page.getByText('Side 1 of 4: top')).toBeVisible();
+  await button(page, 'Down').click(); // the top side, both its corners
+  await button(page, 'Next side').click();
+  await expect(page.getByText('Side 2 of 4: right')).toBeVisible();
   await button(page, 'Right').click();
   await button(page, 'Right').click();
-  await button(page, 'Down').click();
   // The straightened result updates (a new preview for the new corners).
   await expect(page.getByRole('img', { name: 'The card, straightened' })).toBeVisible();
   await button(page, 'Done').click();
@@ -81,25 +81,25 @@ test('Fix corners: Next corner and the arrows move the chosen corner by 1 %; Don
   // Back on the cards screen (Change), the fixed corners are kept: it never looks for the cards again.
   await button(page, 'Change').click();
   await button(page, /^ID card copy/).click();
-  await expect(page.getByText('Check the corners')).toHaveCount(0);
+  await expect(page.getByText('Check the edges')).toHaveCount(0);
   await button(page, 'Card copy').click();
   await button(page, /^Real card size/).click();
   await expect.poll(async () => (await lastPlan(page))?.pages[0]?.placements[0]?.quad?.[2]).toBeCloseTo(0.62, 5);
 });
 
-test('no card found: says so and opens Fix corners on a starting frame', async ({ page }) => {
+test('no card found: says so and opens Fix edges on a starting frame', async ({ page }) => {
   await page.goto('/?mockIntake=1&mockCards=none');
   await button(page, 'ID card copy').click();
-  await expect(title(page)).toHaveText('Fix corners');
+  await expect(title(page)).toHaveText('Fix the edges');
   await button(page, 'Done').click();
   await expect(page.getByRole('heading', { name: "Couldn't find the card's edges" })).toBeVisible();
-  await expect(page.getByText('Check the corners')).toBeVisible();
+  await expect(page.getByText('Check the edges')).toBeVisible();
 });
 
-test('a card found but not surely: shown with "Check the corners"', async ({ page }) => {
+test('a card found but not surely: shown with "Check the edges"', async ({ page }) => {
   await page.goto('/?mockIntake=2&mockCards=low');
   await button(page, 'ID card copy').click();
-  await expect(page.getByText('Check the corners')).toHaveCount(2);
+  await expect(page.getByText('Check the edges')).toHaveCount(2);
 });
 
 test('a shared e-Aadhaar PDF offers ID card copy; How big? has the whole page too; the last size comes first', async ({
@@ -213,13 +213,13 @@ test('a normal PDF still goes straight to Ready (no card question)', async ({ pa
   await expect(title(page)).toHaveText('Ready to print');
 });
 
-test('a PDF with no card panels opens Fix corners on a starting frame, never a dead end (review I3)', async ({
+test('a PDF with no card panels opens Fix edges on a starting frame, never a dead end (review I3)', async ({
   page,
 }) => {
   await page.goto('/?mockPdfAt=1');
   await button(page, /^Aadhaar & ID cards/).click();
   await button(page, /^e-Aadhaar PDF or file/).click();
-  await expect(title(page)).toHaveText('Fix corners');
+  await expect(title(page)).toHaveText('Fix the edges');
 });
 
 test('Try again looks for the cards again (review I3)', async ({ page }) => {
@@ -241,21 +241,23 @@ test('Back while the cards are looked for: nothing is saved behind the shopkeepe
   await expect(page.getByText(/^ID card/)).toHaveCount(0);
 });
 
-test('"Check the corners" stays with its card through Swap (review I6)', async ({ page }) => {
+test('"Check the edges" stays with its card through Swap (review I6)', async ({ page }) => {
   await page.goto('/?mockIntake=2&mockCards=mixed');
   await button(page, 'ID card copy').click();
-  await expect(page.locator('.card-found .card-state')).toHaveText(['✓ Straightened', 'Check the corners']);
+  await expect(page.locator('.card-found .card-state')).toHaveText(['✓ Straightened', 'Check the edges']);
   await button(page, 'Swap front and back').click();
-  await expect(page.locator('.card-found .card-state')).toHaveText(['Check the corners', '✓ Straightened']);
+  await expect(page.locator('.card-found .card-state')).toHaveText(['Check the edges', '✓ Straightened']);
 });
 
-test('Fix corners: the straightened preview changes when a corner moves (review m17)', async ({ page }) => {
+test('Fix edges: the straightened preview changes when a side moves (review m17)', async ({ page }) => {
   await page.goto('/?mockIntake=2');
   await button(page, 'ID card copy').click();
-  await button(page, 'Fix corners (Front)').click();
+  await button(page, 'Fix edges (Front)').click();
   const img = page.getByRole('img', { name: 'The card, straightened' });
   await expect(img).toBeVisible();
   const before = await img.getAttribute('src');
+  // The left side (the test engine names its picture after the frame's top-left corner).
+  for (let i = 0; i < 3; i++) await button(page, 'Next side').click();
   for (let i = 0; i < 3; i++) await button(page, 'Right').click();
   await expect.poll(() => img.getAttribute('src')).not.toBe(before);
 });
@@ -369,6 +371,52 @@ test('one side found: Add the back side from the gallery gives front then back o
   await expect(title(page)).toHaveText('Ready to print');
   await expect.poll(async () => (await lastPlan(page))?.pages.length).toBe(1);
   expect((await lastPlan(page))?.pages[0]?.placements).toHaveLength(2);
+});
+
+// Owner, round 3 ("Add back side functionality not working after we select photo from the gallery"), reproduced on
+// API 35: the screen cancelled its own look for the back card when it redrew; a phone's card finder takes long enough
+// for that redraw to come first (the test engine used to answer at once).
+test('one side found: Add the back side works when the card finder is as slow as a phone', async ({ page }) => {
+  await page.goto('/?mockIntake=1&mockPickN=1&mockSlowCards=600');
+  await button(page, 'ID card copy').click();
+  await expect(page.getByText('Only the front will print.')).toBeVisible();
+  await button(page, 'Add the back side').click();
+  await button(page, /From the gallery/).click();
+  await expect(title(page)).toHaveText('ID card copy');
+  await expect(page.locator('.card-found')).toHaveCount(2, { timeout: 8000 });
+  await expect(page.locator('.card-found .badge-label')).toHaveText(['Front', 'Back']);
+  await expect(page.getByText('Only the front will print.')).toHaveCount(0);
+});
+
+// Review I1 (round 3): while the back photo is looked at, the screen says so and nothing can leave or change the cards
+// before the back is added; leaving anyway (Back) and coming in again looks again.
+test('while the back photo is looked at, it says so and Card copy waits; the back is added', async ({ page }) => {
+  await page.goto('/?mockIntake=1&mockPickN=1&mockSlowCards=1500');
+  await button(page, 'ID card copy').click();
+  await expect(page.getByText('Only the front will print.')).toBeVisible();
+  await button(page, 'Add the back side').click();
+  await button(page, /From the gallery/).click();
+  await expect(title(page)).toHaveText('ID card copy');
+  await expect(page.getByRole('status')).toHaveText('Looking for the card on the back photo…');
+  await expect(button(page, 'Card copy')).toBeDisabled();
+  await expect(button(page, 'Fix edges (Front)')).toBeDisabled();
+  await expect(button(page, 'Turn upside down (Front)')).toBeDisabled();
+  await expect(page.locator('.card-found')).toHaveCount(2, { timeout: 8000 });
+  await expect(button(page, 'Card copy')).toBeEnabled();
+});
+
+test('leaving while the back photo is looked at and coming in again still adds the back', async ({ page }) => {
+  await page.goto('/?mockIntake=1&mockPickN=1&mockSlowCards=1500');
+  await button(page, 'ID card copy').click();
+  await expect(page.getByText('Only the front will print.')).toBeVisible();
+  await button(page, 'Add the back side').click();
+  await button(page, /From the gallery/).click();
+  await expect(page.getByRole('status')).toHaveText('Looking for the card on the back photo…');
+  await button(page, 'Back').click();
+  await expect(title(page)).not.toHaveText('ID card copy');
+  await button(page, 'ID card copy').click();
+  await expect(page.locator('.card-found')).toHaveCount(2, { timeout: 8000 });
+  await expect(page.locator('.card-found .badge-label')).toHaveText(['Front', 'Back']);
 });
 
 test('two sides: Print front only leaves the front alone; Undo brings the back again', async ({ page }) => {

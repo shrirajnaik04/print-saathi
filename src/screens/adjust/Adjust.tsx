@@ -5,6 +5,7 @@ import { freezeSizes, MIN_LONG_MM } from '../../core/layout/flow';
 import { overlaps, type Side, sideCrop, sideCropQuad } from '../../core/layout/free';
 import type { Box } from '../../core/layout/onePerPage';
 import { passportSize } from '../../core/layout/passport';
+import { angleOf, ownBox, shownDegrees, snap } from '../../core/layout/tilt';
 import { allDocPages, CARD_W_MM, type Placement, type PrintPlan } from '../../core/plan/plan';
 import { CUSTOM_MAX_MM, CUSTOM_MIN_MM } from '../../core/settings/settings';
 import { en } from '../../i18n/en';
@@ -14,6 +15,7 @@ import { Button } from '../../ui/Button';
 import { Panel } from '../../ui/Panel';
 import { PaperPreview } from '../../ui/PaperPreview';
 import { TopBar } from '../../ui/TopBar';
+import { useMatches, WIDE_SIDEWAYS } from '../../ui/useMatches';
 import { JobGone } from '../JobGone';
 import { borderName, cmOf } from '../passport/names';
 import { forgetRemoved, rememberRemoved, removedFor } from '../photos/undo';
@@ -23,7 +25,7 @@ import { useDocs } from '../useDocs';
 import { useJob } from '../useJob';
 import { usePlanPaper } from '../usePlanPaper';
 import { useStraightImages } from '../useStraightImages';
-import { cmText, findItem, itemsInPlan, longMm, pageSize } from './place';
+import { cmText, findItem, itemsInPlan, longMm, ownLongMm, pageSize } from './place';
 import { usePlaceByHand } from './usePlaceByHand';
 
 const t = en.adjust;
@@ -86,6 +88,8 @@ export function Adjust({ go, params }: ScreenProps) {
     w: number;
     h: number;
     perPt: number;
+    /** The photo's tilt (radians clockwise): its sides on screen. */
+    tilt: number;
   } | null>(null);
   const figure = useRef<HTMLDivElement>(null);
   // A side of the chosen photo being dragged to crop it (Word's crop, owner 2026-10-24), and what it would make.
@@ -97,6 +101,20 @@ export function Adjust({ go, params }: ScreenProps) {
     pxPerPt: number;
     placement: Placement;
   } | null>(null);
+  // The round handle above the chosen photo being turned (owner, round 3: WPS): where its centre is on screen, the
+  // finger's last angle around it, how far it has turned, and the photo's angle when the press began.
+  const turnDrag = useRef<{ id: number; cx: number; cy: number; last: number; turned: number; from: number } | null>(
+    null,
+  );
+  // The photo being turned: drawn at [angle] about its own centre while the finger moves, nothing laid out again until it
+  // lifts (it stays under the finger and keeps its size, review I2); still drawn so until the turn is saved ([lifted]),
+  // so it never shows its old angle on the way (review M4).
+  const [turning, setTurningState] = useState<{ item: number; angle: number; lifted?: boolean } | null>(null);
+  const turningNow = useRef<typeof turning>(null);
+  const setTurning = (t: typeof turning) => {
+    turningNow.current = t;
+    setTurningState(t);
+  };
   const [cut, setCutState] = useState<{ item: number; box: Box; crop: Placement['crop']; quad?: number[] } | null>(
     null,
   );
@@ -187,6 +205,8 @@ export function Adjust({ go, params }: ScreenProps) {
     save: (actions) => change({ type: 'all', actions }),
   });
   const covering = useMemo(() => (kind === 'photos' && plan ? overlaps(plan) : []), [plan, kind]);
+  // A wide screen held sideways (tablets, a phone in landscape): the tools sit beside the page (the CSS breakpoint).
+  const wide = useMatches(WIDE_SIDEWAYS);
   // The one shown first stays the chosen one: moving it never swaps the screen to another.
   useEffect(() => {
     if (chosen === null && sel !== null) setChosen(sel);
@@ -194,20 +214,27 @@ export function Adjust({ go, params }: ScreenProps) {
   // Photos: what one more Bigger would do (nothing when the photo is already as big as fits).
   const canGrow = useMemo(() => {
     if (kind !== 'photos' || !job || !plan || !where || sel === null) return false;
-    const now = longMm(where.placement.box);
+    const now = ownLongMm(where.placement);
     const sizes = { ...(job.sizes ?? freezeSizes(plan)), [sel]: now * STEP };
     const bigger = findItem(paper.draw({ ...job, sizes }, aspects, docs.facts), sel);
-    return !!bigger && longMm(bigger.placement.box) > now + 0.05;
+    return !!bigger && ownLongMm(bigger.placement) > now + 0.05;
   }, [kind, job, plan, sel, paper.key]);
-  // A finger that lifts anywhere ends the corner drag (its handle may have been redrawn on another page).
+  // A finger that lifts anywhere ends the corner drag (its handle may have been redrawn on another page). The round
+  // handle that turns a photo is followed here, wherever the finger goes: it moves onto the photo's turned frame as
+  // soon as the photo tilts, a new element that never sees the rest of the drag.
   const finishNow = useRef<() => void>(() => {});
+  const turnNow = useRef({ move: (_e: PointerEvent) => {}, end: (_e: PointerEvent) => {} });
   useEffect(() => {
     const up = (e: PointerEvent) => {
       if (drag.current?.id === e.pointerId) finishNow.current();
+      turnNow.current.end(e);
     };
+    const move = (e: PointerEvent) => turnNow.current.move(e);
+    window.addEventListener('pointermove', move);
     window.addEventListener('pointerup', up);
     window.addEventListener('pointercancel', up);
     return () => {
+      window.removeEventListener('pointermove', move);
       window.removeEventListener('pointerup', up);
       window.removeEventListener('pointercancel', up);
     };
@@ -267,8 +294,20 @@ export function Adjust({ go, params }: ScreenProps) {
   };
   const resizePhoto = (factor: number) => {
     if (!job || !plan || !where || sel === null) return;
-    const sizes = { ...(job.sizes ?? freezeSizes(plan)), [sel]: longMm(where.placement.box) * factor };
+    const sizes = { ...(job.sizes ?? freezeSizes(plan)), [sel]: ownLongMm(where.placement) * factor };
     void onTop({ type: 'setSizes', sizes });
+  };
+  // Turned to any angle (owner, round 3): its quarter turns and tilt as one angle; Tilt left / right add 1° a tap.
+  const angleNow = (item: number) => (job ? angleOf(job.turns[item] ?? 0, job.tilts?.[item] ?? 0) : 0);
+  // A turned photo keeps its own size, as in Word: automatic sizes are kept as they are now (as the first resize does),
+  // so the others flow around its turned outline instead of it shrinking into its old place (review I2).
+  const rotateTo = (item: number, angle: number) => {
+    if (!job || !plan) return Promise.resolve(false);
+    const turn: JobAction = { type: 'rotateItem', index: item, angle };
+    return onTop(job.sizes ? turn : { type: 'all', actions: [{ type: 'setSizes', sizes: freezeSizes(plan) }, turn] });
+  };
+  const tiltBy = (deg: number) => {
+    if (sel !== null) void rotateTo(sel, angleNow(sel) + deg);
   };
   const removePhoto = async () => {
     if (!job || sel === null) return;
@@ -303,7 +342,7 @@ export function Adjust({ go, params }: ScreenProps) {
     if (kind === 'photos') {
       if (sel === null) return null;
       const base = job.sizes ?? freezeSizes(plan);
-      const long = longMm(p.box);
+      const long = ownLongMm(p);
       return (s) => ({ type: 'setSizes', sizes: { ...base, [sel]: Math.max(MIN_LONG_MM, long * s) } });
     }
     if (kind === 'pages') {
@@ -337,7 +376,8 @@ export function Adjust({ go, params }: ScreenProps) {
     e.stopPropagation();
     const el = e.currentTarget as HTMLElement;
     el.setPointerCapture(e.pointerId);
-    const b = where.placement.box;
+    // A photo turned to any angle: its own size, and the finger's move measured along its turned sides.
+    const b = ownBox(where.placement);
     drag.current = {
       id: e.pointerId,
       el,
@@ -347,17 +387,61 @@ export function Adjust({ go, params }: ScreenProps) {
       w: b.w,
       h: b.h,
       perPt: rect.width / pageSize(plan, where.page).w,
+      tilt: ((where.placement.tilt?.deg ?? 0) * Math.PI) / 180,
     };
   };
   const moveDrag = (e: PointerEvent) => {
     const d = drag.current;
     if (!d || d.id !== e.pointerId) return;
-    const s = Math.max((d.w + (e.clientX - d.x) / d.perPt) / d.w, (d.h + (e.clientY - d.y) / d.perPt) / d.h);
+    const dx = e.clientX - d.x;
+    const dy = e.clientY - d.y;
+    const along = dx * Math.cos(d.tilt) + dy * Math.sin(d.tilt);
+    const across = -dx * Math.sin(d.tilt) + dy * Math.cos(d.tilt);
+    const s = Math.max((d.w + along / d.perPt) / d.w, (d.h + across / d.perPt) / d.h);
     setDraft(d.scaled(s));
   };
   const endDrag = (e: PointerEvent) => {
     if (drag.current?.id === e.pointerId) finishDrag();
   };
+
+  // The round handle above the chosen photo (owner, round 3: WPS's): move the finger around the photo's centre and it
+  // turns to follow, clicking straight within 3°; lifting the finger saves (placed by hand: on top, as other changes).
+  const startTurn = (e: PointerEvent) => {
+    const rect = figure.current?.querySelector('figure')?.getBoundingClientRect();
+    // Not while a change is being saved (a turn started then would start from the old angle, review M4).
+    if (!plan || !where || !rect || sel === null || turnDrag.current || busy || turningNow.current) return;
+    e.preventDefault();
+    e.stopPropagation();
+    (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
+    const k = rect.width / pageSize(plan, where.page).w;
+    const b = where.placement.box;
+    const cx = rect.left + (b.x + b.w / 2) * k;
+    const cy = rect.top + (b.y + b.h / 2) * k;
+    const last = Math.atan2(e.clientY - cy, e.clientX - cx);
+    turnDrag.current = { id: e.pointerId, cx, cy, last, turned: 0, from: angleNow(sel) };
+  };
+  const moveTurn = (e: PointerEvent) => {
+    const d = turnDrag.current;
+    if (!d || d.id !== e.pointerId || sel === null) return;
+    const a = Math.atan2(e.clientY - d.cy, e.clientX - d.cx);
+    // The finger's turn since the last move, the short way round (across the left side's ±180° too).
+    let step = a - d.last;
+    if (step > Math.PI) step -= 2 * Math.PI;
+    else if (step < -Math.PI) step += 2 * Math.PI;
+    d.last = a;
+    d.turned += (step * 180) / Math.PI;
+    setTurning({ item: sel, angle: Math.round(snap(d.from + d.turned) * 10) / 10 });
+  };
+  const endTurn = (e: PointerEvent) => {
+    const d = turnDrag.current;
+    if (!d || d.id !== e.pointerId) return;
+    turnDrag.current = null;
+    const now = turningNow.current;
+    if (!now || e.type !== 'pointerup') return setTurning(null);
+    setTurning({ ...now, lifted: true });
+    void rotateTo(now.item, now.angle).finally(() => setTurning(null));
+  };
+  turnNow.current = { move: moveTurn, end: endTurn };
 
   // Sides to crop (owner, 2026-10-24: "use the same frame to crop"): dragging a side in cuts that side off, out brings
   // it back; what is left keeps its print size. On release the cut and the new size (and place, if placed by hand) are
@@ -428,19 +512,36 @@ export function Adjust({ go, params }: ScreenProps) {
     cut && p.itemIndex === cut.item
       ? { ...p, box: cut.box, crop: cut.crop, ...(cut.quad ? { quad: cut.quad } : {}) }
       : p;
+  // A photo being turned by the handle: drawn at the finger's angle about its own centre, at its own size.
+  const withTurn = (p: Placement): Placement => {
+    if (!turning || p.itemIndex !== turning.item) return p;
+    const own = ownBox(p);
+    const deg = (p.tilt?.deg ?? 0) + turning.angle - angleOf(p.turns, p.tilt?.deg ?? 0);
+    return { ...p, tilt: { deg, w: own.w, h: own.h } };
+  };
   const drawn = (
     page && lifted && liftedPlacement
       ? [...page.placements.filter((p) => p !== liftedPlacement), { ...liftedPlacement, box: lifted.box }]
       : (page?.placements ?? [])
-  ).map(withCut);
+  ).map((p) => withTurn(withCut(p)));
   // The places to touch keep their order (moving the held one in the page would end its drag); the lifted one is
   // only drawn on top (its class).
   const touchable = (page?.placements ?? []).map((p) =>
-    lifted && p === liftedPlacement ? { ...p, box: lifted.box } : withCut(p),
+    lifted && p === liftedPlacement ? { ...p, box: lifted.box } : withTurn(withCut(p)),
   );
   // Side handles only where the photo is big enough on screen to hold them apart (96 px along that side).
   const pxPerPt = paperPx && plan && where ? paperPx / pageSize(plan, where.page).w : 0;
   const numberOf = (item: number) => keys.indexOf(item) + 1;
+  // Handles on a side that reaches the page's edge sit just inside it: drawn outside, their touch area would reach past
+  // the screen's edge (a whole document page, a photo at the margin, the page across the screen since round 3).
+  const remPx =
+    typeof document === 'undefined' ? 16 : Number.parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+  const nearEdge = (p: Placement) => ({
+    r: !!size && pxPerPt > 0 && (size.w - p.box.x - p.box.w) * pxPerPt < 2 * remPx,
+    b: !!size && pxPerPt > 0 && (size.h - p.box.y - p.box.h) * pxPerPt < 2 * remPx,
+    l: pxPerPt > 0 && p.box.x * pxPerPt < 2 * remPx,
+    t: pxPerPt > 0 && p.box.y * pxPerPt < 2 * remPx,
+  });
   const cover = covering[0];
   const size = where && plan ? pageSize(plan, where.page) : undefined;
   const pct = (v: number, of: number) => `${(100 * v) / of}%`;
@@ -475,7 +576,13 @@ export function Adjust({ go, params }: ScreenProps) {
         ? `${Math.round(cardScale * 100)} % · ${cmText(where.placement.box)}`
         : kind === 'passport' && pSize
           ? `${cmOf(pSize.wMm)} × ${cmOf(pSize.hMm)} cm · ${borderName(passport?.border)}`
-          : cmText(where.placement.box);
+          : (() => {
+              // Its own size (a turned photo keeps it, as in Word) and how far it is turned, as the finger turns it.
+              const p = withTurn(where.placement);
+              return p.tilt
+                ? `${cmText(ownBox(p))} · ${fill(t.degrees, { n: shownDegrees(angleOf(p.turns, p.tilt.deg)) })}`
+                : cmText(p.box);
+            })();
   const prevNext = (label: [string, string]) => (
     <>
       <Button variant="secondary" icon="back" disabled={at <= 0} onClick={() => setChosen(keys[at - 1] ?? null)}>
@@ -492,6 +599,282 @@ export function Adjust({ go, params }: ScreenProps) {
     </>
   );
 
+  // A tool reached by the keyboard slides wholly into the row, its focus ring clear of the row's edges (Chromium scrolls
+  // a focused element only just into view, whatever scroll-padding says).
+  const slideIntoView = (e: FocusEvent) => {
+    const row = e.currentTarget as HTMLElement;
+    const r = (e.target as HTMLElement).getBoundingClientRect();
+    const box = row.getBoundingClientRect();
+    const room = Number.parseFloat(getComputedStyle(row).paddingLeft) || 0;
+    if (r.right > box.right - room) row.scrollLeft += r.right - (box.right - room);
+    else if (r.left < box.left + room) row.scrollLeft -= box.left + room - r.left;
+  };
+  // Every tool for this kind, once: in the bottom row on a phone, beside the page when held sideways (round 3).
+  const tools = (
+    <>
+      {kind === 'photos' && (
+        <>
+          <Button
+            variant="secondary"
+            icon="minus"
+            disabled={busy || !where || ownLongMm(where.placement) <= MIN_LONG_MM + 0.05}
+            onClick={() => resizePhoto(1 / STEP)}
+          >
+            {t.smaller}
+          </Button>
+          <Button variant="secondary" icon="plus" disabled={busy || !canGrow} onClick={() => resizePhoto(STEP)}>
+            {t.bigger}
+          </Button>
+          <Button
+            variant="secondary"
+            icon="turn"
+            disabled={busy || sel === null}
+            onClick={() => sel !== null && void onTop({ type: 'turnItem', index: sel })}
+          >
+            {t.turn}
+          </Button>
+          {/* Any angle without dragging (PLAN §H2.4): 1° a tap. */}
+          <Button variant="secondary" icon="turnLeft" disabled={busy || sel === null} onClick={() => tiltBy(-1)}>
+            {t.tiltLeft}
+          </Button>
+          <Button variant="secondary" icon="turn" disabled={busy || sel === null} onClick={() => tiltBy(1)}>
+            {t.tiltRight}
+          </Button>
+          <Button
+            variant="secondary"
+            icon="crop"
+            disabled={sel === null}
+            onClick={() => sel !== null && go(push('cropphoto', { jobId, index: sel }))}
+          >
+            {t.crop}
+          </Button>
+          {/* Placed by hand: pages, not order (the photos stay where they were put). */}
+          {free ? (
+            <>
+              <Button
+                variant="secondary"
+                icon="back"
+                disabled={busy || !spotOf || placedPages.indexOf(spotOf.page) <= 0}
+                onClick={() => toPage(-1)}
+              >
+                {t.toPrevious}
+              </Button>
+              <Button variant="secondary" icon="next" disabled={busy || !spotOf} onClick={() => toPage(1)}>
+                {t.toNext}
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button
+                variant="secondary"
+                icon="earlier"
+                disabled={busy || at <= 0}
+                onClick={() => sel !== null && void change({ type: 'moveItem', index: sel, by: -1, among: keys })}
+              >
+                {t.earlier}
+              </Button>
+              <Button
+                variant="secondary"
+                icon="later"
+                disabled={busy || at < 0 || at >= keys.length - 1}
+                onClick={() => sel !== null && void change({ type: 'moveItem', index: sel, by: 1, among: keys })}
+              >
+                {t.later}
+              </Button>
+            </>
+          )}
+          {/* Moving without dragging (PLAN §H2.4): 2 mm a tap; the first move places every photo by hand. */}
+          {(['up', 'down', 'left', 'right'] as const).map((d) => (
+            <Button
+              key={d}
+              variant="secondary"
+              icon={d}
+              disabled={busy || sel === null || !where}
+              onClick={() =>
+                sel !== null &&
+                where &&
+                byHand.nudge(
+                  sel,
+                  where.page,
+                  d === 'left' ? -2 : d === 'right' ? 2 : 0,
+                  d === 'up' ? -2 : d === 'down' ? 2 : 0,
+                )
+              }
+            >
+              {d === 'up' ? t.moveUp : d === 'down' ? t.moveDown : d === 'left' ? t.moveLeft : t.moveRight}
+            </Button>
+          ))}
+          {prevNext([t.previous, t.next])}
+          <Button
+            variant="secondary"
+            icon="remove"
+            disabled={busy || sel === null || keys.length < 2}
+            onClick={() => void removePhoto()}
+          >
+            {t.remove}
+          </Button>
+          <Button
+            variant="secondary"
+            icon="undo"
+            disabled={busy || (!job?.sizes && !job?.spots)}
+            onClick={() => void change({ type: 'setSizes', sizes: null })}
+          >
+            {t.automatic}
+          </Button>
+          <Button variant="secondary" icon="photos" onClick={() => go(push('addsource', { jobId, kind: 'photos' }))}>
+            {en.add.photos}
+          </Button>
+        </>
+      )}
+      {kind === 'pages' && where && (
+        <>
+          <Button
+            variant="secondary"
+            icon="minus"
+            disabled={busy || pageScale <= 0.5}
+            onClick={() => void change({ type: 'setDocScale', ...docPage(where.placement), scale: pageScale - 0.05 })}
+          >
+            {t.smaller}
+          </Button>
+          <Button
+            variant="secondary"
+            icon="plus"
+            disabled={busy || pageScale >= 1}
+            onClick={() => void change({ type: 'setDocScale', ...docPage(where.placement), scale: pageScale + 0.05 })}
+          >
+            {t.bigger}
+          </Button>
+          <Button
+            variant="secondary"
+            icon="turn"
+            disabled={busy}
+            onClick={() => void change({ type: 'turnDocPage', ...docPage(where.placement) })}
+          >
+            {t.turn}
+          </Button>
+          {where.placement.pdfPage === undefined && (
+            <Button
+              variant="secondary"
+              icon="crop"
+              onClick={() => go(push('cropphoto', { jobId, index: where.placement.itemIndex }))}
+            >
+              {t.crop}
+            </Button>
+          )}
+          <Button
+            variant="secondary"
+            icon="earlier"
+            disabled={busy || docAt(docPage(where.placement)) <= 0}
+            onClick={async () => {
+              const from = docAt(docPage(where.placement));
+              if (await change({ type: 'moveDocPage', at: from, by: -1, shown: shownPages })) setChosen(at - 1);
+            }}
+          >
+            {t.earlier}
+          </Button>
+          <Button
+            variant="secondary"
+            icon="later"
+            disabled={busy || docAt(docPage(where.placement)) >= shownPages.length - 1}
+            onClick={async () => {
+              const from = docAt(docPage(where.placement));
+              if (await change({ type: 'moveDocPage', at: from, by: 1, shown: shownPages })) setChosen(at + 1);
+            }}
+          >
+            {t.later}
+          </Button>
+          {prevNext([t.previousPage, t.nextPage])}
+          <Button
+            variant="secondary"
+            icon="remove"
+            disabled={busy || keys.length < 2}
+            onClick={() => void removePage()}
+          >
+            {t.removePage}
+          </Button>
+          <Button variant="secondary" icon="files" onClick={() => go(push('addsource', { jobId, kind: 'documents' }))}>
+            {en.add.files}
+          </Button>
+        </>
+      )}
+      {kind === 'passport' && passport && (
+        <>
+          <Button variant="secondary" icon="minus" disabled={busy || !passportCan(-1)} onClick={() => passportBy(-1)}>
+            {t.smaller}
+          </Button>
+          <Button variant="secondary" icon="plus" disabled={busy || !passportCan(1)} onClick={() => passportBy(1)}>
+            {t.bigger}
+          </Button>
+          <Button
+            variant="secondary"
+            icon="passport"
+            onClick={() => go(push('passportcrop', { jobId, from: 'change' }))}
+          >
+            {t.face}
+          </Button>
+          <Button
+            variant="secondary"
+            icon="turn"
+            disabled={busy}
+            onClick={() => void change({ type: 'turnItem', index: passport.item })}
+          >
+            {t.turn}
+          </Button>
+          <Button variant="secondary" icon="photos" onClick={() => go(push('passportsize', { jobId }))}>
+            {en.passport.size}
+          </Button>
+          <Button variant="secondary" icon="crop" onClick={() => go(push('passportborder', { jobId }))}>
+            {en.passport.border}
+          </Button>
+          <Button variant="secondary" icon="files" onClick={() => go(push('passportcount', { jobId }))}>
+            {t.howMany}
+          </Button>
+        </>
+      )}
+      {kind === 'cards' && job?.idCard && job.idCard.size !== 'sets' && job.idCard.size !== 'page' && sel !== null && (
+        <>
+          <Button
+            variant="secondary"
+            icon="minus"
+            disabled={busy || cardScale <= 0.7 + 1e-9}
+            onClick={() => void change({ type: 'setIdCardScale', scale: cardScale - 0.1 })}
+          >
+            {t.smaller}
+          </Button>
+          <Button
+            variant="secondary"
+            icon="plus"
+            disabled={busy || cardScale >= 2 - 1e-9}
+            onClick={() => void change({ type: 'setIdCardScale', scale: cardScale + 0.1 })}
+          >
+            {t.bigger}
+          </Button>
+          <Button
+            variant="secondary"
+            icon="turn"
+            disabled={busy}
+            onClick={() => void change({ type: 'turnIdCard', at: sel })}
+          >
+            {t.turn}
+          </Button>
+          <Button variant="secondary" icon="crop" onClick={() => go(push('fixcorners', { jobId, at: sel }))}>
+            {en.cards.fix}
+          </Button>
+          {job.idCard.cards.length > 1 && (
+            <Button
+              variant="secondary"
+              icon="undo"
+              disabled={busy}
+              onClick={() => void change({ type: 'swapIdCards' })}
+            >
+              {en.cards.swap}
+            </Button>
+          )}
+          {prevNext([t.previousCard, t.nextCard])}
+        </>
+      )}
+    </>
+  );
   return (
     <main class="screen">
       <TopBar title={titleText} onBack={() => go({ type: 'back' })} onHome={() => go({ type: 'home' })} />
@@ -550,7 +933,7 @@ export function Adjust({ go, params }: ScreenProps) {
                 {fill(t.moving, { n: numberOf(lifted.item) })}
               </p>
             )}
-            <div ref={figure} class="adjust-paper">
+            <div ref={figure} class="adjust-paper" style={{ '--paper-aspect': `${size.w / size.h}` }}>
               <PaperPreview
                 wPt={size.w}
                 hPt={size.h}
@@ -563,10 +946,53 @@ export function Adjust({ go, params }: ScreenProps) {
                 {touchable.map((p, i) => {
                   const k = keyOf(p);
                   const selected = k !== null && k === sel;
+                  // A photo turned to any angle: its handles on its own frame, turned with it (WPS), over the others.
+                  const own = p.tilt ? ownBox(p) : null;
+                  const handles = (
+                    <>
+                      {kind === 'photos' &&
+                        selected &&
+                        !lifted &&
+                        !p.tilt &&
+                        k !== null &&
+                        (['l', 'r', 't', 'b'] as const)
+                          .filter((s) => (s === 'l' || s === 'r' ? p.box.h : p.box.w) * pxPerPt >= 96)
+                          .map((s) => (
+                            <span
+                              key={s}
+                              class={`adjust-side adjust-side-${s}${nearEdge(p)[s] ? ' adjust-in' : ''}`}
+                              onPointerDown={startSide(s, where.placement)}
+                              onPointerMove={moveSide}
+                              onPointerUp={endSide}
+                              onPointerCancel={endSide}
+                              onLostPointerCapture={endSide}
+                            />
+                          ))}
+                      {resizable &&
+                        selected &&
+                        (p === where.placement || (kind === 'photos' && (cut?.item === k || turning?.item === k))) && (
+                          <span
+                            class={`adjust-handle${nearEdge(p).r || nearEdge(p).b ? ' adjust-in' : ''}`}
+                            onPointerDown={startDrag}
+                            onPointerMove={moveDrag}
+                            onPointerUp={endDrag}
+                            onPointerCancel={endDrag}
+                            onLostPointerCapture={endDrag}
+                          />
+                        )}
+                      {kind === 'photos' &&
+                        selected &&
+                        !lifted &&
+                        !cut &&
+                        (p === where.placement || turning?.item === k) && (
+                          <span class="adjust-rotate" onPointerDown={startTurn} />
+                        )}
+                    </>
+                  );
                   return (
                     <span
                       key={kind === 'photos' && k !== null ? `pick-${k}` : `pick-at${i}`}
-                      class={`adjust-pick${selected ? ' adjust-selected' : ''}${lifted && lifted.item === k ? ' adjust-lifted' : ''}`}
+                      class={`adjust-pick${selected && !own ? ' adjust-selected' : ''}${lifted && lifted.item === k ? ' adjust-lifted' : ''}`}
                       {...(kind === 'photos' && k !== null
                         ? { 'data-item': k, ...byHand.handlers(k, where.page) }
                         : {})}
@@ -580,36 +1006,38 @@ export function Adjust({ go, params }: ScreenProps) {
                       onClick={() => k !== null && setChosen(k)}
                       onContextMenu={(e) => e.preventDefault()}
                     >
-                      {kind === 'photos' &&
-                        selected &&
-                        !lifted &&
-                        k !== null &&
-                        (['l', 'r', 't', 'b'] as const)
-                          .filter((s) => (s === 'l' || s === 'r' ? p.box.h : p.box.w) * pxPerPt >= 96)
-                          .map((s) => (
-                            <span
-                              key={s}
-                              class={`adjust-side adjust-side-${s}`}
-                              onPointerDown={startSide(s, where.placement)}
-                              onPointerMove={moveSide}
-                              onPointerUp={endSide}
-                              onPointerCancel={endSide}
-                              onLostPointerCapture={endSide}
-                            />
-                          ))}
-                      {resizable && selected && (p === where.placement || (kind === 'photos' && cut?.item === k)) && (
+                      {own && p.tilt && selected ? (
                         <span
-                          class="adjust-handle"
-                          onPointerDown={startDrag}
-                          onPointerMove={moveDrag}
-                          onPointerUp={endDrag}
-                          onPointerCancel={endDrag}
-                          onLostPointerCapture={endDrag}
-                        />
+                          class={`adjust-tilt${lifted ? '' : ' adjust-selected'}`}
+                          style={{
+                            left: pct(own.x - p.box.x, p.box.w),
+                            top: pct(own.y - p.box.y, p.box.h),
+                            width: pct(own.w, p.box.w),
+                            height: pct(own.h, p.box.h),
+                            transform: `rotate(${p.tilt.deg}deg)`,
+                          }}
+                        >
+                          {handles}
+                        </span>
+                      ) : (
+                        handles
                       )}
                     </span>
                   );
                 })}
+                {/* The angle while the round handle turns the photo: on its centre, clear of the finger. */}
+                {turning && !turning.lifted && (
+                  <span
+                    class="adjust-degrees"
+                    role="status"
+                    style={{
+                      left: pct(where.placement.box.x + where.placement.box.w / 2, size.w),
+                      top: pct(where.placement.box.y + where.placement.box.h / 2, size.h),
+                    }}
+                  >
+                    {fill(t.degrees, { n: shownDegrees(turning.angle) })}
+                  </span>
+                )}
                 {/* Word-like guides while a photo is moved: the line it snapped to. */}
                 {lifted?.guides.map((g) => (
                   <span
@@ -630,285 +1058,16 @@ export function Adjust({ go, params }: ScreenProps) {
           </div>
         )}
         {/* Office-style tools: icon above its word; as many to a row as the text size allows. */}
-        <div class="tool-grid">
-          {kind === 'photos' && (
-            <>
-              <Button
-                variant="secondary"
-                icon="minus"
-                disabled={busy || !where || longMm(where.placement.box) <= MIN_LONG_MM + 0.05}
-                onClick={() => resizePhoto(1 / STEP)}
-              >
-                {t.smaller}
-              </Button>
-              <Button variant="secondary" icon="plus" disabled={busy || !canGrow} onClick={() => resizePhoto(STEP)}>
-                {t.bigger}
-              </Button>
-              <Button
-                variant="secondary"
-                icon="turn"
-                disabled={busy || sel === null}
-                onClick={() => sel !== null && void onTop({ type: 'turnItem', index: sel })}
-              >
-                {t.turn}
-              </Button>
-              <Button
-                variant="secondary"
-                icon="crop"
-                disabled={sel === null}
-                onClick={() => sel !== null && go(push('cropphoto', { jobId, index: sel }))}
-              >
-                {t.crop}
-              </Button>
-              {/* Placed by hand: pages, not order (the photos stay where they were put). */}
-              {free ? (
-                <>
-                  <Button
-                    variant="secondary"
-                    icon="back"
-                    disabled={busy || !spotOf || placedPages.indexOf(spotOf.page) <= 0}
-                    onClick={() => toPage(-1)}
-                  >
-                    {t.toPrevious}
-                  </Button>
-                  <Button variant="secondary" icon="next" disabled={busy || !spotOf} onClick={() => toPage(1)}>
-                    {t.toNext}
-                  </Button>
-                </>
-              ) : (
-                <>
-                  <Button
-                    variant="secondary"
-                    icon="earlier"
-                    disabled={busy || at <= 0}
-                    onClick={() => sel !== null && void change({ type: 'moveItem', index: sel, by: -1, among: keys })}
-                  >
-                    {t.earlier}
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    icon="later"
-                    disabled={busy || at < 0 || at >= keys.length - 1}
-                    onClick={() => sel !== null && void change({ type: 'moveItem', index: sel, by: 1, among: keys })}
-                  >
-                    {t.later}
-                  </Button>
-                </>
-              )}
-              {/* Moving without dragging (PLAN §H2.4): 2 mm a tap; the first move places every photo by hand. */}
-              {(['up', 'down', 'left', 'right'] as const).map((d) => (
-                <Button
-                  key={d}
-                  variant="secondary"
-                  icon={d}
-                  disabled={busy || sel === null || !where}
-                  onClick={() =>
-                    sel !== null &&
-                    where &&
-                    byHand.nudge(
-                      sel,
-                      where.page,
-                      d === 'left' ? -2 : d === 'right' ? 2 : 0,
-                      d === 'up' ? -2 : d === 'down' ? 2 : 0,
-                    )
-                  }
-                >
-                  {d === 'up' ? t.moveUp : d === 'down' ? t.moveDown : d === 'left' ? t.moveLeft : t.moveRight}
-                </Button>
-              ))}
-              {prevNext([t.previous, t.next])}
-              <Button
-                variant="secondary"
-                icon="remove"
-                disabled={busy || sel === null || keys.length < 2}
-                onClick={() => void removePhoto()}
-              >
-                {t.remove}
-              </Button>
-              <Button
-                variant="secondary"
-                icon="undo"
-                disabled={busy || (!job?.sizes && !job?.spots)}
-                onClick={() => void change({ type: 'setSizes', sizes: null })}
-              >
-                {t.automatic}
-              </Button>
-              <Button
-                variant="secondary"
-                icon="photos"
-                onClick={() => go(push('addsource', { jobId, kind: 'photos' }))}
-              >
-                {en.add.photos}
-              </Button>
-            </>
-          )}
-          {kind === 'pages' && where && (
-            <>
-              <Button
-                variant="secondary"
-                icon="minus"
-                disabled={busy || pageScale <= 0.5}
-                onClick={() =>
-                  void change({ type: 'setDocScale', ...docPage(where.placement), scale: pageScale - 0.05 })
-                }
-              >
-                {t.smaller}
-              </Button>
-              <Button
-                variant="secondary"
-                icon="plus"
-                disabled={busy || pageScale >= 1}
-                onClick={() =>
-                  void change({ type: 'setDocScale', ...docPage(where.placement), scale: pageScale + 0.05 })
-                }
-              >
-                {t.bigger}
-              </Button>
-              <Button
-                variant="secondary"
-                icon="turn"
-                disabled={busy}
-                onClick={() => void change({ type: 'turnDocPage', ...docPage(where.placement) })}
-              >
-                {t.turn}
-              </Button>
-              {where.placement.pdfPage === undefined && (
-                <Button
-                  variant="secondary"
-                  icon="crop"
-                  onClick={() => go(push('cropphoto', { jobId, index: where.placement.itemIndex }))}
-                >
-                  {t.crop}
-                </Button>
-              )}
-              <Button
-                variant="secondary"
-                icon="earlier"
-                disabled={busy || docAt(docPage(where.placement)) <= 0}
-                onClick={async () => {
-                  const from = docAt(docPage(where.placement));
-                  if (await change({ type: 'moveDocPage', at: from, by: -1, shown: shownPages })) setChosen(at - 1);
-                }}
-              >
-                {t.earlier}
-              </Button>
-              <Button
-                variant="secondary"
-                icon="later"
-                disabled={busy || docAt(docPage(where.placement)) >= shownPages.length - 1}
-                onClick={async () => {
-                  const from = docAt(docPage(where.placement));
-                  if (await change({ type: 'moveDocPage', at: from, by: 1, shown: shownPages })) setChosen(at + 1);
-                }}
-              >
-                {t.later}
-              </Button>
-              {prevNext([t.previousPage, t.nextPage])}
-              <Button
-                variant="secondary"
-                icon="remove"
-                disabled={busy || keys.length < 2}
-                onClick={() => void removePage()}
-              >
-                {t.removePage}
-              </Button>
-              <Button
-                variant="secondary"
-                icon="files"
-                onClick={() => go(push('addsource', { jobId, kind: 'documents' }))}
-              >
-                {en.add.files}
-              </Button>
-            </>
-          )}
-          {kind === 'passport' && passport && (
-            <>
-              <Button
-                variant="secondary"
-                icon="minus"
-                disabled={busy || !passportCan(-1)}
-                onClick={() => passportBy(-1)}
-              >
-                {t.smaller}
-              </Button>
-              <Button variant="secondary" icon="plus" disabled={busy || !passportCan(1)} onClick={() => passportBy(1)}>
-                {t.bigger}
-              </Button>
-              <Button
-                variant="secondary"
-                icon="passport"
-                onClick={() => go(push('passportcrop', { jobId, from: 'change' }))}
-              >
-                {t.face}
-              </Button>
-              <Button
-                variant="secondary"
-                icon="turn"
-                disabled={busy}
-                onClick={() => void change({ type: 'turnItem', index: passport.item })}
-              >
-                {t.turn}
-              </Button>
-              <Button variant="secondary" icon="photos" onClick={() => go(push('passportsize', { jobId }))}>
-                {en.passport.size}
-              </Button>
-              <Button variant="secondary" icon="crop" onClick={() => go(push('passportborder', { jobId }))}>
-                {en.passport.border}
-              </Button>
-              <Button variant="secondary" icon="files" onClick={() => go(push('passportcount', { jobId }))}>
-                {t.howMany}
-              </Button>
-            </>
-          )}
-          {kind === 'cards' &&
-            job?.idCard &&
-            job.idCard.size !== 'sets' &&
-            job.idCard.size !== 'page' &&
-            sel !== null && (
-              <>
-                <Button
-                  variant="secondary"
-                  icon="minus"
-                  disabled={busy || cardScale <= 0.7 + 1e-9}
-                  onClick={() => void change({ type: 'setIdCardScale', scale: cardScale - 0.1 })}
-                >
-                  {t.smaller}
-                </Button>
-                <Button
-                  variant="secondary"
-                  icon="plus"
-                  disabled={busy || cardScale >= 2 - 1e-9}
-                  onClick={() => void change({ type: 'setIdCardScale', scale: cardScale + 0.1 })}
-                >
-                  {t.bigger}
-                </Button>
-                <Button
-                  variant="secondary"
-                  icon="turn"
-                  disabled={busy}
-                  onClick={() => void change({ type: 'turnIdCard', at: sel })}
-                >
-                  {t.turn}
-                </Button>
-                <Button variant="secondary" icon="crop" onClick={() => go(push('fixcorners', { jobId, at: sel }))}>
-                  {en.cards.fix}
-                </Button>
-                {job.idCard.cards.length > 1 && (
-                  <Button
-                    variant="secondary"
-                    icon="undo"
-                    disabled={busy}
-                    onClick={() => void change({ type: 'swapIdCards' })}
-                  >
-                    {en.cards.swap}
-                  </Button>
-                )}
-                {prevNext([t.previousCard, t.nextCard])}
-              </>
-            )}
-        </div>
+        {/* Held sideways on a wide screen: the tools beside the page (equal halves). */}
+        {wide && <div class="tool-grid">{tools}</div>}
       </div>
       <ActionBar>
+        {/* On a phone: one row of tools above Done that slides sideways (owner, round 3: Doc Scanner's editor). */}
+        {!wide && (
+          <div class="tool-row" onFocusIn={slideIntoView}>
+            {tools}
+          </div>
+        )}
         <Button icon="check" onClick={() => go({ type: 'backTo', name: 'ready' })}>
           {t.done}
         </Button>

@@ -1,10 +1,14 @@
 import type { Box } from '../../core/layout/onePerPage';
+import { ownBox } from '../../core/layout/tilt';
 import type { Placement, PrintPlan } from '../../core/plan/plan';
 
 const MM = 72 / 25.4;
 
 /** A box's long side in mm (the size Adjust keeps for a photo). */
 export const longMm = (b: Box) => Math.max(b.w, b.h) / MM;
+
+/** A photo's own long side in mm: the size Adjust keeps, also when it is turned to any angle (as in Word). */
+export const ownLongMm = (p: Placement) => longMm(ownBox(p));
 
 /** "8.4 × 6.3 cm": a box as a ruler reads it. */
 export const cmText = (b: Box) => `${Math.round(b.w / MM) / 10} × ${Math.round(b.h / MM) / 10} cm`;

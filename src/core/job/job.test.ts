@@ -300,7 +300,10 @@ describe('passport choice (Phase 6 gate m7, M3, m2)', () => {
   it('the count stays 1–60', () => {
     const p = jobReducer(job, { type: 'setPassport', item: 1 }, 2);
     expect(jobReducer(p, { type: 'setPassportCount', count: 0 }, 3).passport?.count).toBe(1);
-    expect(jobReducer(p, { type: 'setPassportCount', count: 500 }, 3).passport?.count).toBe(60);
+    // Up to 100 (owner, round 3: "custom number … if it is big"; was 60).
+    expect(jobReducer(p, { type: 'setPassportCount', count: 500 }, 3).passport?.count).toBe(100);
+    expect(jobReducer(p, { type: 'setPassportCount', count: 100 }, 3).passport?.count).toBe(100);
+    expect(jobReducer(p, { type: 'setPassportCount', count: 61 }, 3).passport?.count).toBe(61);
   });
   it('a frame is remembered with the turn and size it was made for; a broken frame is dropped', () => {
     const p = jobReducer(job, { type: 'setPassport', item: 1 }, 2);
@@ -412,10 +415,10 @@ describe("the owner's defaults (Settings, Phase 10b)", () => {
     expect(jobFromIntake('j', intake, 1).colour).toBe('colour');
   });
 
-  it("a document starts in the owner's document colour the first time only", () => {
+  it('a document starts in colour (owner, round 3); a colour given with it is still taken', () => {
     const base = jobFromIntake('j', intake, 1);
-    expect(jobReducer(base, { type: 'setDocument', colour: 'colour' }, 2).colour).toBe('colour');
-    expect(jobReducer(base, { type: 'setDocument' }, 2).colour).toBe('bw');
+    expect(jobReducer(base, { type: 'setDocument' }, 2).colour).toBe('colour');
+    expect(jobReducer(base, { type: 'setDocument', colour: 'bw' }, 2).colour).toBe('bw');
   });
 
   it("passport photos start with the owner's size and count, never replacing the shopkeeper's own choice", () => {
@@ -588,6 +591,37 @@ describe('photos placed by hand (spec 2026-10-24 Part 5)', () => {
     if (!item) throw new Error('no item');
     const back = jobReducer(removed, { type: 'restoreItem', item, at: 1, pages: 'best', size: 70, spot: spots[3] }, 4);
     expect(back.spots?.[3]).toEqual(spots[3]);
+  });
+});
+
+describe('a photo turned to any angle (owner, round 3: the rotate handle)', () => {
+  it('rotateItem sets the quarter turns and the tilt; straight leaves no tilt', () => {
+    const job = jobFromIntake('job1', intake, 1000);
+    const r = jobReducer(job, { type: 'rotateItem', index: 1, angle: 100 }, 2);
+    expect(r.turns[1]).toBe(1);
+    expect(r.tilts?.[1]).toBe(10);
+    const straight = jobReducer(r, { type: 'rotateItem', index: 1, angle: 180 }, 3);
+    expect(straight.turns[1]).toBe(2);
+    expect(straight.tilts).toBeUndefined();
+    // Not a photo of the job: nothing changes.
+    expect(jobReducer(job, { type: 'rotateItem', index: 99, angle: 10 }, 2)).toBe(job);
+  });
+  it('Turn keeps the tilt', () => {
+    const job = jobReducer(jobFromIntake('job1', intake, 1000), { type: 'rotateItem', index: 1, angle: 10 }, 2);
+    const t = jobReducer(job, { type: 'turnItem', index: 1 }, 3);
+    expect([t.turns[1], t.tilts?.[1]]).toEqual([1, 10]);
+  });
+  it('a saved job keeps only good tilts', () => {
+    const job = jobFromIntake('job1', intake, 1000);
+    const read = normalizeJob({ ...job, tilts: { 1: 12.5, 2: 80, 3: 'x', 99: 5 } });
+    expect(read?.tilts).toEqual({ 1: 12.5 });
+  });
+});
+
+describe('colour by default (owner, round 3: "all print output must be colour")', () => {
+  it('a job made a document starts in colour', () => {
+    const job = jobFromIntake('job1', intake, 1000);
+    expect(jobReducer(job, { type: 'setDocument' }, 2).colour).toBe('colour');
   });
 });
 

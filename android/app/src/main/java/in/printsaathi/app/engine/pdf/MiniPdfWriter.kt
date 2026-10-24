@@ -20,9 +20,10 @@ class PdfImage(val key: Any, val kind: ImageKind, val pxW: Int, val pxH: Int, va
 /**
  * [image] drawn to fill [box] with [quarterTurnsCcw] quarter turns anticlockwise (0..3): 1 puts the photo's top along
  * the box's left edge (a sideways page on a portrait sheet), 3 along its right edge (a photo turned clockwise). [box]
- * is in the sheet's space and already has the turned shape.
+ * is in the sheet's space and already has the turned shape. [tiltCw]: degrees the photo then turns clockwise about the
+ * box's centre (owner, round 3: a photo turned to any angle); the box is the photo's own size, not its outline.
  */
-class PlacedImage(val image: PdfImage, val box: RectD, val quarterTurnsCcw: Int = 0) {
+class PlacedImage(val image: PdfImage, val box: RectD, val quarterTurnsCcw: Int = 0, val tiltCw: Double = 0.0) {
     constructor(bytes: ByteArray, kind: ImageKind, pxW: Int, pxH: Int, box: RectD) :
         this(PdfImage(bytes, kind, pxW, pxH) { bytes }, box)
 }
@@ -63,15 +64,16 @@ class MiniPdfWriter(out: OutputStream) {
         images.forEachIndexed { i, p ->
             val b = p.box
             val y = heightPt - b.y - b.h
-            // Unit square (u right, v up) -> box, turned anticlockwise by quarter turns; origin = where the photo's
-            // bottom-left corner lands.
-            val m = when (Math.floorMod(p.quarterTurnsCcw, 4)) {
-                1 -> "0 ${f(b.h)} ${f(-b.w)} 0 ${f(b.x + b.w)} ${f(y)}"
-                2 -> "${f(-b.w)} 0 0 ${f(-b.h)} ${f(b.x + b.w)} ${f(y + b.h)}"
-                3 -> "0 ${f(-b.h)} ${f(b.w)} 0 ${f(b.x)} ${f(y + b.h)}"
-                else -> "${f(b.w)} 0 0 ${f(b.h)} ${f(b.x)} ${f(y)}"
+            val q = Math.floorMod(p.quarterTurnsCcw, 4)
+            val square = quarterTurned(b, y, q)
+            // Straight: the zeros a quarter turn leaves are written as 0, as they always were. Tilted: one matrix,
+            // turned on about the box's centre (clockwise on paper is a negative angle in PDF space, y up).
+            val m = if (p.tiltCw == 0.0) {
+                square.mapIndexed { k, v -> if (k < 4 && (k == 1 || k == 2) == (q % 2 == 0)) "0" else f(v) }
+            } else {
+                turnedAbout(square, b.x + b.w / 2, y + b.h / 2, -p.tiltCw).map { f(it) }
             }
-            content.append("q $m cm /Im${ids[i]} Do Q\n")
+            content.append("q ${m.joinToString(" ")} cm /Im${ids[i]} Do Q\n")
         }
         rects.forEach { r ->
             val y = heightPt - r.box.y - r.box.h
@@ -104,6 +106,32 @@ class MiniPdfWriter(out: OutputStream) {
         o.write(sb.toString().toByteArray(Charsets.ISO_8859_1))
         o.flush()
         return o.count
+    }
+
+    /**
+     * Unit square (u right, v up) -> [b] ([y]: its bottom in PDF space), turned [q] quarter turns anticlockwise;
+     * origin = where the photo's bottom-left corner lands.
+     */
+    private fun quarterTurned(b: RectD, y: Double, q: Int): DoubleArray = when (q) {
+        1 -> doubleArrayOf(0.0, b.h, -b.w, 0.0, b.x + b.w, y)
+        2 -> doubleArrayOf(-b.w, 0.0, 0.0, -b.h, b.x + b.w, y + b.h)
+        3 -> doubleArrayOf(0.0, -b.h, b.w, 0.0, b.x, y + b.h)
+        else -> doubleArrayOf(b.w, 0.0, 0.0, b.h, b.x, y)
+    }
+
+    /** Matrix [m] followed by a turn of [deg] degrees anticlockwise about ([cx], [cy]). */
+    private fun turnedAbout(m: DoubleArray, cx: Double, cy: Double, deg: Double): DoubleArray {
+        val r = Math.toRadians(deg)
+        val c = Math.cos(r)
+        val s = Math.sin(r)
+        return doubleArrayOf(
+            c * m[0] - s * m[1],
+            s * m[0] + c * m[1],
+            c * m[2] - s * m[3],
+            s * m[2] + c * m[3],
+            c * (m[4] - cx) - s * (m[5] - cy) + cx,
+            s * (m[4] - cx) + c * (m[5] - cy) + cy,
+        )
     }
 
     private fun writeImage(img: PdfImage): Int {

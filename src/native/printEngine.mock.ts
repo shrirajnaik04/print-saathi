@@ -162,7 +162,11 @@ export class PrintEngineMock extends WebPlugin implements PrintEnginePlugin {
   }
 
   async saveJob({ job }: { job: object }): Promise<{ saved: boolean }> {
-    const j = job as { id: string; rev: number };
+    const j = job as { id: string; rev: number; quads?: Record<number, number[]> };
+    // Tests only: `?mockQuad=1`: photo 1 of a new job has a straightened frame, as a job saved by 1.0.224 could (round 3
+    // straightens by hand no more; such frames still open, move by their sides and print).
+    if (j.rev === 1 && !j.quads && new URLSearchParams(globalThis.location?.search ?? '').has('mockQuad'))
+      j.quads = { 1: [0.05, 0.05, 0.95, 0.1, 0.95, 0.95, 0.05, 0.95] };
     // Tests only: `?mockSaveFail=1` makes every change after the first save fail (e.g. the phone is full).
     if (j.rev > 1 && new URLSearchParams(globalThis.location?.search ?? '').has('mockSaveFail'))
       throw new Error('job not saved');

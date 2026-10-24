@@ -108,3 +108,28 @@ test('a box off by more than 0.1 pt, a wrong turn, a wrong size or page count ea
   assert.equal(compareRender(actualOf([letter]), want).length, 1);
   assert.match(compareRender(actualOf([]), want)[0], /page count 0/);
 });
+
+test('pdf.js reads back a tilted image: its outline and its angle', async () => {
+  // MiniPdfWriterTest's 30° clockwise tilt of a 100 x 200 box at (10, 20): centre (60, 120) top-left origin.
+  const file = handMadePdf(['86.6025 -50 100 173.2051 -33.3013 660.2873']);
+  const [b] = (await validatePdf(file)).pageSizes[0].imageBoxes;
+  assert.ok(Math.abs(b.w - 186.6025) < 0.01 && Math.abs(b.h - 223.2051) < 0.01, `outline ${b.w} x ${b.h}`);
+  assert.ok(Math.abs(b.x + b.w / 2 - 60) < 0.01 && Math.abs(b.y + b.h / 2 - 120) < 0.01, 'centred on the box');
+  assert.ok(Math.abs(b.angle - 330) < 0.01, `angle ${b.angle}`);
+  assert.equal(b.turns, 0, 'nearest quarter turn');
+  assert.equal(b.mirrored, false);
+});
+
+test('angles are compared within 0.1°, across 0°', () => {
+  const want = (angle) => ({ pages: [page([{ x: 17, y: 17, w: 561, h: 808, turns: 0, angle }])] });
+  const got = (angle) => ({
+    pages: 1,
+    pageSizes: [
+      { widthPt: 595.2756, heightPt: 841.8898, imageBoxes: [{ x: 17, y: 17, w: 561, h: 808, turns: 0, angle }] },
+    ],
+  });
+  assert.deepEqual(compareRender(got(330.05), want(330)), []);
+  assert.match(compareRender(got(330.2), want(330)).join(), /angle 330.2, expected 330/);
+  assert.deepEqual(compareRender(got(359.96), want(0.05)), []);
+  assert.match(compareRender(got(10), want(350)).join(), /angle/);
+});

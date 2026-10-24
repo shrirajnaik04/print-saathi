@@ -14,6 +14,7 @@ import `in`.printsaathi.app.engine.render.EngineRenderer
 import `in`.printsaathi.app.engine.render.PlanRenderer
 import `in`.printsaathi.app.engine.render.RenderItem
 import `in`.printsaathi.app.engine.render.RenderOutcome
+import `in`.printsaathi.app.engine.render.RenderPlacement
 import `in`.printsaathi.app.engine.render.RenderPlan
 import `in`.printsaathi.app.engine.render.Crop
 import org.json.JSONArray
@@ -110,6 +111,31 @@ class PlanRenderDeviceTest {
 
     private fun isRed(c: Int) = Color.red(c) > 200 && Color.blue(c) < 60
     private fun isBlue(c: Int) = Color.blue(c) > 200 && Color.red(c) < 60
+    private fun isWhite(c: Int) = Color.red(c) > 230 && Color.green(c) > 230 && Color.blue(c) > 230
+
+    /**
+     * Where the point ([ux], [uy]) of the upright photo (fractions, top-left origin) lands on the sheet for [p]: its
+     * quarter turns onto its own box, then its tilt clockwise about the box's centre (owner, round 3).
+     */
+    private fun onSheet(p: RenderPlacement, ux: Double, uy: Double): Pair<Double, Double> {
+        val (fx, fy) = when (p.quarterTurnsCcw) {
+            1 -> uy to 1 - ux
+            2 -> 1 - ux to 1 - uy
+            3 -> 1 - uy to ux
+            else -> ux to uy
+        }
+        val b = p.inner ?: p.box
+        val dx = (fx - 0.5) * b.w
+        val dy = (fy - 0.5) * b.h
+        val r = Math.toRadians(p.tiltCw)
+        return b.x + b.w / 2 + dx * Math.cos(r) - dy * Math.sin(r) to b.y + b.h / 2 + dx * Math.sin(r) + dy * Math.cos(r)
+    }
+
+    /** What pdf.js must read back for [p]: its box (a tilted photo's outline) and its quarter turns or exact angle. */
+    private fun expectedBox(p: RenderPlacement, turns: Int = p.quarterTurnsCcw): JSONObject =
+        JSONObject().put("x", p.box.x).put("y", p.box.y).put("w", p.box.w).put("h", p.box.h).put("turns", turns).apply {
+            if (p.tiltCw != 0.0) put("angle", ((turns * 90 - p.tiltCw) % 360 + 360) % 360)
+        }
 
     @Test fun photosPrintUprightAt300DpiWithCollatedCopies() {
         val items = mapOf(
@@ -291,10 +317,13 @@ stream
         assertTrue("render outcome $r", r is RenderOutcome.Done)
         val pdf = (r as RenderOutcome.Done).pdf
         val (b1, b2) = plan.pages[0].map { it.box }
-        // Photo 1's top-left (red), clear of photo 2.
-        val (ax, ay) = b1.x + b1.w * 0.1 to b1.y + b1.h * 0.1
+        // Photo 1 is turned 10° (owner, round 3): its own top-left (red), clear of photo 2; its outline's corner is
+        // paper, not photo.
+        assertEquals(10.0, plan.pages[0][0].tiltCw, 1e-9)
+        val (ax, ay) = onSheet(plan.pages[0][0], 0.1, 0.1)
         assertFalse("the point is clear of photo 2", ax in b2.x..(b2.x + b2.w) && ay in b2.y..(b2.y + b2.h))
         assertEquals("photo 1", "red", colourName(colourAt(pdf, 0, ax, ay)))
+        assertTrue("photo 1's outline corner", isWhite(colourAt(pdf, 0, b1.x + 2, b1.y + 2)))
         // Where they overlap, photo 2 (the straightened red quarter) is on top, not photo 1's yellow quarter.
         val ox = (maxOf(b1.x, b2.x) + minOf(b1.x + b1.w, b2.x + b2.w)) / 2
         val oy = (maxOf(b1.y, b2.y) + minOf(b1.y + b1.h, b2.y + b2.h)) / 2
@@ -310,10 +339,60 @@ stream
         val pages = JSONArray()
         plan.pages.forEach { pl ->
             val boxes = JSONArray()
-            pl.forEach { p ->
-                boxes.put(JSONObject().put("x", p.box.x).put("y", p.box.y).put("w", p.box.w).put("h", p.box.h).put("turns", p.quarterTurnsCcw))
-            }
+            pl.forEach { p -> boxes.put(expectedBox(p)) }
             pages.put(JSONObject().put("widthPt", a4w).put("heightPt", a4h).put("boxes", boxes))
+        }
+        File(check, "expected.json").writeText(JSONObject().put("pages", pages).toString())
+    }
+
+    /**
+     * Owner, round 3 (spec 2026-10-24 Phase 28): a photo turned to any angle prints at that angle, at 300 dpi of its own
+     * size (never its outline's), on an upright page and on a sideways one; its outline's corners stay paper. Leaves
+     * files/render-check-tilt/{print.pdf, expected.json} for the pdf.js check of each outline and angle.
+     */
+    @Test fun aTiltedPhotoPrintsAtItsAngleAt300DpiOfItsOwnSize() {
+        // Own size 300 × 400 pt (3:4, like the photo); the box is its turned outline, as the web app makes it.
+        fun tilted(deg: Double, x: Double, y: Double): JSONObject {
+            val r = Math.toRadians(deg)
+            val c = Math.abs(Math.cos(r))
+            val s = Math.abs(Math.sin(r))
+            return JSONObject().put("itemIndex", 1).put("turns", 0).put("style", "original")
+                .put("crop", JSONObject().put("x", 0).put("y", 0).put("w", 1).put("h", 1))
+                .put("box", box(x, y, 300 * c + 400 * s, 300 * s + 400 * c))
+                .put("tilt", JSONObject().put("deg", deg).put("w", 300.0).put("h", 400.0))
+        }
+        val upright = JSONObject().put("orientation", "portrait").put("placements", JSONArray().put(tilted(20.0, 80.0, 120.0)))
+        val sideways = JSONObject().put("orientation", "landscape").put("placements", JSONArray().put(tilted(-15.0, 200.0, 60.0)))
+        val plan = RenderPlan.parse(planJson(1, upright, sideways))
+        val r = render(plan, mapOf(1 to RenderItem(1, photo("t.jpg", 2400, 3200), "sha-t")))
+        assertTrue("render outcome $r", r is RenderOutcome.Done)
+        val pdf = (r as RenderOutcome.Done).pdf
+        // One image for both (same photo, same own size): 300 dpi of the own long side, 400 pt -> 1667 px.
+        val s = String(pdf.readBytes(), Charsets.ISO_8859_1)
+        val sizes = Regex("/Width (\\d+) /Height (\\d+)").findAll(s).map { it.groupValues[1].toInt() to it.groupValues[2].toInt() }.toList()
+        assertEquals(1, sizes.size)
+        assertEquals(1667, maxOf(sizes[0].first, sizes[0].second))
+        for ((n, p) in plan.pages.map { it.single() }.withIndex()) {
+            val label = "page ${n + 1} (turns ${p.quarterTurnsCcw}, tilt ${p.tiltCw})"
+            // Red top, blue bottom along the photo's own turned axis; also near its own corners.
+            for ((ux, uy) in listOf(0.5 to 0.25, 0.1 to 0.1, 0.9 to 0.1)) {
+                val (x, y) = onSheet(p, ux, uy)
+                assertTrue("$label: top at $ux,$uy", isRed(colourAt(pdf, n, x, y)))
+            }
+            for ((ux, uy) in listOf(0.5 to 0.75, 0.1 to 0.9, 0.9 to 0.9)) {
+                val (x, y) = onSheet(p, ux, uy)
+                assertTrue("$label: bottom at $ux,$uy", isBlue(colourAt(pdf, n, x, y)))
+            }
+            val b = p.box
+            for ((x, y) in listOf(b.x + 3 to b.y + 3, b.x + b.w - 3 to b.y + 3, b.x + 3 to b.y + b.h - 3, b.x + b.w - 3 to b.y + b.h - 3)) {
+                assertTrue("$label: outline corner at $x,$y is paper", isWhite(colourAt(pdf, n, x, y)))
+            }
+        }
+        val check = File(ctx.filesDir, "render-check-tilt").apply { deleteRecursively(); mkdirs() }
+        pdf.copyTo(File(check, "print.pdf"))
+        val pages = JSONArray()
+        plan.pages.forEach { pl ->
+            pages.put(JSONObject().put("widthPt", a4w).put("heightPt", a4h).put("boxes", JSONArray().apply { pl.forEach { put(expectedBox(it)) } }))
         }
         File(check, "expected.json").writeText(JSONObject().put("pages", pages).toString())
     }

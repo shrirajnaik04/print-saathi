@@ -81,19 +81,12 @@ export function Result({ go, params }: ScreenProps) {
       // A big job: this part counts as printed (gate M1); the whole job only with its last part.
       const counted = parts > 1 ? await saveJobChange(j, { type: 'partPrinted' }) : j;
       if (lastPart) await saveJobChange(counted, { type: 'markPrinted' });
-      // The colour just printed becomes how the next job of this type starts (PLAN §G0 remembered choices);
-      // passport photos are left out (their colour is decided per job).
-      if (lastPart && j.layout !== 'passport') {
-        const type = j.layout === 'document' ? 'documents' : 'photos';
+      // The paper photos just printed on becomes the paper the next photo job starts on (PLAN §G0 remembered
+      // choices). Never the colour: every job starts in colour (owner, round 3).
+      if (lastPart && j.layout !== 'passport' && j.layout !== 'document') {
         // The paper it really printed on (A4 when 4×6 was chosen but not set up, gate review I6).
         const printedOn = paperOf(j, (await PrintEngine.paperSetup().catch(() => null))?.photoPaper);
-        void settingsStore.update((s) => ({
-          ...s,
-          defaults: {
-            ...s.defaults,
-            [type]: type === 'photos' ? { colour: j.colour, paper: printedOn } : { colour: j.colour },
-          },
-        }));
+        void settingsStore.update((s) => ({ ...s, defaults: { ...s.defaults, photos: { paper: printedOn } } }));
       }
     })();
   }, [state]);

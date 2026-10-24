@@ -1,5 +1,5 @@
 import { useRef, useState } from 'preact/hooks';
-import { moveCorner, moveQuad, moveSide, scaleQuad } from '../core/layout/quad';
+import { moveQuad, moveSideStraight, scaleQuad } from '../core/layout/quad';
 import { fill } from '../i18n/fill';
 import { trackGesture } from './gestures';
 import { turnedStyle } from './PaperPreview';
@@ -8,7 +8,8 @@ import { turnedStyle } from './PaperPreview';
 const ZOOM = 2.5;
 const LOUPE = 112;
 
-type Drag = { kind: 'corner' | 'side'; k: number; id: number; x: number; y: number; from: number[]; el: HTMLElement };
+type Side = 0 | 1 | 2 | 3;
+type Drag = { k: Side; id: number; x: number; y: number; from: number[]; el: HTMLElement };
 
 type Props = {
   /** The picture (a file the WebView may show), drawn turned [turns] quarter turns clockwise. */
@@ -19,35 +20,25 @@ type Props = {
   /** The frame on the picture as shown: 8 fractions, top-left, top-right, bottom-right, bottom-left. */
   quad: number[];
   onChange: (quad: number[]) => void;
-  /** The corner the arrow buttons move (0–3), and choosing one by tapping it. */
-  chosen: number;
-  onChoose: (k: number) => void;
-  /** The picture's name for screen readers, and each corner's ("The top left corner"). */
+  /** The side the arrow buttons move (0 top, 1 right, 2 bottom, 3 left), and choosing one by tapping or holding it. */
+  side: Side;
+  onSide: (s: Side) => void;
+  /** The picture's name for screen readers, and each side's ("The top side"). */
   label: string;
-  cornerLabel: string;
-  cornerNames: readonly string[];
+  sideLabel: string;
+  sideNames: readonly string[];
 };
 
 const pct = (v: number) => `${Math.round(v * 10000) / 100}%`;
 
 /**
- * The scanner app's crop frame (owner, 2026-10-24): the picture as it prints, the part outside the frame dimmed, a
- * round handle at each corner (each moves on its own: a slanted photo is straightened) and a pill in the middle of each
- * side (moves that side). One finger elsewhere on the picture moves the frame, two make it bigger or smaller. While a
- * handle is held, a magnifier shows what is under the finger. The screen's arrow buttons do the same (PLAN §H2.4).
+ * The crop frame (owner, 2026-10-24: the scanner app's; round 3: "remove those corner circles … draggable from the middle
+ * bar only"): the picture as it prints, the part outside the frame dimmed, and a bar in the middle of each side that
+ * moves that side straight in or out, both of its corners together (a frame found slanted, like an ID card's, keeps its
+ * slant). One finger elsewhere on the picture moves the frame, two make it bigger or smaller. While a bar is held, a
+ * magnifier shows what is under the finger. The screen's arrow buttons do the same (PLAN §H2.4).
  */
-export function CropFrame({
-  src,
-  turns,
-  aspect,
-  quad,
-  onChange,
-  chosen,
-  onChoose,
-  label,
-  cornerLabel,
-  cornerNames,
-}: Props) {
+export function CropFrame({ src, turns, aspect, quad, onChange, side, onSide, label, sideLabel, sideNames }: Props) {
   const stage = useRef<HTMLDivElement>(null);
   const drag = useRef<Drag | null>(null);
   const gesture = useRef(trackGesture());
@@ -59,9 +50,7 @@ export function CropFrame({
     const [bx, by] = pt(q, (s + 1) % 4);
     return [(ax + bx) / 2, (ay + by) / 2] as const;
   };
-  const lookAt = (q: number[], d: Drag) => (d.kind === 'corner' ? pt(q, d.k) : mid(q, d.k));
-
-  const startHandle = (kind: Drag['kind'], k: number) => (e: PointerEvent) => {
+  const startHandle = (k: Side) => (e: PointerEvent) => {
     const el = e.currentTarget as HTMLElement;
     // One finger at a time; a drag whose handle was redrawn away never blocks the next one.
     if (drag.current && !drag.current.el.isConnected) drag.current = null;
@@ -69,25 +58,21 @@ export function CropFrame({
     e.preventDefault();
     e.stopPropagation();
     el.setPointerCapture?.(e.pointerId);
-    if (kind === 'corner') onChoose(k);
-    const d: Drag = { kind, k, id: e.pointerId, x: e.clientX, y: e.clientY, from: quad, el };
-    drag.current = d;
+    onSide(k);
+    drag.current = { k, id: e.pointerId, x: e.clientX, y: e.clientY, from: quad, el };
     const r = stage.current?.getBoundingClientRect();
-    const [x, y] = lookAt(quad, d);
+    const [x, y] = mid(quad, k);
     if (r) setLoupe({ x, y, w: r.width, h: r.height });
   };
   const moveHandle = (e: PointerEvent) => {
     const d = drag.current;
     const r = stage.current?.getBoundingClientRect();
     if (!d || !r || d.id !== e.pointerId) return;
-    const dx = (e.clientX - d.x) / r.width;
-    const dy = (e.clientY - d.y) / r.height;
-    const next =
-      d.kind === 'corner'
-        ? moveCorner(d.from, d.k, (d.from[2 * d.k] as number) + dx, (d.from[2 * d.k + 1] as number) + dy)
-        : moveSide(d.from, d.k as 0 | 1 | 2 | 3, dx, dy);
+    // Straight in or out: the top and bottom follow the finger up and down only, the sides sideways only.
+    const along = d.k % 2 === 0 ? (e.clientY - d.y) / r.height : (e.clientX - d.x) / r.width;
+    const next = moveSideStraight(d.from, d.k, along);
     onChange(next);
-    const [x, y] = lookAt(next, d);
+    const [x, y] = mid(next, d.k);
     setLoupe({ x, y, w: r.width, h: r.height });
   };
   const endHandle = (e: PointerEvent) => {
@@ -135,7 +120,7 @@ export function CropFrame({
   // The magnifier sits at the top-left, or at the top-right while the finger is in the top-left third.
   const right = !!loupe && loupe.x < 1 / 3 && loupe.y < 1 / 3;
   return (
-    // biome-ignore lint/a11y/noStaticElementInteractions: an extra (drag or pinch the frame); the corner buttons and arrows do the same
+    // biome-ignore lint/a11y/noStaticElementInteractions: an extra (drag or pinch the frame); the side bars and arrows do the same
     <div
       ref={stage}
       class="crop-stage scan-stage"
@@ -147,44 +132,28 @@ export function CropFrame({
       onLostPointerCapture={onStageUp}
       onContextMenu={(e) => e.preventDefault()}
     >
-      {/* Named for screen readers here, not on the stage: the corner buttons inside it must not be inside an image. */}
+      {/* Named for screen readers here, not on the stage: the side bars inside it must not be inside an image. */}
       <span class="scan-picture" role="img" aria-label={label}>
         {picture}
       </span>
       {lines}
-      {[0, 1, 2, 3].map((s) => {
+      {/* In reading order (top, left, right, bottom): how a screen reader goes through them. */}
+      {([0, 3, 1, 2] as const).map((s) => {
         const [x, y] = mid(quad, s);
         const [ax, ay] = pt(quad, s);
         const [bx, by] = pt(quad, (s + 1) % 4);
         // Along its side as it looks on screen (x fractions are [aspect] times as long as y fractions).
         const angle = (Math.atan2(by - ay, (bx - ax) * aspect) * 180) / Math.PI;
         return (
-          <span
-            key={`side-${s}`}
-            class="scan-handle scan-side"
-            style={{ left: pct(x), top: pct(y), '--angle': `${angle}deg` }}
-            aria-hidden="true"
-            onPointerDown={startHandle('side', s)}
-            onPointerMove={moveHandle}
-            onPointerUp={endHandle}
-            onPointerCancel={endHandle}
-            onLostPointerCapture={endHandle}
-          />
-        );
-      })}
-      {/* In reading order (top left, top right, bottom left, bottom right): how a screen reader goes through them. */}
-      {[0, 1, 3, 2].map((k) => {
-        const [x, y] = pt(quad, k);
-        return (
           <button
-            key={`corner-${k}`}
+            key={`side-${s}`}
             type="button"
-            class={k === chosen ? 'scan-handle scan-corner scan-corner-on' : 'scan-handle scan-corner'}
-            style={{ left: pct(x), top: pct(y) }}
-            aria-label={fill(cornerLabel, { name: cornerNames[k] ?? '' })}
-            aria-pressed={k === chosen}
-            onClick={() => onChoose(k)}
-            onPointerDown={startHandle('corner', k)}
+            class={s === side ? 'scan-handle scan-side scan-side-on' : 'scan-handle scan-side'}
+            style={{ left: pct(x), top: pct(y), '--angle': `${angle}deg` }}
+            aria-label={fill(sideLabel, { name: sideNames[s] ?? '' })}
+            aria-pressed={s === side}
+            onClick={() => onSide(s)}
+            onPointerDown={startHandle(s)}
             onPointerMove={moveHandle}
             onPointerUp={endHandle}
             onPointerCancel={endHandle}

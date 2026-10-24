@@ -6,6 +6,7 @@ import {
   moveCorner,
   moveQuad,
   moveSide,
+  moveSideStraight,
   quadOfBox,
   scaleQuad,
   shownQuad,
@@ -91,5 +92,28 @@ describe('straightened frames (spec 2026-10-24 Part 4)', () => {
       }),
       { numRuns: 500 },
     );
+  });
+});
+
+describe('the middle bars only (owner, round 3: "draggable from the middle bar only")', () => {
+  it('a side moves straight in or out along its own axis, both corners together, keeping a slant', () => {
+    // Top: down by 0.03; its corners keep their x and the slant between them.
+    const top = moveSideStraight(slanted, 0, 0.03);
+    near(top, [0.1, 0.15, 0.85, 0.08, ...slanted.slice(4)]);
+    // Right: left by 0.05 (negative), only x changes.
+    const right = moveSideStraight(slanted, 1, -0.05);
+    near(right, [...slanted.slice(0, 2), 0.8, 0.05, 0.85, 0.8, ...slanted.slice(6)]);
+    // Bottom and left likewise.
+    near(moveSideStraight(slanted, 2, -0.02), [...slanted.slice(0, 4), 0.9, 0.78, 0.15, 0.9]);
+    near(moveSideStraight(slanted, 3, 0.04), [0.14, 0.12, ...slanted.slice(2, 6), 0.19, 0.92]);
+  });
+  it('never across the other side, never off the photo, never under 5 %', () => {
+    const box = quadOfBox({ x: 0.2, y: 0.2, w: 0.5, h: 0.5 });
+    // The top dragged below the bottom: not taken.
+    expect(moveSideStraight(box, 0, 0.9)).toEqual(box);
+    // The left dragged past the photo's edge stops at it.
+    expect(moveSideStraight(box, 3, -0.5)[0]).toBe(0);
+    // Down to less than 5 % of the photo: not taken.
+    expect(moveSideStraight(box, 1, -0.47)).toEqual(box);
   });
 });

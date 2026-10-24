@@ -261,17 +261,12 @@ test('a side dragged back out brings the photo back, as far as the photo goes', 
 });
 
 test('a straightened photo’s side crop cuts its straightened picture (the frame’s corners move)', async ({ page }) => {
-  await page.goto('/?mockIntake=1');
+  // A photo straightened before (1.0.224 could; round 3 straightens only found cards): mockQuad gives it its frame.
+  await page.goto('/?mockIntake=1&mockQuad=1');
   await button(page, 'One on each page').click();
-  await button(page, 'Adjust photos').click();
-  await button(page, 'Crop').click();
-  await button(page, 'Next corner').click();
-  for (let i = 0; i < 6; i++) await button(page, 'Left').click();
-  await button(page, 'Done').click();
-  await expect(title(page)).toHaveText('Photo 1 of 1');
-  await back(page);
+  await expect(title(page)).toHaveText('Ready to print');
+  await expect.poll(async () => (await lastPlan(page))?.pages[0]?.placements[0]?.quad?.length).toBe(8);
   const before = (await lastPlan(page))?.pages[0]?.placements[0]?.quad;
-  expect(before).toHaveLength(8);
   await button(page, 'Adjust photos').click();
   await dragSide(page, 't', 0, 40);
   await back(page);
