@@ -25,11 +25,14 @@ export function findItem(plan: PrintPlan, item: number): { page: number; placeme
   return undefined;
 }
 
-/** The placement under a point (page points, in the page's own direction) on page [page], if any. */
+/**
+ * The placement under a point (page points, in the page's own direction) on page [page], if any: where photos overlap,
+ * the one drawn on top (drawn last; review 2026-10-24).
+ */
 export function pickAt(plan: PrintPlan, page: number, x: number, y: number): Placement | undefined {
-  return plan.pages[page]?.placements.find(
-    (p) => x >= p.box.x && x <= p.box.x + p.box.w && y >= p.box.y && y <= p.box.y + p.box.h,
-  );
+  return [...(plan.pages[page]?.placements ?? [])]
+    .reverse()
+    .find((p) => x >= p.box.x && x <= p.box.x + p.box.w && y >= p.box.y && y <= p.box.y + p.box.h);
 }
 
 /** The page's size in points as it is seen (a sideways page is wide). */

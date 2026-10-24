@@ -2,6 +2,8 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { jobFromIntake, jobReducer } from '../job/job';
+import { overlaps } from '../layout/free';
+import { straightAspect } from '../layout/quad';
 import { buildPlan, paperOf, planHash } from './plan';
 
 const intake = {
@@ -330,6 +332,69 @@ describe('Space at paper edges: More (Settings → Advanced, Phase 10b)', () => 
   }
 });
 
+// Owner, 2026-10-24: Word's margins for photos on A4 (Settings → Margins), Narrow by default; nothing else changes.
+describe('Margins for photo pages on A4 (Settings → Margins)', () => {
+  const mm = (pt: number) => (pt * 25.4) / 72;
+  const job = jobFromIntake('j', intake, 1);
+  const edges = (plan: ReturnType<typeof buildPlan>) =>
+    plan.pages.flatMap((p) => {
+      const [w, h] =
+        p.orientation === 'landscape' ? [plan.paper.hPt, plan.paper.wPt] : [plan.paper.wPt, plan.paper.hPt];
+      return p.placements.map((x) => Math.min(x.box.x, x.box.y, w - x.box.x - x.box.w, h - x.box.y - x.box.h));
+    });
+  const layouts = ['onePerPage', 'allOnOne', 'morePages'] as const;
+  for (const [margins, want] of [
+    ['narrow', 12.7],
+    ['normal', 25.4],
+    ['small', 6],
+  ] as const)
+    for (const layout of layouts)
+      it(`${layout}: photos keep ${want} mm clear at every edge at ${margins}`, () => {
+        const plan = buildPlan({ ...job, layout }, aspects, undefined, undefined, undefined, 0, margins);
+        for (const e of edges(plan)) expect(mm(e)).toBeGreaterThanOrEqual(want - 1e-6);
+      });
+
+  it('Narrow is what a plan gets when nothing is said', () => {
+    for (const e of edges(buildPlan({ ...job, layout: 'allOnOne' }, aspects)))
+      expect(mm(e)).toBeGreaterThanOrEqual(12.7 - 1e-6);
+  });
+
+  it('never below the edge the printer itself cannot print (its test page measured 15 mm)', () => {
+    const plan = buildPlan({ ...job, layout: 'allOnOne' }, aspects, undefined, 15, undefined, 0, 'narrow');
+    for (const e of edges(plan)) expect(mm(e)).toBeGreaterThanOrEqual(15 - 1e-6);
+  });
+
+  it('More still adds 3 mm on top', () => {
+    const plan = buildPlan({ ...job, layout: 'allOnOne' }, aspects, undefined, undefined, undefined, 3, 'narrow');
+    for (const e of edges(plan)) expect(mm(e)).toBeGreaterThanOrEqual(15.7 - 1e-6);
+  });
+
+  it('sizes from Adjust larger than fit at Narrow are kept inside the margins', () => {
+    const big = { ...job, layout: 'allOnOne' as const, sizes: { 1: 400, 2: 400 } };
+    for (const e of edges(buildPlan(big, aspects, undefined, undefined, undefined, 0, 'narrow')))
+      expect(mm(e)).toBeGreaterThanOrEqual(12.7 - 1e-6);
+  });
+
+  it('4×6 photo paper, passport sheets, ID cards and documents are the same at every margin', () => {
+    const paper = { wMils: 4000, hMils: 6000, edgeMm: 4 };
+    const jobs = [
+      { ...job, paper: 'PHOTO_4x6' as const, layout: 'allOnOne' as const },
+      jobReducer(job, { type: 'setDocument' }, 2),
+      jobReducer(job, { type: 'setPassport', item: 1 }, 2),
+      jobReducer(
+        job,
+        { type: 'setIdCards', cards: [{ item: 1, quad: [0.1, 0.1, 0.9, 0.1, 0.9, 0.9, 0.1, 0.9], turns: 0 }] },
+        2,
+      ),
+    ];
+    for (const j of jobs) {
+      const at = (m: 'narrow' | 'normal' | 'small') => buildPlan(j, aspects, paper, 4, undefined, 0, m);
+      expect(at('normal')).toEqual(at('narrow'));
+      expect(at('small')).toEqual(at('narrow'));
+    }
+  });
+});
+
 describe('photos on the shop printer’s 4×6 photo paper (Phase 10c, PLAN §K3)', () => {
   const paper = { wMils: 4000, hMils: 6000, edgeMm: 4 };
   const job = { ...jobFromIntake('j', intake, 1), paper: 'PHOTO_4x6' as const };
@@ -365,5 +430,128 @@ describe('photos on the shop printer’s 4×6 photo paper (Phase 10c, PLAN §K3)
 `;
     if (process.env.UPDATE_CONTRACT) writeFileSync(fixture, json);
     expect(readFileSync(fixture, 'utf8')).toBe(json);
+  });
+});
+
+// Owner, 2026-10-24: the scanner app's crop with free corners; the engine straightens the part inside the frame.
+describe('straightened photos (spec 2026-10-24 Part 4)', () => {
+  const job = jobFromIntake('j', intake, 1);
+  // A slanted frame on photo 2 (1.5 : 1): its straightened part is about (0.75 × 1.5) : 0.8 wide.
+  const quad = [0.1, 0.12, 0.85, 0.05, 0.9, 0.8, 0.15, 0.92];
+  const straightened = jobReducer(job, { type: 'setQuad', item: 2, quad }, 2);
+  const placementOf = (plan: ReturnType<typeof buildPlan>, item: number) =>
+    plan.pages.flatMap((p) => p.placements).find((p) => p.itemIndex === item);
+
+  it('a straightened photo prints with its frame, the whole photo as its crop and the straightened shape', () => {
+    const p = placementOf(buildPlan(straightened, aspects), 2);
+    expect(p?.quad).toEqual(quad);
+    expect(p?.crop).toEqual({ x: 0, y: 0, w: 1, h: 1 });
+    expect((p?.box.w ?? 0) / (p?.box.h ?? 1)).toBeCloseTo(straightAspect(quad, 1.5), 6);
+    // Photo 1 is not straightened.
+    expect(placementOf(buildPlan(straightened, aspects), 1)?.quad).toBeUndefined();
+  });
+
+  it('a straightened photo keeps its corners through Turn (its shape turns)', () => {
+    const turned = jobReducer(straightened, { type: 'turnItem', index: 2 }, 3);
+    const p = placementOf(buildPlan(turned, aspects), 2);
+    expect(p?.quad).toEqual(quad);
+    expect(p?.turns).toBe(1);
+    expect((p?.box.h ?? 0) / (p?.box.w ?? 1)).toBeCloseTo(straightAspect(quad, 1.5), 6);
+  });
+
+  it('a photo page of a document can be straightened too', () => {
+    const doc = jobReducer(straightened, { type: 'setDocument' }, 3);
+    const p = placementOf(buildPlan(doc, aspects), 2);
+    expect(p?.quad).toEqual(quad);
+    expect(p?.crop).toEqual({ x: 0, y: 0, w: 1, h: 1 });
+    expect((p?.box.w ?? 0) / (p?.box.h ?? 1)).toBeCloseTo(straightAspect(quad, 1.5), 6);
+  });
+});
+
+// Press and hold to place a photo anywhere (owner, 2026-10-24): placed photos print where they were put.
+describe('photos placed by hand (spec 2026-10-24 Part 5)', () => {
+  const MMpt = 72 / 25.4;
+  const job = jobReducer(jobFromIntake('j', intake, 1), { type: 'setLayout', layout: 'allOnOne' }, 2);
+
+  it('print at their spots, the one placed last on top', () => {
+    const placed = jobReducer(
+      job,
+      {
+        type: 'setSpots',
+        spots: { 1: { page: 0, x: 60, y: 70, z: 2 }, 2: { page: 0, x: 80, y: 90, z: 1 } },
+        sizes: { 1: 60, 2: 60 },
+      },
+      3,
+    );
+    const plan = buildPlan(placed, aspects);
+    expect(plan.pages).toHaveLength(1);
+    expect(plan.pages[0]?.placements.map((p) => p.itemIndex)).toEqual([2, 1]);
+    const one = plan.pages[0]?.placements.find((p) => p.itemIndex === 1);
+    expect((one?.box.x ?? 0) + (one?.box.w ?? 0) / 2).toBeCloseTo(60 * MMpt, 6);
+    expect((one?.box.y ?? 0) + (one?.box.h ?? 0) / 2).toBeCloseTo(70 * MMpt, 6);
+    expect(Math.max(one?.box.w ?? 0, one?.box.h ?? 0)).toBeCloseTo(60 * MMpt, 6);
+  });
+
+  it('photos with no spot (added later) flow on pages after the placed ones', () => {
+    const placed = jobReducer(
+      job,
+      { type: 'setSpots', spots: { 1: { page: 0, x: 60, y: 70, z: 1 } }, sizes: { 1: 60, 2: 60 } },
+      3,
+    );
+    const plan = buildPlan(placed, aspects);
+    expect(plan.pages.map((p) => p.placements.map((x) => x.itemIndex))).toEqual([[1], [2]]);
+  });
+});
+
+describe('PrintPlan contract: photos placed by hand at Narrow margins (Phases 21–24 device check)', () => {
+  // The device renders this plan and pdf.js reads every picture's box back (scripts/device/render-check.mjs).
+  it('two photos placed by hand overlap (one straightened and turned); the third flows on from the top-left', () => {
+    const three = {
+      intakeId: 'in9',
+      rejected: 0,
+      refusedByPolicy: 0,
+      files: [1, 2, 3].map((i) => ({ index: i, path: `/p/${i}.jpg`, sniffedType: 'jpeg', bytes: 1, sha256: `f${i}` })),
+    } as never;
+    const shapes = new Map([
+      [1, 0.75],
+      [2, 0.75],
+      [3, 1.5],
+    ]);
+    let job = jobReducer(jobFromIntake('job9', three, 1), { type: 'setLayout', layout: 'allOnOne' }, 2);
+    job = jobReducer(job, { type: 'setQuad', item: 2, quad: [0.05, 0.02, 0.45, 0.06, 0.48, 0.45, 0.02, 0.48] }, 3);
+    job = jobReducer(job, { type: 'turnItem', index: 2 }, 4);
+    job = jobReducer(
+      job,
+      {
+        type: 'setSpots',
+        spots: { 1: { page: 0, x: 70, y: 90, z: 1 }, 2: { page: 0, x: 110, y: 130, z: 2 } },
+        sizes: { 1: 100, 2: 80, 3: 90 },
+      },
+      5,
+    );
+    const plan = buildPlan(job, shapes);
+    const MM = 72 / 25.4;
+    expect(plan.pages.map((p) => p.placements.map((x) => x.itemIndex))).toEqual([[1, 2], [3]]);
+    expect(overlaps(plan)).toEqual([[1, 2]]);
+    const straight = plan.pages[0]?.placements[1];
+    expect(straight?.quad).toBeDefined();
+    expect(straight?.turns).toBe(1);
+    // The photo that flows on starts at Word's Narrow margin, 12.7 mm from the top-left.
+    const flowed = plan.pages[1]?.placements[0]?.box;
+    expect(flowed?.x).toBeCloseTo(12.7 * MM, 6);
+    expect(flowed?.y).toBeCloseTo(12.7 * MM, 6);
+    for (const page of plan.pages)
+      for (const { box } of page.placements) {
+        expect(box.x).toBeGreaterThanOrEqual(12.7 * MM - 1e-6);
+        expect(box.y).toBeGreaterThanOrEqual(12.7 * MM - 1e-6);
+        expect(box.x + box.w).toBeLessThanOrEqual(plan.paper.wPt - 12.7 * MM + 1e-6);
+        expect(box.y + box.h).toBeLessThanOrEqual(plan.paper.hPt - 12.7 * MM + 1e-6);
+      }
+    // In tests/fixtures (the device tests' assets), which the formatter keeps tidy: compared as data, not as text.
+    const fixture = path.resolve('tests/fixtures/plan-v1-free.json');
+    const json = `${JSON.stringify({ planHash: planHash(plan), plan }, null, 2)}
+`;
+    if (process.env.UPDATE_CONTRACT) writeFileSync(fixture, json);
+    expect(JSON.parse(readFileSync(fixture, 'utf8'))).toEqual(JSON.parse(json));
   });
 });

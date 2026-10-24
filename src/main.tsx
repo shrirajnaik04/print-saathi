@@ -20,6 +20,10 @@ if (
     (import.meta.env.MODE === 'e2e' && !new URLSearchParams(location.search).has('splash')))
 )
   splash.remove();
+// Android 12+ holds its own splash until the page's is on screen, then takes it away without a fade (device recording,
+// 2026-10-24: its fade showed the page before the page had drawn, so the logo dipped to nothing between the two).
+if (splash?.isConnected)
+  requestAnimationFrame(() => requestAnimationFrame(() => void PrintEngine.splashShown().catch(() => {})));
 const firstScreenUp = () =>
   requestAnimationFrame(() =>
     requestAnimationFrame(() => {

@@ -56,16 +56,16 @@ test('the card with a face is the front; Swap front and back swaps them in the p
   await expect.poll(async () => (await lastPlan(page))?.pages[0]?.placements[0]?.quad?.[1]).toBeCloseTo(0.1, 5);
 });
 
-test('Fix corners: Next dot and the arrows move the chosen dot by 1 %; Done keeps it for the print', async ({
+test('Fix corners: Next corner and the arrows move the chosen corner by 1 %; Done keeps it for the print', async ({
   page,
 }) => {
   await page.goto('/?mockIntake=2');
   await button(page, 'ID card copy').click();
   await button(page, 'Fix corners (Front)').click();
   await expect(title(page)).toHaveText('Fix corners');
-  await expect(page.getByText('Moving dot 1 of 4 (top left)')).toBeVisible();
-  await button(page, 'Next dot').click();
-  await expect(page.getByText('Moving dot 2 of 4 (top right)')).toBeVisible();
+  await expect(page.getByText('Corner 1 of 4: top left')).toBeVisible();
+  await button(page, 'Next corner').click();
+  await expect(page.getByText('Corner 2 of 4: top right')).toBeVisible();
   await button(page, 'Right').click();
   await button(page, 'Right').click();
   await button(page, 'Down').click();
@@ -249,7 +249,7 @@ test('"Check the corners" stays with its card through Swap (review I6)', async (
   await expect(page.locator('.card-found .card-state')).toHaveText(['Check the corners', '✓ Straightened']);
 });
 
-test('Fix corners: the straightened preview changes when a dot moves (review m17)', async ({ page }) => {
+test('Fix corners: the straightened preview changes when a corner moves (review m17)', async ({ page }) => {
   await page.goto('/?mockIntake=2');
   await button(page, 'ID card copy').click();
   await button(page, 'Fix corners (Front)').click();
@@ -349,4 +349,38 @@ test('Undo on Ready puts the photo back and the print follows', async ({ page })
       [1, 0],
       [2, 0],
     ]);
+});
+
+// Owner, 2026-10-24: "where is the option to print the back side? … optional: the customer might need the front only
+// or both sides printed on one page vertically".
+test('one side found: Add the back side from the gallery gives front then back on one page', async ({ page }) => {
+  await page.goto('/?mockIntake=1&mockPickN=1');
+  await button(page, 'ID card copy').click();
+  await expect(page.getByText('Only the front will print.')).toBeVisible();
+  await button(page, 'Add the back side').click();
+  await expect(title(page)).toHaveText('Where is the back side?');
+  await button(page, /From the gallery/).click();
+  await expect(title(page)).toHaveText('ID card copy');
+  await expect(page.locator('.card-found')).toHaveCount(2);
+  await expect(page.locator('.card-found .badge-label')).toHaveText(['Front', 'Back']);
+  expect(await page.evaluate(() => (globalThis as { __pickMax?: number }).__pickMax)).toBe(1);
+  await button(page, 'Card copy').click();
+  await button(page, /^Real card size/).click();
+  await expect(title(page)).toHaveText('Ready to print');
+  await expect.poll(async () => (await lastPlan(page))?.pages.length).toBe(1);
+  expect((await lastPlan(page))?.pages[0]?.placements).toHaveLength(2);
+});
+
+test('two sides: Print front only leaves the front alone; Undo brings the back again', async ({ page }) => {
+  await page.goto('/?mockIntake=2');
+  await button(page, 'ID card copy').click();
+  await expect(page.locator('.card-found')).toHaveCount(2);
+  await button(page, 'Print front only').click();
+  await expect(page.locator('.card-found')).toHaveCount(1);
+  await button(page, 'Undo').click();
+  await expect(page.locator('.card-found')).toHaveCount(2);
+  await button(page, 'Print front only').click();
+  await button(page, 'Card copy').click();
+  await button(page, /^Real card size/).click();
+  await expect.poll(async () => (await lastPlan(page))?.pages[0]?.placements.length).toBe(1);
 });

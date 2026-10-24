@@ -18,8 +18,8 @@ export function fitLongMm(aspect: number, paper: Paper, orientation: 'portrait' 
 /**
  * Photos at the sizes the shopkeeper chose, Word's "Square" wrap (owner, 2026-10-23): in print order, left to right in
  * rows with GAP_MM between, rows top to bottom; a photo that does not fit the rest of its row starts the next row, and
- * a row that does not fit the rest of the page starts the next page. Each row is centred across the page, its photos
- * centred on its middle line, and the rows centred down the page. A size is the photo's long side in mm, kept between
+ * a row that does not fit the rest of the page starts the next page. Like a Word page (owner, 2026-10-24) the rows
+ * start at the top margin and each at the left margin, its photos on its top line. A size is the photo's long side in mm, kept between
  * MIN_LONG_MM and the largest that fits inside the edges. Every page has [orientation].
  */
 export function flowPages(
@@ -65,13 +65,12 @@ export function flowPages(
   closeRow();
   if (page.length > 0) pages.push(page);
   return pages.map((rows) => {
-    const blockH = rows.reduce((s, r) => s + r.h, 0) + (rows.length - 1) * g;
-    let y = e + (ah - blockH) / 2;
+    let y = e;
     const placements: { itemIndex: number; box: Box }[] = [];
     for (const r of rows) {
-      let x = e + (aw - r.w) / 2;
+      let x = e;
       for (const p of r.items) {
-        placements.push({ itemIndex: p.index, box: { x, y: y + (r.h - p.h) / 2, w: p.w, h: p.h } });
+        placements.push({ itemIndex: p.index, box: { x, y, w: p.w, h: p.h } });
         x += p.w + g;
       }
       y += r.h + g;
@@ -89,13 +88,13 @@ export function sizeOf(sizes: Record<number, number>): (index: number) => number
   return (index) => sizes[index] ?? median;
 }
 
-/** One on each page at the sizes chosen: each photo centred on its own page, never larger than fits, never below 2 cm. */
+/** One on each page at the sizes chosen: each photo at its page's top-left, never larger than fits, never below 2 cm. */
 export function onePerPageAt(
   items: { index: number; aspect: number; longMm: number }[],
   paper: Paper,
   direction: 'portrait' | 'landscape',
 ): LayoutPage[] {
-  return onePerPage(items, paper, direction).map((p, k) => {
+  return onePerPage(items, paper, direction, 'topLeft').map((p, k) => {
     const pl = p.placements[0] as { itemIndex: number; box: Box };
     const b = pl.box;
     const fit = Math.max(b.w, b.h);
@@ -105,7 +104,7 @@ export function onePerPageAt(
     const h = b.h * s;
     return {
       ...p,
-      placements: [{ itemIndex: pl.itemIndex, box: { x: b.x + (b.w - w) / 2, y: b.y + (b.h - h) / 2, w, h } }],
+      placements: [{ itemIndex: pl.itemIndex, box: { x: b.x, y: b.y, w, h } }],
     };
   });
 }

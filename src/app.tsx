@@ -1,10 +1,13 @@
 import { App as NativeApp } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
 import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
+import { MAX_JOB_FILES, takeAddInto } from './core/intake/addInto';
 import { takeNewIntakesDetailed } from './core/intake/flow';
+import { addToJob } from './core/intake/merge';
 import { problemMessages } from './core/intake/messages';
 import { receivingDone, receivingNow, setReceiving } from './core/intake/receiving';
 import { intakeRunner } from './core/intake/runner';
+import { normalizeJob } from './core/job/job';
 import { restoreStack, saveStack } from './core/nav/persist';
 import { initialStack, type NavAction, navigate } from './core/nav/stack';
 import { en } from './i18n/en';
@@ -51,6 +54,7 @@ const PassportSizeChoice = lazyScreen(() => passport().then((m) => m.PassportSiz
 const PassportBorderChoice = lazyScreen(() => passport().then((m) => m.PassportBorderChoice));
 const PassportCustom = lazyScreen(() => groups().then((m) => m.PassportCustom));
 const CropPhoto = lazyScreen(() => import('./screens/photos/CropPhoto').then((m) => m.CropPhoto));
+const AddSource = lazyScreen(() => import('./screens/add/AddSource').then((m) => m.AddSource));
 const Adjust = lazyScreen(() => import('./screens/adjust/Adjust').then((m) => m.Adjust));
 const DeleteAll = lazyScreen(() => import('./screens/settings/DeleteAll').then((m) => m.DeleteAll));
 const SettingChoice = lazyScreen(() => import('./screens/settings/SettingChoice').then((m) => m.SettingChoice));
@@ -157,6 +161,7 @@ const SCREENS: Record<string, (p: ScreenProps) => preact.JSX.Element> = {
   welcome: Welcome,
   receiving: Receiving,
   cropphoto: CropPhoto,
+  addsource: AddSource,
   adjust: Adjust,
   cards: CardsFound,
   fixcorners: FixCorners,
@@ -198,6 +203,7 @@ const JOB_SCREEN_NAMES = new Set([
   'printstyle',
   'blackedges',
   'cropphoto',
+  'addsource',
   'adjust',
   'cards',
   'fixcorners',
@@ -282,6 +288,9 @@ export function App() {
         defaults.photos.colour,
         defaults.photos.paper,
       );
+      // Any batch from the phone's picker uses up an "Add photos" wish, even one cancelled, empty or not opened: a later
+      // pick must never join an earlier customer's job (review I1).
+      const wish = picks.size > 0 || empty.some((i) => !!i.pick) ? takeAddInto(localStorage, Date.now()) : null;
       const shown = stackRef.current[stackRef.current.length - 1];
       // After a crash loop new files are still kept as jobs, but nothing opens by itself (PLAN §D5).
       if (!open) {
@@ -292,6 +301,41 @@ export function App() {
       // Cancelled while receiving: what arrived waits in Recent jobs; nothing opens by itself (PLAN §D2).
       if (last && cancelled.has(last.id) && jobs.every((j) => cancelled.has(j.id))) {
         if (shown?.name === 'receiving') go({ type: 'back' });
+        return;
+      }
+      // Add photos / Add files (owner, 2026-10-24): files chosen to add to the job on screen join it at once, without
+      // the "New files arrived" question, up to 100 files a job; the shopkeeper stays where Add was pressed. Only files
+      // from the picker: a share never joins a job by itself. A job gone meanwhile: the files open as their own job.
+      const into = wish && jobs.length > 0 && jobs.every((j) => picks.has(j.id)) ? wish : null;
+      const target = into
+        ? normalizeJob((await PrintEngine.loadJob({ id: into }).catch(() => ({ job: null }))).job)
+        : null;
+      if (target) {
+        const added: number[] = [];
+        let dropped = 0;
+        let failedAdd = false;
+        let size = target.items.length;
+        for (const j of jobs) {
+          const r = await addToJob(PrintEngine, target.id, j.id, Date.now(), MAX_JOB_FILES - size).catch(() => {
+            failedAdd = true;
+            return null;
+          });
+          if (!r) continue;
+          added.push(...r.added);
+          dropped += r.dropped;
+          size = r.job.items.length;
+        }
+        // What the screen says once: how many joined when not all fitted, or that adding failed (they wait in Recent).
+        if (dropped > 0 || failedAdd)
+          sessionStorage.setItem(
+            'ps.addNotice',
+            JSON.stringify({ jobId: target.id, added: added.length, dropped, failed: failedAdd }),
+          );
+        if (added.length) sessionStorage.setItem('ps.addChoose', JSON.stringify({ jobId: target.id, item: added[0] }));
+        window.dispatchEvent(new CustomEvent('ps-job-changed', { detail: { jobId: target.id, added } }));
+        // Receiving and "Where are the photos?" give way to the screen Add was pressed on.
+        if (stackRef.current[stackRef.current.length - 1]?.name === 'receiving') go({ type: 'back' });
+        if (stackRef.current[stackRef.current.length - 1]?.name === 'addsource') go({ type: 'back' });
         return;
       }
       // The receiving screen gives way to what arrived (never stays under it).

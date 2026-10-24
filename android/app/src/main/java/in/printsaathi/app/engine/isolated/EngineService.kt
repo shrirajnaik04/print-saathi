@@ -216,7 +216,7 @@ open class EngineService : Service() {
     /** A card request the app should never make: refused as such, never as a damaged file (gate M6). */
     private fun checkCard(outW: Int, outH: Int, style: Int, quad: DoubleArray) {
         if (outW !in 16..6000 || outH !in 16..6000) throw BadRequest("size")
-        if (style !in Styles.ORIGINAL..Styles.SHARP) throw BadRequest("style")
+        if (style !in Styles.ORIGINAL..Styles.OCV) throw BadRequest("style")
         if (!QuadCheck.ok(quad)) throw BadRequest("quad")
     }
 

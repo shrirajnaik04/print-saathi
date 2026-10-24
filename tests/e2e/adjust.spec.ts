@@ -123,7 +123,7 @@ test('tapping another photo on the page chooses it; Next and Previous do too', a
   await expect(title(page)).toHaveText('Photo 2 of 4');
 });
 
-test('Automatic sizes puts every photo back; Back keeps the sizes chosen', async ({ page }) => {
+test('Automatic puts every photo back; Back keeps the sizes chosen', async ({ page }) => {
   await openAdjust(page);
   const start = await sizeText(page);
   await button(page, 'Bigger').click();
@@ -133,9 +133,9 @@ test('Automatic sizes puts every photo back; Back keeps the sizes chosen', async
   await expect(title(page)).toHaveText('Ready to print');
   await button(page, 'Adjust photos').click();
   await expect(page.locator('.adjust-size')).toHaveText(bigger);
-  await button(page, 'Automatic sizes').click();
+  await button(page, 'Automatic').click();
   await expect(page.locator('.adjust-size')).toHaveText(start);
-  await expect(button(page, 'Automatic sizes')).toBeDisabled();
+  await expect(button(page, 'Automatic')).toBeDisabled();
 });
 
 test('Remove takes the photo out with Undo; Move later changes the order', async ({ page }) => {
@@ -249,4 +249,56 @@ test('ID cards: Adjust cards makes both cards bigger in 10 % steps and turns the
       ),
     )
     .toEqual([0, 2]);
+});
+
+// Owner, 2026-10-24 ("Allow to resize. Resizes must be allowed for all sections that have photos in the preview"):
+// the round corner resizes ID cards, document pages and passport photos too, exactly as Smaller / Bigger do.
+const dragCorner = async (page: Page, dx: number, dy: number) => {
+  // A whole page's corner can sit below the screen: brought into view first, as a finger would scroll to it.
+  await page.locator('.adjust-handle').scrollIntoViewIfNeeded();
+  const b = await page.locator('.adjust-handle').boundingBox();
+  if (!b) throw new Error('no round corner');
+  await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(b.x + b.width / 2 + dx, b.y + b.height / 2 + dy, { steps: 10 });
+  await page.mouse.up();
+};
+
+test('ID cards: dragging the round corner out makes the cards bigger, in the steps Bigger takes', async ({ page }) => {
+  await page.goto('/?mockIntake=2');
+  await button(page, 'ID card copy').click();
+  await button(page, 'Card copy').click();
+  await button(page, /^Real card size/).click();
+  await button(page, 'Adjust cards').click();
+  await expect(title(page)).toHaveText('Card 1 of 2');
+  await expect(page.getByText('Drag the round corner or use the buttons below.')).toBeVisible();
+  await expect(page.locator('.adjust-size')).toContainText('100 %');
+  await dragCorner(page, 80, 50);
+  await expect(page.locator('.adjust-size')).toHaveText(/^(1[1-9]0|200) % · /);
+  const shown = Number((await sizeText(page)).match(/^(\d+) %/)?.[1]);
+  await button(page, 'Done').click();
+  await expect(page.getByText(new RegExp(`^ID card · ${shown} % · A4`))).toBeVisible();
+});
+
+test('documents: dragging the round corner in makes the page smaller on its sheet', async ({ page }) => {
+  await page.goto('/?mockIntake=1&mockPdfAt=1');
+  await expect(title(page)).toHaveText('Ready to print');
+  await button(page, 'Adjust pages').click();
+  await expect(title(page)).toHaveText(/^Page 1 of \d+$/);
+  await expect(page.locator('.adjust-size')).toContainText('100 %');
+  await dragCorner(page, -60, -80);
+  await expect(page.locator('.adjust-size')).toHaveText(/^([5-9]\d) % · /);
+});
+
+test('passport: dragging the round corner out makes every photo bigger, keeping its shape', async ({ page }) => {
+  await page.goto('/?mockIntake=1');
+  await button(page, 'Passport photos').click();
+  await button(page, 'Next').click();
+  await button(page, 'Adjust passport photo').click();
+  await expect(page.locator('.adjust-size')).toContainText('3.5 × 4.5 cm');
+  await dragCorner(page, 30, 30);
+  await expect.poll(() => sizeText(page)).not.toContain('3.5 × 4.5 cm');
+  const [w, h] = ((await sizeText(page)).match(/([\d.]+) × ([\d.]+) cm/)?.slice(1) ?? ['0', '1']).map(Number);
+  expect(w).toBeGreaterThan(3.5);
+  expect(w / h).toBeCloseTo(35 / 45, 1);
 });

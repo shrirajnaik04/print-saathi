@@ -1,0 +1,113 @@
+{
+  "serial": "emulator-5580",
+  "checks": {
+    "narrowMarginFromTheTopLeft": true,
+    "heldPhotoGoesWhereItIsDropped": true,
+    "theOthersStay": true,
+    "movedPhotoPrintsOnTop": true,
+    "slantedFrameSavedAsStraightened": true,
+    "addedFromTheFileManagerJoinsTheJob": true
+  },
+  "margins": {
+    "firstBoxMm": [
+      12.7,
+      12.7,
+      90.8,
+      68.1
+    ]
+  },
+  "place": {
+    "before": [
+      [
+        12.7,
+        12.7,
+        90.8,
+        68.1
+      ],
+      [
+        106.5,
+        12.7,
+        90.8,
+        68.1
+      ],
+      [
+        12.7,
+        104.2,
+        90.8,
+        68.1
+      ],
+      [
+        106.5,
+        104.2,
+        90.8,
+        68.1
+      ],
+      [
+        12.7,
+        195.8,
+        90.8,
+        68.1
+      ],
+      [
+        106.5,
+        195.8,
+        90.8,
+        68.1
+      ]
+    ],
+    "after": [
+      [
+        12.7,
+        12.7,
+        90.8,
+        68.1
+      ],
+      [
+        12.7,
+        104.2,
+        90.8,
+        68.1
+      ],
+      [
+        106.5,
+        104.2,
+        90.8,
+        68.1
+      ],
+      [
+        12.7,
+        195.8,
+        90.8,
+        68.1
+      ],
+      [
+        106.5,
+        195.8,
+        90.8,
+        68.1
+      ],
+      [
+        106.5,
+        52.8,
+        90.8,
+        68.1
+      ]
+    ],
+    "photo2Now": [
+      106.5,
+      52.8,
+      90.8,
+      68.1
+    ]
+  },
+  "crop": {
+    "quads": "\"quads\":{\"1\":[0,0,1,0,0.8777167422975878,0.8913020402097531,0,1]}"
+  },
+  "add": {
+    "picked": true,
+    "filesBefore": 6,
+    "filesAfter": 7,
+    "jobsBefore": 1,
+    "jobsAfter": 1
+  }
+}

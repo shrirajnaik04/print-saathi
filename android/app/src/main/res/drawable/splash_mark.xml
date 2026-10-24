@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- The splash printer (brand v3 mark without its paper: the app's first screen feeds the sheet in and prints the page,
-     index.html). Android 12+ splash icon canvas: 288 dp, the artwork inside the 192 dp circle. The web splash draws the
-     same mark at the same scale (0.34 dp per mark unit) and place, so the hand-over does not jump. -->
+<!-- The splash printer: the whole brand v3 mark (assets/brand/mark.svg), paper, printer with P and S, and the printed
+     page in its tray (owner, 2026-10-24: a mark without its paper and tray looked broken). Android 12+ splash icon
+     canvas: 288 dp, the artwork inside the 192 dp circle. The web splash draws the same mark at the same scale
+     (0.34 dp per mark unit) and place, so the hand-over does not jump. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="288dp"
     android:height="288dp"
@@ -9,6 +10,10 @@
     android:viewportHeight="288">
     <group android:translateX="56.96" android:translateY="56.96" android:scaleX="0.34" android:scaleY="0.34">
         <path android:fillColor="#FF304BEE" android:pathData="M128 184V158Q128 146 140 146H372Q384 146 384 158V184" />
+        <path android:fillColor="#FFFFFFFF" android:strokeColor="#FFFFFFFF" android:strokeWidth="16"
+            android:pathData="M148 68H298L360 130V174H148Z" />
+        <path android:fillColor="#FFFF854A" android:pathData="M160 78H296V124Q296 140 312 140H348V162H160Z" />
+        <path android:fillColor="#FFFF854A" android:pathData="M308 78L348 128H308Z" />
         <path android:fillColor="#FF304BEE"
             android:pathData="M104 176H408A40 40 0 0 1 448 216V332A40 40 0 0 1 408 372H104A40 40 0 0 1 64 332V216A40 40 0 0 1 104 176Z" />
         <path android:strokeColor="#FFFFFFFF" android:strokeWidth="32" android:strokeLineCap="round"
@@ -16,5 +21,10 @@
         <path android:strokeColor="#FFFFFFFF" android:strokeWidth="32" android:strokeLineCap="round"
             android:strokeLineJoin="round"
             android:pathData="M376 216H310C268 216 268 272 310 272H342C386 272 386 328 342 328H288" />
+        <path android:fillColor="#FFFFFFFF" android:strokeColor="#FF304BEE" android:strokeWidth="22"
+            android:strokeLineJoin="round"
+            android:pathData="M170 356H342L372 426Q375 440 360 440H152Q137 440 141 426Z" />
+        <path android:strokeColor="#FFFF854A" android:strokeWidth="20" android:strokeLineCap="round"
+            android:pathData="M196 394H316" />
     </group>
 </vector>

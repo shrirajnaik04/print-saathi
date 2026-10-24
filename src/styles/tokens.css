@@ -20,6 +20,8 @@
   --pressed: #f4f7fa; /* a tile while pressed: its helper text and icon stay at 7:1 (Phase 11 review M1) */
   --divider: #d1d5db; /* thin lines between rows (decoration) */
   --edge: #737b8a; /* a card's and a paper sheet's 1 px edge: 3.9:1 on bg, 3.4:1 on the stage (review I2/I7) */
+  /* A card's or tile's edge (owner, 2026-10-24: 1 px vanished on their phone): 2 px of the edge colour. */
+  --ring: 0 0 0 2px var(--edge);
   --disabled: #94a3b8; /* a control that cannot be used now (WCAG exempts disabled controls) */
   /* Coloured icon badges (Home's four jobs): glyph on badge 3:1 or more (non-text; the title names the job). */
   --badge-photos-bg: #dbeafe;

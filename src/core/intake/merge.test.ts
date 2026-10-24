@@ -50,8 +50,11 @@ function fakeEngine(saveOk = true) {
 describe('New files arrived → Add to this job (PLAN §I-17)', () => {
   it('the new files join the open job at their new place, then the new job goes', async () => {
     const e = fakeEngine();
-    const merged = await addToJob(e, 'open', 'new', 3000);
-    if (!merged) throw new Error('not merged');
+    const r = await addToJob(e, 'open', 'new', 3000);
+    if (!r) throw new Error('not merged');
+    const merged = r.job;
+    expect(r.added).toEqual([7, 8]);
+    expect(r.dropped).toBe(0);
     expect(merged.items.map((i) => i.path)).toEqual([
       '/jobs/open/src/0001.jpg',
       '/jobs/open/src/0002.jpg',
@@ -86,5 +89,24 @@ describe('New files arrived → Add to this job (PLAN §I-17)', () => {
     await Promise.all([addToJob(e, 'open', 'new', 3000), addToJob(e, 'open', 'new2', 3000)]);
     expect(e.jobs.get('open')?.rev).toBe(3);
     expect(e.jobs.has('new') || e.jobs.has('new2')).toBe(false);
+  });
+
+  // Add photos (owner, 2026-10-24): a job holds at most 100 files, as a share does.
+  it('room caps the files added and reports the rest; the new job goes', async () => {
+    const e = fakeEngine();
+    const r = await addToJob(e, 'open', 'new', 3000, 1);
+    expect(r?.added).toEqual([7]);
+    expect(r?.dropped).toBe(1);
+    expect(e.jobs.get('open')?.items.map((i) => i.index)).toEqual([1, 2, 7]);
+    expect(e.jobs.has('new')).toBe(false);
+  });
+
+  it('no room adds nothing and keeps the new job (it waits in Recent jobs)', async () => {
+    const e = fakeEngine();
+    const r = await addToJob(e, 'open', 'new', 3000, 0);
+    expect(r?.added).toEqual([]);
+    expect(r?.dropped).toBe(2);
+    expect(e.calls).toEqual([]);
+    expect(e.jobs.has('new')).toBe(true);
   });
 });

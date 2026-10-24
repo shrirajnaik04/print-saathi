@@ -211,6 +211,21 @@ class RenderPlanContractTest {
         assertTrue(refused(withQuad(good) { it.put("crop", JSONObject().put("x", 0.1).put("y", 0.1).put("w", 0.5).put("h", 0.5)) }))
     }
 
+    /** Owner, 2026-10-24: a straightened photo prints in every style, OCV Black included (straightened, then 1-bit). */
+    @Test fun aStraightenedPhotoInOcvBlackIsAccepted() {
+        val plan = JSONObject(sample.getJSONObject("plan").toString()).put("colour", "bw")
+        val pages = plan.getJSONArray("pages")
+        for (i in 0 until pages.length()) {
+            val ps = pages.getJSONObject(i).getJSONArray("placements")
+            for (k in 0 until ps.length()) ps.getJSONObject(k).put("style", "ocv")
+        }
+        val quad = listOf(0.1, 0.12, 0.85, 0.05, 0.9, 0.8, 0.15, 0.92)
+        pages.getJSONObject(0).getJSONArray("placements").getJSONObject(0).put("quad", org.json.JSONArray(quad))
+        val parsed = RenderPlan.parse(plan)
+        assertEquals(quad, parsed.pages[0][0].quad)
+        assertEquals(`in`.printsaathi.app.engine.isolated.Styles.OCV, parsed.pages[0][0].style)
+    }
+
     /** Phase 14: the web app's ID card plan (plan-v1-idcard.json): two cards of exactly 85.6 × 54 mm with corners. */
     @Test fun theWebAppsIdCardPlanMeansTheSame() {
         val plan = RenderPlan.parse(JSONObject(javaClass.getResource("/plan-v1-idcard.json")!!.readText()).getJSONObject("plan"))

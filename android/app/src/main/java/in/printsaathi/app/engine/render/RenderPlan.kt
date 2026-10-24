@@ -172,13 +172,13 @@ class RenderPlan(
             // becomes the sheet's left edge.
             val onSheet = if (sideways) RectD(box.y, sheetH - box.x - box.w, box.h, box.w) else box
             val pdfPage = if (p.has("pdfPage")) p.getInt("pdfPage").also { check(it in 0 until MAX_PDF_PAGES, "bad pdf page") } else null
-            // An ID card (Phase 14): its corners instead of a crop; never both, never OCV Black (1-bit is for documents).
+            // An ID card (Phase 14) or a straightened photo (owner, 2026-10-24): its corners instead of a crop, never
+            // both. Any style: OCV Black is straightened first, then made 1-bit.
             val quad = p.optJSONArray("quad")?.let { a ->
                 check(a.length() == 8, "quad needs 8 values")
                 val q = DoubleArray(8) { a.getDouble(it) }
                 check(QuadCheck.ok(q), "quad not a card shape")
                 check(shown == Crop.FULL, "quad with a crop")
-                check(style != Styles.OCV, "quad in OCV Black")
                 q.toList()
             }
             return RenderPlacement(

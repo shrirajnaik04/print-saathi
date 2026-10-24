@@ -237,9 +237,7 @@ textarea:focus-visible {
   background: var(--surface);
   border: 0.125rem solid transparent;
   border-radius: var(--radius);
-  box-shadow:
-    0 0 0 1px var(--edge),
-    var(--elev-1);
+  box-shadow: var(--ring), var(--elev-1);
   text-align: start;
   cursor: pointer;
 }
@@ -249,7 +247,7 @@ textarea:focus-visible {
   /* Pressed shows in the outline too: the lighter background alone is faint. The card sinks (no lift). */
   border-color: var(--primary);
   background: var(--pressed);
-  box-shadow: 0 0 0 1px var(--edge);
+  box-shadow: var(--ring);
 }
 /* Office look: each job's icon sits in its own coloured badge (glyph 3:1 on its badge; the title names the job). */
 .badge {
@@ -441,9 +439,7 @@ textarea:focus-visible {
   background: var(--surface);
   border: 0.125rem solid transparent;
   border-radius: var(--radius-sm);
-  box-shadow:
-    0 0 0 1px var(--edge),
-    var(--elev-1);
+  box-shadow: var(--ring), var(--elev-1);
   text-align: start;
   cursor: pointer;
 }
@@ -476,7 +472,7 @@ textarea:focus-visible {
   padding: var(--space-3);
   background: var(--surface);
   border-radius: var(--radius);
-  box-shadow: var(--elev-1);
+  box-shadow: var(--ring), var(--elev-1);
 }
 /* Numbers inline: an indented list loses ~50 px, enough to split "WhatsApp" at 200 % text on a small phone. */
 .hint-card ol {
@@ -546,6 +542,7 @@ main h2 {
   aspect-ratio: 1;
   background: var(--stage);
   border-radius: var(--radius);
+  box-shadow: var(--ring);
   overflow: hidden;
   display: flex;
   align-items: center;
@@ -582,6 +579,7 @@ main h2 {
   margin: var(--space-2) 0;
   background: var(--stage);
   border-radius: var(--radius);
+  box-shadow: var(--ring);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -792,9 +790,7 @@ main h2 {
   border: 4px solid transparent;
   border-radius: var(--radius);
   background: var(--surface);
-  box-shadow:
-    0 0 0 1px var(--edge),
-    var(--elev-1);
+  box-shadow: var(--ring), var(--elev-1);
   color: var(--text);
   font: inherit;
   text-align: left;
@@ -830,6 +826,7 @@ main h2 {
   background: var(--stage);
   padding: var(--space-1);
   border-radius: var(--radius);
+  box-shadow: var(--ring);
   color: var(--text);
   text-align: center;
 }
@@ -1021,9 +1018,7 @@ main h2 {
   padding: var(--space-2);
   border-radius: var(--radius-sm);
   background: var(--surface);
-  box-shadow:
-    0 0 0 1px var(--edge),
-    var(--elev-1);
+  box-shadow: var(--ring), var(--elev-1);
 }
 .card-head {
   display: flex;
@@ -1057,6 +1052,7 @@ main h2 {
   padding: var(--space-1);
   aspect-ratio: 85.6 / 54;
   background: var(--stage);
+  box-shadow: var(--ring);
 }
 .card-shot img {
   max-width: 100%;
@@ -1160,6 +1156,18 @@ main h2 {
   display: flex;
   align-items: center;
   gap: 0.25rem;
+  margin-top: 0;
+  padding-block: var(--space-1);
+  background: var(--bg);
+}
+/* Home's logo bar stays at the top while Home scrolls (owner, 2026-10-24), while it is small (big text on a phone held
+   sideways makes it tall: then it scrolls); a band of the page colour above it covers what scrolls under the status
+   bar. Other screens' top bars scroll with the page. */
+.brand-pinned {
+  position: sticky;
+  top: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
+  z-index: 2;
+  box-shadow: 0 calc(-1 * var(--safe-area-inset-top, env(safe-area-inset-top, 0px))) 0 0 var(--bg);
 }
 .brand-mark {
   flex: none;
@@ -1212,28 +1220,19 @@ main h2 {
   transition: opacity 200ms ease-in;
   pointer-events: none; /* Home is already up underneath: a tap goes to it */
 }
-/* Four small layers, transform and opacity only (the compositor moves them; no script runs per frame). */
+/* The whole logo at every moment (owner, 2026-10-24): the sheet only gives one small feed nudge, never leaving its
+   place, and the name fades in. Transform and opacity only (the compositor moves them; no script runs per frame). */
 @media (prefers-reduced-motion: no-preference) {
   .splash-paper {
     animation: splash-feed 420ms var(--ease-out) both;
-  }
-  .splash-page {
-    transform-origin: 50% 69.5%; /* the paper slot (y 356 of 512) */
-    animation: splash-print 360ms var(--ease-out) 300ms both;
   }
   .splash-word {
     animation: splash-word 320ms var(--ease-out) 420ms both;
   }
 }
 @keyframes splash-feed {
-  from {
-    opacity: 0;
-    transform: translateY(-18%);
-  }
-}
-@keyframes splash-print {
-  from {
-    transform: scaleY(0);
+  40% {
+    transform: translateY(4%);
   }
 }
 @keyframes splash-word {
@@ -1265,6 +1264,7 @@ main h2 {
   padding: var(--space-2);
   background: var(--stage);
   border-radius: var(--radius-sm);
+  box-shadow: var(--ring);
 }
 .adjust-page,
 .adjust-size {
@@ -1280,13 +1280,108 @@ main h2 {
   position: absolute;
   cursor: pointer;
 }
+/* Chosen: its outline. It is not raised (a photo drawn on top of it stays on top for taps, review 2026-10-24); only its
+   handles are. */
 .adjust-selected {
-  z-index: 1;
   outline: 0.1875rem solid var(--primary);
   outline-offset: 0.0625rem;
 }
+/* Press and hold to place a photo (owner, 2026-10-24): no text selection or picture menu on a long press anywhere on
+   the page area, its label and size line included (device finding: the label's text was selected). The page's own
+   layers (a lifted photo, the guides) stay inside it, under the pinned bar (device finding). */
+.adjust-paper {
+  isolation: isolate;
+}
+.adjust-stage {
+  position: relative;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+/* Lifted: it floats above the page while the finger moves it. */
+.adjust-lifted {
+  z-index: 3;
+  outline: 0.1875rem solid var(--primary);
+  box-shadow: var(--elev-2);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .adjust-lifted {
+    transform: scale(1.02);
+  }
+}
+/* The line a moved photo snapped to (page middle, margin, another photo's edge). */
+.adjust-guide {
+  position: absolute;
+  z-index: 4;
+  background: var(--brand-cobalt);
+  pointer-events: none;
+}
+/* Over the page's label while a photo is held: the page never moves under the finger (device finding). */
+.adjust-moving {
+  position: absolute;
+  top: var(--space-2);
+  left: var(--space-2);
+  right: var(--space-2);
+  z-index: 5;
+  margin: 0;
+  background: var(--stage);
+  font-weight: 700;
+  text-align: center;
+}
+/* Sides to crop (Word's crop, owner 2026-10-24): a pill in the middle of each side, drawn small, touched at 56 px. */
+.adjust-side {
+  position: absolute;
+  z-index: 2;
+  width: 3.5rem;
+  height: 3.5rem;
+  touch-action: none;
+  cursor: grab;
+}
+.adjust-side::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  border-radius: 0.25rem;
+  background: #fff;
+  box-shadow: 0 0 0 0.125rem var(--primary);
+  transform: translate(-50%, -50%);
+}
+.adjust-side-l,
+.adjust-side-r {
+  top: 50%;
+  margin-top: -1.75rem;
+}
+.adjust-side-l {
+  left: -1.75rem;
+}
+.adjust-side-r {
+  right: -1.75rem;
+}
+.adjust-side-t,
+.adjust-side-b {
+  left: 50%;
+  margin-left: -1.75rem;
+}
+.adjust-side-t {
+  top: -1.75rem;
+}
+.adjust-side-b {
+  bottom: -1.75rem;
+}
+.adjust-side-l::after,
+.adjust-side-r::after {
+  width: 0.5rem;
+  height: 1.5rem;
+}
+.adjust-side-t::after,
+.adjust-side-b::after {
+  width: 1.5rem;
+  height: 0.5rem;
+}
 .adjust-handle {
   position: absolute;
+  z-index: 2;
   right: -1rem;
   bottom: -1rem;
   width: 2rem;
@@ -1345,4 +1440,152 @@ main h2 {
   .adjust-body .adjust-paper .paper {
     width: min(100%, 52vh);
   }
+}
+
+/* The scanner-style crop (owner, 2026-10-24): room around the picture for whole handles at its edges. */
+.scan-stage {
+  width: min(calc(100% - 3.5rem), max(calc(46vh * var(--a, 0.75)), 10rem));
+  overflow: visible;
+  margin-top: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+.scan-stage img {
+  pointer-events: none;
+}
+.scan-lines {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+.scan-dim {
+  fill: rgb(0 0 0 / 35%);
+}
+.scan-lines polygon {
+  fill: none;
+  stroke: var(--brand-cobalt);
+  stroke-width: 2px;
+  vector-effect: non-scaling-stroke;
+}
+/* Handles: drawn small, touched big (56 px, the floor for anything pressed); centred on their point. */
+.scan-picture {
+  position: absolute;
+  inset: 0;
+}
+.scan-handle {
+  position: absolute;
+  width: 3.5rem;
+  height: 3.5rem;
+  margin: -1.75rem 0 0 -1.75rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  touch-action: none;
+  cursor: grab;
+}
+.scan-corner::after {
+  content: "";
+  position: absolute;
+  inset: 1rem;
+  border-radius: 50%;
+  background: rgb(0 0 0 / 35%);
+  box-shadow:
+    0 0 0 0.1875rem #fff,
+    0 0 0 0.3125rem var(--brand-cobalt);
+}
+.scan-corner-on::after {
+  background: var(--brand-cobalt);
+}
+.scan-corner:focus-visible {
+  outline: 0.1875rem solid var(--primary);
+  border-radius: 50%;
+}
+.scan-side::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 1.75rem;
+  height: 0.5rem;
+  border-radius: 0.25rem;
+  background: #fff;
+  box-shadow: 0 0 0 0.125rem var(--brand-cobalt);
+  transform: translate(-50%, -50%) rotate(var(--angle, 0deg));
+}
+/* The magnifier: what is under the finger, 2.5 × larger, with a + on the exact point. */
+.scan-loupe {
+  position: absolute;
+  left: 0.5rem;
+  top: 0.5rem;
+  width: 112px;
+  height: 112px;
+  overflow: hidden;
+  border-radius: 50%;
+  background: var(--desk);
+  box-shadow:
+    0 0 0 0.1875rem #fff,
+    0 0 0 0.3125rem var(--brand-cobalt);
+  pointer-events: none;
+  z-index: 2;
+}
+.scan-loupe-right {
+  left: auto;
+  right: 0.5rem;
+}
+.scan-loupe-view {
+  position: absolute;
+}
+.scan-loupe-plus::before,
+.scan-loupe-plus::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  background: var(--brand-cobalt);
+  transform: translate(-50%, -50%);
+}
+.scan-loupe-plus::before {
+  width: 1.5rem;
+  height: 0.125rem;
+}
+.scan-loupe-plus::after {
+  width: 0.125rem;
+  height: 1.5rem;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .scan-loupe {
+    animation: scan-loupe 120ms var(--ease-out) both;
+  }
+}
+@keyframes scan-loupe {
+  from {
+    transform: scale(0.6);
+    opacity: 0;
+  }
+}
+/* The bottom bar: icon above word; one row while each keeps 56 px, else Done on its own row below. */
+.crop-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+.crop-bar .btn {
+  flex: 1 1 3.5rem;
+  flex-direction: column;
+  flex-wrap: nowrap;
+  gap: 0.125rem;
+  min-width: 3.5rem;
+  min-height: 3.5rem;
+  padding: var(--space-1) 0.125rem;
+  font-size: 0.875rem;
+  line-height: 1.2;
+}
+.straight-shot {
+  position: relative;
+  width: min(100%, 16rem);
+  margin: 0 auto var(--space-2);
+  background: var(--stage);
+  box-shadow: var(--ring);
 }

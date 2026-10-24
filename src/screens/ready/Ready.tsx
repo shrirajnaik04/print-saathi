@@ -3,6 +3,7 @@ import { Capacitor } from '@capacitor/core';
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { type Job, normalizeJob } from '../../core/job/job';
 import { unprintableNotes } from '../../core/job/unprintable';
+import { overlaps } from '../../core/layout/free';
 import { smallestSideMm, WARN_MM } from '../../core/layout/layouts';
 import { blurryItems } from '../../core/plan/blurry';
 import { MAX_SHEETS_PER_PART, splitParts } from '../../core/plan/parts';
@@ -176,9 +177,17 @@ export function Ready({ go, params }: ScreenProps) {
     const aspects = new Map<number, number>();
     for (const th of thumbs.values())
       if (th.state === 'ok' && th.width && th.height) aspects.set(th.index, th.width / th.height);
-    // Settings → Space at paper edges: More keeps 3 mm more clear at every edge.
-    return buildPlan(job, aspects, photoPaper ?? undefined, a4EdgeMm, docs.facts, settings.edges === 'more' ? 3 : 0);
-  }, [job, thumbs, photoPaper, a4EdgeMm, docs.items, docs.facts, settings.edges]);
+    // Settings → Space at paper edges: More keeps 3 mm more clear at every edge; Settings → Margins (photos on A4).
+    return buildPlan(
+      job,
+      aspects,
+      photoPaper ?? undefined,
+      a4EdgeMm,
+      docs.facts,
+      settings.edges === 'more' ? 3 : 0,
+      settings.margins,
+    );
+  }, [job, thumbs, photoPaper, a4EdgeMm, docs.items, docs.facts, settings.edges, settings.margins]);
   // A big job goes to the printer in parts of at most 40 sheets (PLAN §D4); this screen makes and prints one part.
   const parts = useMemo(() => (fullPlan ? splitParts(fullPlan) : []), [fullPlan]);
   const fullHash = fullPlan ? planHash(fullPlan) : '';
@@ -561,6 +570,8 @@ export function Ready({ go, params }: ScreenProps) {
             job.layout !== 'passport' &&
             job.layout !== 'document' &&
             photoPaper === null && <Panel kind="info" title={t.photoPaperMissing} />}
+          {/* Photos placed by hand may cover each other (owner, 2026-10-24): said, so it is never a surprise. */}
+          {fullPlan && job.spots && overlaps(fullPlan).length > 0 && <Panel kind="warn" title={t.covers} />}
           {changedAfter > 0 && <Panel kind="warn" title={fill(t.partsChanged, { k: changedAfter })} />}
           {parts.length > 1 && (
             <Panel kind="info" title={fill(t.parts, { n: parts.length, max: MAX_SHEETS_PER_PART, k: partIndex + 1 })} />

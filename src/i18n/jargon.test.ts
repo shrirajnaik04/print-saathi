@@ -6,13 +6,16 @@ import { en } from './en';
 // PLAN §H2.12: words the shopkeeper would not use at the counter. The build fails if any user-facing string uses one.
 const BANNED = ['dpi', 'resolution', 'margin', 'mime', 'format', 'aspect', 'render', 'exif', 'pixel', 'orientation'];
 const wordStart = (w: string) => new RegExp(String.raw`\b${w}`, 'i');
+// The owner's own word for one Settings row (2026-10-24: "narrow margins, same as Word"): Word's menu name, exactly.
+const OWNER_WORDS = new Set(['Margins']);
+const jargon = (s: string) => !OWNER_WORDS.has(s.trim()) && BANNED.some((w) => wordStart(w).test(s));
 
 const strings = (o: unknown): string[] =>
   typeof o === 'string' ? [o] : o && typeof o === 'object' ? Object.values(o).flatMap(strings) : [];
 
 describe('string catalogue', () => {
   it('has no jargon in any user-facing string', () => {
-    const offenders = strings(en).filter((s) => BANNED.some((w) => wordStart(w).test(s)));
+    const offenders = strings(en).filter(jargon);
     expect(offenders).toEqual([]);
   });
 
@@ -51,7 +54,7 @@ describe('screens and components (gate review: text outside the catalogue escape
   it('no .tsx file shows a jargon word', () => {
     const offenders = tsxFiles('src').flatMap((f) =>
       visibleTextIn(f)
-        .filter((t) => BANNED.some((w) => wordStart(w).test(t)))
+        .filter(jargon)
         .map((t) => `${f}: ${t.trim()}`),
     );
     expect(offenders).toEqual([]);

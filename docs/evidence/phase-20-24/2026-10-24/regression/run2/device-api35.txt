@@ -1,0 +1,5 @@
+Android 15 (API 35)
+render check exit 0
+render check (placed by hand) exit 0
+share matrix exit 0
+privacy hits in app log lines: 0

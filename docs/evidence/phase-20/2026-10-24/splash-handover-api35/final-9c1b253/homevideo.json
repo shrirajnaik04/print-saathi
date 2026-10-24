@@ -1,0 +1,60 @@
+{
+ "A": {
+  "apk": "PrintSaathi-1.0.203-1353ebf.apk",
+  "runs": [
+   {
+    "frames": 64,
+    "firstLogo": "f012.png",
+    "home": "f033.png",
+    "peak": 6127,
+    "lowest": "f022.png",
+    "minRatio": 0
+   },
+   {
+    "frames": 82,
+    "firstLogo": "f013.png",
+    "home": "f077.png",
+    "peak": 6042,
+    "lowest": "f026.png",
+    "minRatio": 0
+   },
+   {
+    "frames": 74,
+    "firstLogo": "f017.png",
+    "home": "f069.png",
+    "peak": 6024,
+    "lowest": "f031.png",
+    "minRatio": 0
+   }
+  ]
+ },
+ "B": {
+  "apk": "PrintSaathi-1.0.224-9c1b253.apk",
+  "runs": [
+   {
+    "frames": 145,
+    "firstLogo": "f014.png",
+    "home": "f045.png",
+    "peak": 5523,
+    "lowest": "f043.png",
+    "minRatio": 0.009
+   },
+   {
+    "frames": 45,
+    "firstLogo": "f013.png",
+    "home": "f045.png",
+    "peak": 5503,
+    "lowest": "f042.png",
+    "minRatio": 0.01
+   },
+   {
+    "frames": 45,
+    "firstLogo": "f014.png",
+    "home": "f043.png",
+    "peak": 5496,
+    "lowest": "f015.png",
+    "minRatio": 0.992
+   }
+  ]
+ }
+}

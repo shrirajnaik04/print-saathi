@@ -1,6 +1,6 @@
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_SETTINGS, normalizeSettings, priceFor } from './settings';
+import { DEFAULT_SETTINGS, MARGIN_MM, normalizeSettings, priceFor } from './settings';
 
 describe('shop settings (PLAN §I-15, §V defaults)', () => {
   it('nothing saved yet: the defaults the owner agreed', () => {
@@ -33,6 +33,15 @@ describe('shop settings (PLAN §I-15, §V defaults)', () => {
     expect(s.photoPaperReminder).toBe(true);
     expect(s.edges).toBe('more');
     expect(s.screenshotsUntil).toBe(0);
+  });
+
+  // Owner, 2026-10-24: "default margin layout must be narrow, same as Word" (Word's Margins menu, by its names).
+  it('Margins: Narrow by default, the three Word choices, old settings read as Narrow', () => {
+    expect(DEFAULT_SETTINGS.margins).toBe('narrow');
+    expect(MARGIN_MM).toEqual({ narrow: 12.7, normal: 25.4, small: 6 });
+    for (const m of ['narrow', 'normal', 'small'] as const) expect(normalizeSettings({ margins: m }).margins).toBe(m);
+    expect(normalizeSettings({ v: 1, edges: 'more' }).margins).toBe('narrow');
+    expect(normalizeSettings({ margins: 'wide' }).margins).toBe('narrow');
   });
 
   it('property: anything at all reads as valid settings, and reading twice changes nothing', () => {

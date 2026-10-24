@@ -43,7 +43,8 @@ describe('paper direction', () => {
   it('a wide photo alone stays on upright paper, fitted across it', () => {
     const page = buildPlan(job, wide).pages[0];
     expect(page?.orientation).toBe('portrait');
-    expect((page?.placements[0]?.box.w ?? 0) / MM).toBeCloseTo(210 - 12, 6);
+    // Inside Word's Narrow margins, 12.7 mm each side (owner, 2026-10-24; before: 6 mm).
+    expect((page?.placements[0]?.box.w ?? 0) / MM).toBeCloseTo(210 - 2 * 12.7, 6);
   });
 
   // Spec Part 4: "every photo, document and passport job prints on upright paper unless the shopkeeper chooses

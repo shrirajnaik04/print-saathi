@@ -4,6 +4,7 @@ import { sendUnlocked, unlockPdf } from '../../core/docs/unlock';
 import type { DocPage } from '../../core/job/job';
 import { styleOf } from '../../core/job/job';
 import { FULL, shownOf } from '../../core/layout/crop';
+import { straightAspect } from '../../core/layout/quad';
 import { allDocPages } from '../../core/plan/plan';
 import { en } from '../../i18n/en';
 import { fill } from '../../i18n/fill';
@@ -17,8 +18,10 @@ import { TopBar } from '../../ui/TopBar';
 import { JobGone } from '../JobGone';
 import { saveJobChange } from '../received/Received';
 import { push, type ScreenProps } from '../types';
+import { takeAddedChoice, useAddNotice } from '../useAddNotice';
 import { useDocs } from '../useDocs';
 import { useJob } from '../useJob';
+import { useStraightImages } from '../useStraightImages';
 
 const d = en.docs;
 const u = en.unlock;
@@ -216,7 +219,9 @@ function useDocPages(jobId: string) {
     /** Width and height of the page as the customer's file has it (a photo: its shape). */
     sizeOf: (p: DocPage): [number, number] => {
       if (isPdf(p)) return docs.facts.get(p.item)?.sizes[p.page] ?? [595, 841];
-      // A photo page: its shape as it prints, cut by its crop (gate I-3).
+      // A photo page: its shape as it prints, cut by its crop (gate I-3) or straightened (owner, 2026-10-24).
+      const q = j.job?.quads?.[p.item];
+      if (q) return [straightAspect(q, j.aspects.get(p.item) ?? 1), 1];
       const c = j.job?.crops?.[p.item];
       return [(j.aspects.get(p.item) ?? 1) * (c ? c.w / c.h : 1), 1];
     },
@@ -306,11 +311,23 @@ export function DocPages({ go, params }: ScreenProps) {
 export function DocOrder({ go, params }: ScreenProps) {
   const jobId = String(params?.jobId ?? '');
   const v = useDocPages(jobId);
+  const added = useAddNotice(jobId);
+  // Added here, not on Adjust: a later Adjust opens on the page tapped (review).
+  useState(() => takeAddedChoice(jobId));
   if (v.gone) return <JobGone go={go} title={d.pageOrder} />;
   const shown = v.job?.docPages ?? v.all;
   return (
     <main class="screen">
       <TopBar title={d.pageOrder} onBack={() => go({ type: 'back' })} onHome={() => go({ type: 'home' })} />
+      {added && <Panel kind="warn" title={added} />}
+      {/* More files from the phone (owner, 2026-10-24): PDFs or photos, at the end of the job. */}
+      {v.job && (
+        <div class="stack section-gap">
+          <Button variant="secondary" icon="plus" onClick={() => go(push('addsource', { jobId, kind: 'documents' }))}>
+            {en.add.files}
+          </Button>
+        </div>
+      )}
       {v.waiting || v.locked ? (
         <NotYet v={v} />
       ) : (
@@ -353,13 +370,16 @@ export function DocTools({ go, params }: ScreenProps) {
   useEffect(() => {
     if (p) v.seen(p)?.();
   }, [p?.item, p?.page]);
+  // A photo page straightened in Crop (owner, 2026-10-24): the engine's straightened picture.
+  const quad = p && !v.isPdf(p) ? job?.quads?.[p.item] : undefined;
+  const straight = useStraightImages(jobId, p && quad ? [{ item: p.item, quad }] : undefined);
   if (v.gone) return <JobGone go={go} title={d.pageOrder} />;
   const move = async (by: -1 | 1) => {
     // The tools follow the page.
     if (await change({ type: 'moveDocPage', at, by, shown }))
       go({ type: 'replace', screen: { name: 'doctools', params: { jobId, at: at + by } } });
   };
-  const src = p ? v.srcOf(p) : undefined;
+  const src = p ? (quad ? straight({ item: p.item, quad }) || undefined : v.srcOf(p)) : undefined;
   const turns = p ? v.turnsOf(p) : 0;
   // The page as it will print: its own shape, turned.
   const [pw, ph] = p ? v.sizeOf(p) : [595, 841];
@@ -382,7 +402,7 @@ export function DocTools({ go, params }: ScreenProps) {
             placements={[
               {
                 itemIndex: p.item,
-                crop: shownOf(job?.crops?.[p.item] ?? FULL, turns),
+                crop: quad ? FULL : shownOf(job?.crops?.[p.item] ?? FULL, turns),
                 turns: turns as 0 | 1 | 2 | 3,
                 style: job ? styleOf(job) : 'original',
                 box: { x: 0, y: 0, w: bw, h: bh },

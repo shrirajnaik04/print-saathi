@@ -1,0 +1,38 @@
+{
+ "A-run1": {
+  "logoFrom": "f012.png",
+  "logoUntil": "f032.png",
+  "lowestBetween": "f022.png",
+  "dipRatio": 0.0
+ },
+ "A-run2": {
+  "logoFrom": "f013.png",
+  "logoUntil": "f076.png",
+  "lowestBetween": "f026.png",
+  "dipRatio": 0.0
+ },
+ "A-run3": {
+  "logoFrom": "f017.png",
+  "logoUntil": "f068.png",
+  "lowestBetween": "f031.png",
+  "dipRatio": 0.0
+ },
+ "B-run1": {
+  "logoFrom": "f014.png",
+  "logoUntil": "f042.png",
+  "lowestBetween": "f023.png",
+  "dipRatio": 0.99
+ },
+ "B-run2": {
+  "logoFrom": "f013.png",
+  "logoUntil": "f041.png",
+  "lowestBetween": "f014.png",
+  "dipRatio": 0.99
+ },
+ "B-run3": {
+  "logoFrom": "f014.png",
+  "logoUntil": "f042.png",
+  "lowestBetween": "f015.png",
+  "dipRatio": 0.992
+ }
+}

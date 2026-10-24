@@ -12,11 +12,11 @@ type Item = { index: number; aspect: number };
 type Box = { x: number; y: number; w: number; h: number };
 type Arrangement = { boxes: Box[]; minShort: number; used: number; grid: number | null };
 
-/** Largest box of [aspect] inside cw x ch, centred in the cell at (x, y). */
+/** Largest box of [aspect] inside cw x ch, at the top-left of the cell at (x, y) (a Word page, owner 2026-10-24). */
 function fitBox(aspect: number, x: number, y: number, cw: number, ch: number): Box {
   const w = aspect >= cw / ch ? cw : ch * aspect;
   const h = w / aspect;
-  return { x: x + (cw - w) / 2, y: y + (ch - h) / 2, w, h };
+  return { x, y, w, h };
 }
 
 function score(boxes: Box[], aw: number, ah: number, grid: number | null): Arrangement {
@@ -25,7 +25,7 @@ function score(boxes: Box[], aw: number, ah: number, grid: number | null): Arran
   return { boxes, minShort, used, grid };
 }
 
-/** Uniform grid with [c] columns (rows as needed, or [rows] when shared across pages); last row centred. */
+/** Uniform grid with [c] columns (rows as needed, or [rows] when shared across pages), filled from the top-left. */
 function grid(
   aspects: number[],
   e: number,
@@ -40,16 +40,8 @@ function grid(
   const cw = (aw - (c - 1) * g) / c;
   const ch = (ah - (r - 1) * g) / r;
   if (cw <= 0 || ch <= 0) return null;
-  const lastRow = Math.floor((n - 1) / c);
-  const inLast = n - lastRow * c;
-  // A page using fewer rows than a shared grid holds is centred top to bottom (gate review #8).
-  const down = ((r - (lastRow + 1)) * (ch + g)) / 2;
-  const boxes = aspects.map((a, k) => {
-    const row = Math.floor(k / c);
-    const col = k % c;
-    const shift = row === lastRow ? ((c - inLast) * (cw + g)) / 2 : 0;
-    return fitBox(a, e + shift + col * (cw + g), e + down + row * (ch + g), cw, ch);
-  });
+  // Like a Word page (owner, 2026-10-24): the last row starts at the left, a page with fewer rows at the top.
+  const boxes = aspects.map((a, k) => fitBox(a, e + (k % c) * (cw + g), e + Math.floor(k / c) * (ch + g), cw, ch));
   return score(boxes, aw, ah, c);
 }
 
@@ -110,12 +102,12 @@ function rowsLayout(aspects: number[], e: number, aw: number, ah: number, g: num
     ),
   );
   const heights = need.map((h) => h * grow);
-  let y = e + (ah - (heights.reduce((s2, h) => s2 + h, 0) + (rows.length - 1) * g)) / 2;
+  // From the top-left like a Word page (owner, 2026-10-24).
+  let y = e;
   const boxes: Box[] = new Array(n);
   rows.forEach((r, ri) => {
     const h = heights[ri] as number;
-    const width = r.reduce((s2, i) => s2 + (aspects[i] as number) * h, 0) + (r.length - 1) * g;
-    let x = e + (aw - width) / 2;
+    let x = e;
     for (const i of r) {
       const w = (aspects[i] as number) * h;
       boxes[i] = { x, y, w, h };
@@ -176,7 +168,7 @@ function groupsOf<T>(list: T[], n: number): T[][] {
 export function onPages(items: Item[], paper: Paper, n: number, direction?: 'portrait' | 'landscape'): LayoutPage[] {
   if (items.length === 0) return [];
   // As many pages as photos: each photo on its own page, in its own direction (gate review #11).
-  if (n >= items.length) return onePerPage(items, paper, direction);
+  if (n >= items.length) return onePerPage(items, paper, direction, 'topLeft');
   const groups = groupsOf(items, Math.max(1, n));
   const tryDirection = (orientation: 'portrait' | 'landscape') => {
     const [pw, ph] = orientation === 'landscape' ? [paper.hPt, paper.wPt] : [paper.wPt, paper.hPt];
@@ -245,7 +237,7 @@ export function smallestSideMm(pages: LayoutPage[]): number {
  */
 export function bestPages(items: Item[], paper: Paper, direction?: 'portrait' | 'landscape'): LayoutPage[] {
   const aloneMm = new Map(
-    onePerPage(items, paper, direction).map((p) => [p.placements[0]?.itemIndex, smallestSideMm([p])]),
+    onePerPage(items, paper, direction, 'topLeft').map((p) => [p.placements[0]?.itemIndex, smallestSideMm([p])]),
   );
   const out: LayoutPage[] = [];
   let run: Item[] = [];
@@ -256,7 +248,7 @@ export function bestPages(items: Item[], paper: Paper, direction?: 'portrait' | 
   for (const it of items) {
     if ((aloneMm.get(it.index) ?? 0) < MIN_BEST_MM) {
       flush();
-      out.push(...onePerPage([it], paper, direction));
+      out.push(...onePerPage([it], paper, direction, 'topLeft'));
     } else run.push(it);
   }
   flush();
@@ -268,5 +260,5 @@ function bestRun(items: Item[], paper: Paper, direction?: 'portrait' | 'landscap
     const pages = onPages(items, paper, p, direction);
     if (smallestSideMm(pages) >= MIN_BEST_MM) return pages;
   }
-  return onePerPage(items, paper, direction);
+  return onePerPage(items, paper, direction, 'topLeft');
 }

@@ -49,6 +49,52 @@ test('the launch theme shows the printer on the app background (system splash on
   assert.ok(existsSync(path.join(RES, 'drawable/splash_mark.xml')));
 });
 
+// Owner, 2026-10-24 ("app logo isn't proper on splash screen"): the phone's splash drew the printer without its paper
+// and tray, and the page's splash fed them in while the app loaded, so a fast phone only ever showed half a logo.
+test('the splash mark is the whole v3 mark: paper, printer, P and S, tray, inside the 192 dp circle', () => {
+  const xml = readFileSync(path.join(RES, 'drawable/splash_mark.xml'), 'utf8');
+  const mark = readFileSync('assets/brand/mark.svg', 'utf8');
+  // Every drawn path of the master mark, in the master's order (the body is the rounded <rect>, drawn as a path).
+  const paths = [...mark.matchAll(/<path d="([^"]+)"/g)].map((m) => m[1]);
+  assert.equal(paths.length, 8, 'mark.svg paths');
+  let at = -1;
+  for (const d of paths) {
+    const k = xml.indexOf(`android:pathData="${d}"`);
+    assert.ok(k > at, `splash_mark.xml draws ${d.slice(0, 24)}… in the mark's order`);
+    at = k;
+  }
+  assert.match(xml, /android:pathData="M104 176H408A40 40 0 0 1 448 216V332/, 'the printer body');
+  // Inside Android 12's icon circle (diameter 192 dp on the 288 dp canvas), strokes included.
+  const g = xml.match(/translateX="([\d.]+)" android:translateY="([\d.]+)" android:scaleX="([\d.]+)"/);
+  assert.ok(g, 'the mark group transform');
+  const [tx, ty, s] = g.slice(1, 4).map(Number);
+  for (const p of xml.matchAll(/<path([^>]*)\/>/g)) {
+    const attrs = p[1];
+    const d = attrs.match(/android:pathData="([^"]+)"/)?.[1] ?? '';
+    const half = Number(attrs.match(/android:strokeWidth="([\d.]+)"/)?.[1] ?? 0) / 2;
+    // Every point of the absolute commands the marks use (an arc: its end point; its corner stays inside its box).
+    let cur = [0, 0];
+    for (const [, cmd, args] of d.matchAll(/([MLHVQCAZ])([^MLHVQCAZ]*)/g)) {
+      const n = args.trim()
+        ? args
+            .trim()
+            .split(/[\s,]+/)
+            .map(Number)
+        : [];
+      const pts = [];
+      if (cmd === 'H') pts.push([n[0], cur[1]]);
+      else if (cmd === 'V') pts.push([cur[0], n[0]]);
+      else if (cmd === 'A') pts.push([n[5], n[6]]);
+      else for (let i = 0; i + 1 < n.length; i += 2) pts.push([n[i], n[i + 1]]);
+      if (pts.length) cur = pts[pts.length - 1];
+      for (const [x, y] of pts) {
+        const r = Math.hypot(tx + x * s - 144, ty + y * s - 144) + half * s;
+        assert.ok(r <= 96, `point ${x},${y} is ${r.toFixed(1)} dp from the centre`);
+      }
+    }
+  }
+});
+
 // Device finding (API 35, 2026-10-24): after the phone's splash the window and the WebView showed white, then the page
 // took about a second to draw, so the printer went away and came back. Now the page starts see-through over the splash
 // picture (the app background with the printer at the splash's place), so the printer stays put with no waiting; once

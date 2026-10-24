@@ -40,6 +40,7 @@ export function Settings({ go }: ScreenProps) {
       value: s.screenshotsUntil > Date.now() ? t.on : t.off,
       open: () => go(push('screenshots')),
     },
+    { label: t.margins, value: t.marginNames[s.margins], open: () => go(push('setting', { key: 'margins' })) },
     {
       label: t.edges,
       value: s.edges === 'more' ? t.edgesMore : t.edgesNormal,

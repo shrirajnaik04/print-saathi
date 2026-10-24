@@ -72,14 +72,14 @@ describe('flowPages', () => {
         const g = GAP_MM * MM;
         const aw = A4.wPt - 2 * e;
         const ah = A4.hPt - 2 * e;
-        // Rows: placements sharing a middle line.
+        // Rows: placements sharing a top line (photos sit on their row's top, like Word; owner 2026-10-24).
         const rowsOf = (p: (typeof pages)[number]) => {
           const rows: Box[][] = [];
           for (const { box } of p.placements) {
             const last = rows[rows.length - 1];
-            const mid = box.y + box.h / 2;
-            const lastMid = last ? (last[0] as Box).y + (last[0] as Box).h / 2 : Number.NaN;
-            if (last && Math.abs(mid - lastMid) < 1e-6 && box.x > (last[last.length - 1] as Box).x) last.push(box);
+            const top = box.y;
+            const lastTop = last ? (last[0] as Box).y : Number.NaN;
+            if (last && Math.abs(top - lastTop) < 1e-6 && box.x > (last[last.length - 1] as Box).x) last.push(box);
             else rows.push([box]);
           }
           return rows;
@@ -88,6 +88,13 @@ describe('flowPages', () => {
         const height = (r: Box[]) => Math.max(...r.map((b) => b.h));
         pages.forEach((p, n) => {
           const rows = rowsOf(p);
+          // Like a Word page: the first row at the top margin, every row from the left margin, rows one gap apart.
+          expect(((rows[0] as Box[])[0] as Box).y).toBeCloseTo(e, 6);
+          for (const r of rows) expect((r[0] as Box).x).toBeCloseTo(e, 6);
+          rows.slice(1).forEach((r, k) => {
+            const above = rows[k] as Box[];
+            expect((r[0] as Box).y).toBeCloseTo((above[0] as Box).y + height(above) + g, 6);
+          });
           rows.forEach((r, k) => {
             const next = rows[k + 1]?.[0];
             if (next) expect(width(r) + g + next.w).toBeGreaterThan(aw - 1e-6);

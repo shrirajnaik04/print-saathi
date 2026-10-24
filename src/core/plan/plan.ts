@@ -1,9 +1,12 @@
 import { type Job, type StyleId, styleOf } from '../job/job';
 import { shownOf } from '../layout/crop';
 import { flowPages, onePerPageAt, sizeOf } from '../layout/flow';
+import { pinnedPages } from '../layout/free';
 import { allOnOne, bestPages, onPages } from '../layout/layouts';
 import { A4, type Box, EDGE_MM, onePerPage, type Paper } from '../layout/onePerPage';
 import { passportSheets, passportSize } from '../layout/passport';
+import { straightAspect } from '../layout/quad';
+import { MARGIN_MM, type Margins } from '../settings/settings';
 
 export type Placement = {
   itemIndex: number;
@@ -17,8 +20,8 @@ export type Placement = {
   /** Points, top-left origin, in the page's own direction. */
   box: Box;
   /**
-   * An ID card (Phase 14): its corners on the upright photo or page (8 fractions, TL TR BR BL); the engine
-   * straightens it into the box. The crop is then the whole image.
+   * An ID card (Phase 14) or a straightened photo (owner, 2026-10-24): its corners on the upright photo or page (8
+   * fractions, TL TR BR BL); the engine straightens it into the box. The crop is then the whole image.
    */
   quad?: number[];
   /** A black border drawn inside the box, in points (passport photos, owner 2026-10-23). */
@@ -53,6 +56,15 @@ const PHOTO = new Set(['jpeg', 'png', 'webp', 'gif', 'bmp']);
 function cropShown(job: Job, item: number, turns: number) {
   const c = job.crops?.[item];
   return c ? shownOf(c, turns) : { x: 0, y: 0, w: 1, h: 1 };
+}
+
+/**
+ * How a photo is cut: its crop, or its straightened frame (owner, 2026-10-24), which the engine straightens into the
+ * box (the whole photo is then the crop, as for ID cards).
+ */
+function cutOf(job: Job, item: number, turns: number): Pick<Placement, 'crop' | 'quad'> {
+  const q = job.quads?.[item];
+  return q ? { crop: { x: 0, y: 0, w: 1, h: 1 }, quad: q } : { crop: cropShown(job, item, turns) };
 }
 
 /** What the engine read from a customer's PDF (never a password): page sizes in points as shown. */
@@ -120,6 +132,14 @@ export function paperOf(job: Job, photoPaper: PhotoPaper | null | undefined): 'A
 }
 
 /**
+ * The blank space at every edge of a photo page on A4 (owner, 2026-10-24): Word's margin, never less than the edge the
+ * printer itself cannot print ([a4EdgeMm], from its test page), plus the owner's extra edge (Space at paper edges).
+ */
+export function photoEdgeMm(margins: Margins = 'narrow', a4EdgeMm?: number, extraEdgeMm = 0): number {
+  return Math.max(MARGIN_MM[margins], a4EdgeMm ?? 0) + extraEdgeMm;
+}
+
+/**
  * Builds the plan for the job's choices (PLAN §G0/G1): its layout, page count, print order and turns. [aspects] =
  * width/height per item index as the engine measured it (upright); items without one, or that are not photos, are
  * left out until they can be placed. A turned photo is laid out with its turned shape.
@@ -135,6 +155,8 @@ export function buildPlan(
   docs: ReadonlyMap<number, PdfFacts> = new Map(),
   /** Settings → Space at paper edges: More adds this much clear space at every edge (mm). */
   extraEdgeMm = 0,
+  /** Settings → Margins: Word's margin for photo pages on A4 (Narrow unless the owner chose another). */
+  margins: Margins = 'narrow',
 ): PrintPlan {
   if (job.layout === 'idCard' && job.idCard) return idCardPlan(job, (a4EdgeMm ?? EDGE_MM) + extraEdgeMm, docs);
   if (job.layout === 'passport' && job.passport)
@@ -146,8 +168,8 @@ export function buildPlan(
           (a4EdgeMm ?? 6) + extraEdgeMm,
         )
       : passportPlan(job, aspects, photoPaper, a4EdgeMm);
-  // The sheet the layouts fill: A4, or the shop printer's calibrated 4×6 photo paper when chosen for photos
-  // (PLAN §K3; A4 when that paper is not known); more space at the edges when the owner asked for it.
+  // The sheet the layouts fill: A4 with Word's margin, or the shop printer's calibrated 4×6 photo paper when chosen
+  // for photos (PLAN §K3; A4 when that paper is not known); more space at the edges when the owner asked for it.
   const onPhotoPaper = paperOf(job, photoPaper) === 'PHOTO_4x6';
   const sheet: Paper =
     onPhotoPaper && photoPaper
@@ -157,9 +179,7 @@ export function buildPlan(
           hPt: (photoPaper.hMils * 72) / 1000,
           edgeMm: photoPaper.edgeMm + extraEdgeMm,
         }
-      : extraEdgeMm > 0
-        ? { ...A4, edgeMm: EDGE_MM + extraEdgeMm }
-        : A4;
+      : { ...A4, edgeMm: photoEdgeMm(margins, a4EdgeMm, extraEdgeMm) };
   // A cropped photo is laid out with its cropped shape (PLAN §F1); the crop is kept upright, so its shape there is
   // the photo's times the crop's.
   const cropped = new Map(aspects);
@@ -167,7 +187,14 @@ export function buildPlan(
     const a = aspects.get(Number(k));
     if (a) cropped.set(Number(k), (a * c.w) / c.h);
   }
-  if (job.layout === 'document') return documentPlan(job, cropped, docs, sheet);
+  // A straightened photo: the shape of its straightened part (its frame's sides, measured on the photo).
+  for (const [k, q] of Object.entries(job.quads ?? {})) {
+    const a = aspects.get(Number(k));
+    if (a) cropped.set(Number(k), straightAspect(q, a));
+  }
+  // Documents keep their own edge (customer PDFs have their own margins; spec 2026-10-24 Part 2).
+  if (job.layout === 'document')
+    return documentPlan(job, cropped, docs, extraEdgeMm > 0 ? { ...A4, edgeMm: EDGE_MM + extraEdgeMm } : A4);
   aspects = cropped;
   const byIndex = new Map(job.items.map((i) => [i.index, i]));
   const turnsOf = (index: number) => (job.turns?.[index] ?? 0) as 0 | 1 | 2 | 3;
@@ -185,9 +212,17 @@ export function buildPlan(
     // Sizes chosen on Adjust (owner, 2026-10-23): one on each page keeps its pages; the others flow (Square wrap).
     if (chosen) {
       const sized = items.map((i) => ({ ...i, longMm: chosen(i.index) }));
-      return job.layout === 'allOnOne' || job.layout === 'morePages'
-        ? flowPages(sized, sheet, direction)
-        : onePerPageAt(sized, sheet, direction);
+      const flow = (list: typeof sized) =>
+        job.layout === 'allOnOne' || job.layout === 'morePages'
+          ? flowPages(list, sheet, direction)
+          : onePerPageAt(list, sheet, direction);
+      // Placed by hand (owner, 2026-10-24): those pages first, each photo at its spot; the rest flow after them.
+      if (job.spots && Object.keys(job.spots).length > 0) {
+        const { pages, rest } = pinnedPages(sized, job.spots, sheet, direction);
+        const others = sized.filter((i) => rest.includes(i.index));
+        return [...pages, ...(others.length ? flow(others) : [])];
+      }
+      return flow(sized);
     }
     switch (job.layout) {
       case 'allOnOne':
@@ -197,7 +232,7 @@ export function buildPlan(
           ? bestPages(items, sheet, direction)
           : onPages(items, sheet, job.pages, direction);
       default:
-        return onePerPage(items, sheet, direction);
+        return onePerPage(items, sheet, direction, 'topLeft');
     }
   })();
   const pages = layoutPages.map((p) => ({
@@ -205,7 +240,7 @@ export function buildPlan(
     placements: p.placements.map(
       (pl): Placement => ({
         itemIndex: pl.itemIndex,
-        crop: cropShown(job, pl.itemIndex, turnsOf(pl.itemIndex)),
+        ...cutOf(job, pl.itemIndex, turnsOf(pl.itemIndex)),
         turns: turnsOf(pl.itemIndex),
         style: styleOf(job),
         box: pl.box,
@@ -304,7 +339,7 @@ function documentPlan(
         {
           itemIndex: p.item,
           ...(isPdf ? { pdfPage: p.page } : {}),
-          crop: isPdf ? { x: 0, y: 0, w: 1, h: 1 } : cropShown(job, p.item, turnsOf(p)),
+          ...(isPdf ? { crop: { x: 0, y: 0, w: 1, h: 1 } } : cutOf(job, p.item, turnsOf(p))),
           turns: turnsOf(p),
           style: styleOf(job),
           // Its size on Adjust (a share of the size that fits), centred where it was.

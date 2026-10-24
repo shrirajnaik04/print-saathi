@@ -3,6 +3,7 @@ package `in`.printsaathi.app
 import android.content.Context
 import android.content.Intent
 import android.content.res.Configuration
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -56,6 +57,18 @@ class MainActivity : BridgeActivity() {
         // Until the page has drawn, it is see-through (capacitor.config.ts) over the splash picture, the printer where
         // Android's splash drew it: no empty screen at start, and no waiting for it (device check 2026-10-24).
         findViewById<View>(android.R.id.content)?.background = ContextCompat.getDrawable(this, R.drawable.splash)
+        // Android 12+: Android's splash stays until the page's own splash is on screen, then goes at once. Its own fade
+        // showed the page before the page had drawn, so the logo dipped to nothing between the two (device recording,
+        // 2026-10-24). The first frame is not held back; never longer than SPLASH_HOLD_MAX_MS.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            splashScreen.setOnExitAnimationListener { view ->
+                if (pageDrawn) view.remove()
+                else {
+                    releaseSplash = { view.remove() }
+                    Handler(Looper.getMainLooper()).postDelayed({ pageSplashShown() }, SPLASH_HOLD_MAX_MS)
+                }
+            }
+        }
         // Android 13+: Recents shows a blank card instead of customer photos; normal screenshots still work.
         if (canHideRecentsThumbnail()) setRecentsScreenshotEnabled(false)
         // The web page's renderer can die (memory, a WebView bug). Unhandled, Android then kills the whole app;
@@ -85,8 +98,20 @@ class MainActivity : BridgeActivity() {
 
     private var recreateWhenBack = false
 
+    /** The page has drawn (its splash, or its first screen): Android's splash, held until now, goes. UI thread. */
+    fun pageSplashShown() {
+        pageDrawn = true
+        releaseSplash?.invoke()
+        releaseSplash = null
+    }
+
+    private var pageDrawn = false
+    private var releaseSplash: (() -> Unit)? = null
+
     /** The page's own splash is gone, so the page has drawn: solid again, with nothing drawn under it. UI thread. */
     fun splashGone() {
+        // With "Remove animations" the page has no splash: Android's goes when the first screen is up.
+        pageSplashShown()
         bridge?.webView?.setBackgroundColor(ContextCompat.getColor(this, R.color.splash_background))
         findViewById<View>(android.R.id.content)?.background = null
     }
@@ -125,6 +150,9 @@ class MainActivity : BridgeActivity() {
     companion object {
         @Volatile
         var lastCreateWasRestore = false
+
+        /** Longest Android's splash waits for the page's (a page that never says so must not leave it up). */
+        private const val SPLASH_HOLD_MAX_MS = 5_000L
 
         /** Longest wait behind the gate: past the importer's own 3-minute limit per file for a few files. */
         private const val SHARE_COPY_WAIT_MS = 10 * 60_000L

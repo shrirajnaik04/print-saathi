@@ -1,6 +1,7 @@
 import type { Intake, SniffedType } from '../../native/printEngine';
 import { problemMessages } from '../intake/messages';
 import { type CropBox, isFull, validBox } from '../layout/crop';
+import type { Spot } from '../layout/free';
 import { passportSize } from '../layout/passport';
 import { CUSTOM_MAX_MM, CUSTOM_MIN_MM, PASSPORT_BORDERS } from '../settings/settings';
 
@@ -37,6 +38,11 @@ export type Job = {
   style?: StyleId;
   /** Crops per photo (PLAN §F1, §F5), on the photo as stored upright, so they survive Turn; printed as shown. */
   crops?: Record<number, CropBox>;
+  /**
+   * Straightened frames per photo (owner, 2026-10-24: the scanner app's crop, each corner free): 8 fractions of the
+   * upright photo, top-left, top-right, bottom-right, bottom-left. A photo has a crop or a frame, never both.
+   */
+  quads?: Record<number, number[]>;
   /** Black edges the detector found, per photo; applied only when the shopkeeper says "Remove black edges". */
   suggested?: Record<number, CropBox>;
   /** The shopkeeper's answer to "Black edges?" (asked once per job). */
@@ -77,6 +83,11 @@ export type Job = {
    * The photos then flow at these sizes (Square wrap); a photo without one takes the median. None = automatic sizes.
    */
   sizes?: Record<number, number>;
+  /**
+   * Photos placed by hand on Adjust (owner, 2026-10-24: press and hold, then drag): each one's centre on its page (mm)
+   * and its layer. Placed photos stay where they are put; photos without a spot flow on pages after them.
+   */
+  spots?: Record<number, Spot>;
   /** A document page's size on its sheet (Adjust): "item:page" → 0.5–1 of the size that fits. */
   docScale?: Record<string, number>;
   /** Aadhaar & ID card copy (Phase 14): the cards, front first, and how big they print. */
@@ -166,6 +177,39 @@ function keepCrops(job: Pick<Job, 'items'>, crops: Record<number, unknown>): Rec
 
 const emptyToUndefined = <T extends object>(o: T): T | undefined => (Object.keys(o).length ? o : undefined);
 
+/** A straightened frame the engine accepts, on the photo (every corner inside it). */
+const validFrame = (q: unknown): q is number[] => validQuad(q) && q.every((v) => v >= 0 && v <= 1);
+
+/** Only valid frames of photos in the job. */
+function keepQuads(job: Pick<Job, 'items'>, quads: Record<number, unknown>): Record<number, number[]> {
+  const out: Record<number, number[]> = {};
+  for (const [k, q] of Object.entries(quads ?? {}))
+    if (job.items.some((i) => i.index === Number(k)) && validFrame(q)) out[Number(k)] = [...q];
+  return out;
+}
+
+const MAX_PAGE = 999;
+const validSpot = (s: unknown): s is Spot => {
+  const o = s && typeof s === 'object' ? (s as Record<string, unknown>) : {};
+  const real = (v: unknown) => typeof v === 'number' && Number.isFinite(v) && Math.abs(v) <= 1000;
+  return (
+    Number.isInteger(o.page) &&
+    (o.page as number) >= 0 &&
+    (o.page as number) <= MAX_PAGE &&
+    real(o.x) &&
+    real(o.y) &&
+    real(o.z)
+  );
+};
+
+/** Spots of photos in the job only, each a real place; none left = none. */
+function validSpots(o: unknown, indexes: readonly number[]): Record<number, Spot> | undefined {
+  const out: Record<number, Spot> = {};
+  for (const [k, v] of Object.entries(o && typeof o === 'object' ? o : {}))
+    if (indexes.includes(Number(k)) && validSpot(v)) out[Number(k)] = { page: v.page, x: v.x, y: v.y, z: v.z };
+  return emptyToUndefined(out);
+}
+
 /** Adjust sizes (long side, mm) of photos in the job only, each a real size; none left = none. */
 function validSizes(o: unknown, indexes: readonly number[]): Record<number, number> | undefined {
   const out: Record<number, number> = {};
@@ -207,14 +251,23 @@ export type JobAction =
   | { type: 'setSuggestions'; crops: Record<number, CropBox> }
   | { type: 'answerEdges'; remove: boolean }
   | { type: 'setCrop'; item: number; crop: CropBox | null }
+  /** The scanner-style crop (owner, 2026-10-24): a straightened frame on the upright photo; null = none. */
+  | { type: 'setQuad'; item: number; quad: number[] | null }
   | { type: 'setCopies'; copies: number }
   | { type: 'removeItem'; index: number }
   /** Undo of a removal: the item back at position [at] of the print order. */
-  | { type: 'restoreItem'; item: JobItem; at: number; pages?: 'best' | number; size?: number }
+  | { type: 'restoreItem'; item: JobItem; at: number; pages?: 'best' | number; size?: number; spot?: Spot }
+  /** The first photo moved by hand: every photo is fixed where it is now, at its size (owner, 2026-10-24). */
+  | { type: 'setSpots'; spots: Record<number, Spot>; sizes: Record<number, number> }
+  /** A photo placed by hand: its page and centre (mm), on top of the others; [size] = its long side (mm). */
+  | { type: 'placeItem'; item: number; page: number; x: number; y: number; size?: number }
+  /** Several changes made as one (one new revision): a resize and its new place, a crop and its new size. */
+  | { type: 'all'; actions: JobAction[] }
   | { type: 'setPages'; pages: 'best' | number }
   /** [among]: the items the screen shows (photos); the move passes over everything else. */
   | { type: 'moveItem'; index: number; by: -1 | 1; among?: number[] }
-  | { type: 'turnItem'; index: number }
+  /** Turn: a quarter clockwise, or [by] 3 = a quarter anticlockwise (Turn left, the scanner-style crop). */
+  | { type: 'turnItem'; index: number; by?: 1 | 3 }
   | { type: 'markPrinted' }
   /** PRINT PART k: the part (from 0) of the full plan [planHash] went to Android's print screen. */
   | { type: 'partStarted'; planHash: string; part: number }
@@ -439,6 +492,7 @@ export function normalizeJob(o: unknown): Job | null {
     quality: j.quality === 'photo' ? 'photo' : undefined,
     picked: j.picked === true ? true : undefined,
     sizes: validSizes(j.sizes, indexes),
+    spots: validSpots(j.spots, indexes),
     docScale: emptyToUndefined(docScale),
     duplicates: duplicateGroups(items),
     partsDone,
@@ -448,6 +502,7 @@ export function normalizeJob(o: unknown): Job | null {
     docTurns,
     style: [...COLOUR_STYLES, ...BW_STYLES].includes(j.style as StyleId) ? (j.style as StyleId) : undefined,
     crops: emptyToUndefined(keepCrops({ items } as Job, j.crops ?? {})),
+    quads: emptyToUndefined(keepQuads({ items } as Job, j.quads ?? {})),
     suggested: emptyToUndefined(keepCrops({ items } as Job, j.suggested ?? {})),
     edges: j.edges === 'removed' || j.edges === 'kept' ? j.edges : undefined,
   };
@@ -455,15 +510,22 @@ export function normalizeJob(o: unknown): Job | null {
 
 /** Pure reducer: returns the same object when nothing changes (no rev bump), else a copy with rev + 1. */
 export function jobReducer(job: Job, action: JobAction, nowMs: number): Job {
+  // Several changes as one: each applied in turn, one new revision for all.
+  if (action.type === 'all') {
+    let j = job;
+    for (const a of action.actions) j = jobReducer(j, a, nowMs);
+    return j === job ? job : { ...j, rev: job.rev + 1, updatedAt: nowMs };
+  }
   let next: Partial<Job> | null = null;
   switch (action.type) {
     case 'setLayout':
-      // Another layout starts again from automatic sizes (Adjust).
-      if (action.layout !== job.layout) next = { layout: action.layout, sizes: undefined };
+      // Another layout starts again from automatic sizes and places (Adjust).
+      if (action.layout !== job.layout) next = { layout: action.layout, sizes: undefined, spots: undefined };
       break;
     case 'setSizes': {
+      // Automatic: tidy rows again at automatic sizes, nothing placed by hand.
       if (action.sizes === null) {
-        if (job.sizes) next = { sizes: undefined };
+        if (job.sizes || job.spots) next = { sizes: undefined, spots: undefined };
         break;
       }
       const sizes = validSizes(
@@ -503,8 +565,16 @@ export function jobReducer(job: Job, action: JobAction, nowMs: number): Job {
     }
     case 'answerEdges':
       // Remove: the suggestions become crops, but a crop the shopkeeper made by hand stays.
+      // A straightened photo keeps its frame: never a crop beside it.
       next = action.remove
-        ? { edges: 'removed', crops: { ...(job.suggested ?? {}), ...(job.crops ?? {}) } }
+        ? {
+            edges: 'removed',
+            crops: Object.fromEntries(
+              Object.entries({ ...(job.suggested ?? {}), ...(job.crops ?? {}) }).filter(
+                ([k]) => !job.quads?.[Number(k)],
+              ),
+            ),
+          }
         : { edges: 'kept' };
       break;
     case 'setCrop': {
@@ -513,7 +583,24 @@ export function jobReducer(job: Job, action: JobAction, nowMs: number): Job {
       delete rest[action.item];
       if (action.crop === null || isFull(action.crop)) {
         if (job.crops?.[action.item]) next = { crops: rest };
-      } else if (validBox(action.crop)) next = { crops: { ...rest, [action.item]: action.crop } };
+      } else if (validBox(action.crop)) {
+        const quads = { ...(job.quads ?? {}) };
+        delete quads[action.item];
+        next = { crops: { ...rest, [action.item]: action.crop }, quads: emptyToUndefined(quads) };
+      }
+      break;
+    }
+    case 'setQuad': {
+      if (!job.items.some((i) => i.index === action.item)) break;
+      const quads = { ...(job.quads ?? {}) };
+      delete quads[action.item];
+      if (action.quad === null) {
+        if (job.quads?.[action.item]) next = { quads: emptyToUndefined(quads) };
+      } else if (validFrame(action.quad)) {
+        const crops = { ...(job.crops ?? {}) };
+        delete crops[action.item];
+        next = { quads: { ...quads, [action.item]: [...action.quad] }, crops: emptyToUndefined(crops) };
+      }
       break;
     }
     case 'setStyle': {
@@ -563,7 +650,13 @@ export function jobReducer(job: Job, action: JobAction, nowMs: number): Job {
       if (cards.length === 0) break;
       next = {
         layout: 'idCard',
-        idCard: { size: action.size ?? job.idCard?.size ?? 'real', sets: job.idCard?.sets ?? 1, cards },
+        idCard: {
+          size: action.size ?? job.idCard?.size ?? 'real',
+          sets: job.idCard?.sets ?? 1,
+          cards,
+          // The cards' own size stays (Print front only and its Undo, review 2026-10-24).
+          ...(job.idCard?.scale !== undefined ? { scale: job.idCard.scale } : {}),
+        },
       };
       break;
     }
@@ -670,7 +763,8 @@ export function jobReducer(job: Job, action: JobAction, nowMs: number): Job {
     case 'setDirection': {
       if (action.direction !== 'portrait' && action.direction !== 'landscape') break;
       // Kept as chosen: an explicit Portrait differs from none (the customer's own PDF goes untouched only with none).
-      if (job.direction !== action.direction) next = { direction: action.direction };
+      // Places by hand were on the other page shape: the photos go back to rows.
+      if (job.direction !== action.direction) next = { direction: action.direction, spots: undefined };
       break;
     }
     case 'setPassportBorder': {
@@ -740,7 +834,33 @@ export function jobReducer(job: Job, action: JobAction, nowMs: number): Job {
               ),
             }
           : {}),
+        // Its place by hand too, while the others are still placed by hand.
+        ...(job.spots && action.spot && validSpot(action.spot)
+          ? { spots: { ...job.spots, [action.item.index]: { ...action.spot } } }
+          : {}),
       };
+      break;
+    }
+    case 'setSpots': {
+      const indexes = job.items.map((i) => i.index);
+      const spots = validSpots(action.spots, indexes);
+      if (!spots) break;
+      next = { spots, sizes: validSizes({ ...(job.sizes ?? {}), ...action.sizes }, indexes) };
+      break;
+    }
+    case 'placeItem': {
+      const spot = { page: action.page, x: action.x, y: action.y, z: 0 };
+      if (!job.items.some((i) => i.index === action.item) || !validSpot(spot)) break;
+      // On top of every other photo.
+      spot.z = Math.max(0, ...Object.values(job.spots ?? {}).map((s) => s.z)) + 1;
+      const sizes =
+        action.size !== undefined
+          ? validSizes(
+              { ...(job.sizes ?? {}), [action.item]: action.size },
+              job.items.map((i) => i.index),
+            )
+          : job.sizes;
+      next = { spots: { ...(job.spots ?? {}), [action.item]: spot }, sizes };
       break;
     }
     case 'addItems': {
@@ -749,7 +869,9 @@ export function jobReducer(job: Job, action: JobAction, nowMs: number): Job {
       const used = [
         ...job.items.map((i) => i.index),
         ...job.order,
-        ...[job.turns, job.crops ?? {}, job.suggested ?? {}].flatMap((r) => Object.keys(r).map(Number)),
+        ...[job.turns, job.crops ?? {}, job.suggested ?? {}, job.quads ?? {}, job.spots ?? {}].flatMap((r) =>
+          Object.keys(r).map(Number),
+        ),
         ...(job.passport ? [job.passport.item] : []),
         ...Object.keys(job.docTurns ?? {}).map((k) => Number(k.split(':')[0])),
       ].filter(Number.isFinite);
@@ -785,11 +907,11 @@ export function jobReducer(job: Job, action: JobAction, nowMs: number): Job {
     }
     case 'setPaper':
       if (action.paper !== job.paper && (action.paper === 'A4' || action.paper === 'PHOTO_4x6'))
-        next = { paper: action.paper, sizes: undefined };
+        next = { paper: action.paper, sizes: undefined, spots: undefined };
       break;
     case 'setPages': {
       const pages = clampPages(action.pages, job.items.length);
-      if (pages !== job.pages) next = { pages, sizes: undefined };
+      if (pages !== job.pages) next = { pages, sizes: undefined, spots: undefined };
       break;
     }
     case 'moveItem': {
@@ -808,7 +930,7 @@ export function jobReducer(job: Job, action: JobAction, nowMs: number): Job {
     }
     case 'turnItem': {
       if (!job.items.some((i) => i.index === action.index)) break;
-      const turn = (((job.turns[action.index] ?? 0) + 1) % 4) as 0 | 1 | 2 | 3;
+      const turn = (((job.turns[action.index] ?? 0) + (action.by === 3 ? 3 : 1)) % 4) as 0 | 1 | 2 | 3;
       // A turn by hand wins: the photo is no longer one the app turned (Undo leaves it alone).
       const { [action.index]: _was, ...auto } = job.autoTurned ?? {};
       next = { turns: { ...job.turns, [action.index]: turn }, autoTurned: emptyToUndefined(auto) };

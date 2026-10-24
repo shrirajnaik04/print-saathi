@@ -32,6 +32,9 @@ function broken(pages: LayoutPage[], aspects: number[], pageCount?: number): str
         if (!apart) return 'overlap or closer than the gap';
       }
     }
+    // Like a Word page (owner, 2026-10-24): the photos start at the top margin and at the left margin.
+    if (Math.abs(Math.min(...bs.map((b) => b.x)) - e) > 1e-6) return 'not from the left margin';
+    if (Math.abs(Math.min(...bs.map((b) => b.y)) - e) > 1e-6) return 'not from the top margin';
     // Reading order: each next photo starts lower, or on the same row further right.
     for (let i = 1; i < bs.length; i++) {
       const a = bs[i - 1]!;
@@ -117,14 +120,27 @@ describe('layout engine (PLAN §G0)', () => {
     expect(smallestSideMm(allOnOne(items([16 / 9, 4 / 3, 3 / 4, 0.46, 3]), A4))).toBeGreaterThanOrEqual(55);
   });
 
-  // Gate review (Phase 3) #8: a later page with fewer photos is centred, not stuck at the top.
-  it('a page with fewer photos than the shared grid holds is centred on the paper', () => {
+  // Owner, 2026-10-24 (photos fill a page like Word): a later page with fewer photos starts at the top margin, where
+  // gate review (Phase 3) #8 had centred it.
+  it('a page with fewer photos than the shared grid holds starts at the top-left, like a Word page', () => {
     const pages = onPages(items([3 / 4, 3 / 4, 3 / 4, 3 / 4, 3 / 4]), A4, 2);
     const last = pages[1]!;
-    const ph = last.orientation === 'landscape' ? A4.wPt : A4.hPt;
-    const top = Math.min(...last.placements.map((p) => p.box.y));
-    const bottom = Math.max(...last.placements.map((p) => p.box.y + p.box.h));
-    expect(Math.abs(top - (ph - bottom))).toBeLessThan(1);
+    expect(Math.min(...last.placements.map((p) => p.box.y))).toBeCloseTo(EDGE_MM * MM, 6);
+    expect(Math.min(...last.placements.map((p) => p.box.x))).toBeCloseTo(EDGE_MM * MM, 6);
+  });
+
+  it('every row, the last included, starts from the left margin; photos of a row share its top line', () => {
+    for (const aspects of [
+      [3 / 4, 3 / 4, 3 / 4, 3 / 4, 3 / 4],
+      [1, 1, 1, 1, 1, 1, 1],
+      [16 / 9, 4 / 3, 3 / 4, 0.46, 3],
+    ]) {
+      const [p] = allOnOne(items(aspects), A4);
+      const rows = new Map<number, number[]>();
+      for (const { box } of p!.placements)
+        rows.set(Math.round(box.y * 1e6), [...(rows.get(Math.round(box.y * 1e6)) ?? []), box.x]);
+      for (const xs of rows.values()) expect(Math.min(...xs)).toBeCloseTo(EDGE_MM * MM, 6);
+    }
   });
 
   // Gate review (Phase 3) #11: as many pages as photos = one per page, each page in its photo's direction.

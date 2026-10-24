@@ -1,0 +1,41 @@
+INSTRUMENTATION_STATUS: numtests=1
+INSTRUMENTATION_STATUS: stream=
+in.printsaathi.app.engine.PlanRenderDeviceTest:
+INSTRUMENTATION_STATUS: id=AndroidJUnitRunner
+INSTRUMENTATION_STATUS: test=aWholeA4PageStraightenedFromABigPhotoRendersInColourAndOcvBlack
+INSTRUMENTATION_STATUS: class=in.printsaathi.app.engine.PlanRenderDeviceTest
+INSTRUMENTATION_STATUS: current=1
+INSTRUMENTATION_STATUS_CODE: 1
+INSTRUMENTATION_STATUS: numtests=1
+INSTRUMENTATION_STATUS: stream=
+Error in aWholeA4PageStraightenedFromABigPhotoRendersInColourAndOcvBlack(in.printsaathi.app.engine.PlanRenderDeviceTest):
+java.lang.AssertionError: render outcome Damaged(itemIndex=1) (original)
+	at org.junit.Assert.fail(Assert.java:89)
+	at org.junit.Assert.assertTrue(Assert.java:42)
+	at in.printsaathi.app.engine.PlanRenderDeviceTest.aWholeA4PageStraightenedFromABigPhotoRendersInColourAndOcvBlack(PlanRenderDeviceTest.kt:293)
+
+INSTRUMENTATION_STATUS: id=AndroidJUnitRunner
+INSTRUMENTATION_STATUS: test=aWholeA4PageStraightenedFromABigPhotoRendersInColourAndOcvBlack
+INSTRUMENTATION_STATUS: class=in.printsaathi.app.engine.PlanRenderDeviceTest
+INSTRUMENTATION_STATUS: stack=java.lang.AssertionError: render outcome Damaged(itemIndex=1) (original)
+	at org.junit.Assert.fail(Assert.java:89)
+	at org.junit.Assert.assertTrue(Assert.java:42)
+	at in.printsaathi.app.engine.PlanRenderDeviceTest.aWholeA4PageStraightenedFromABigPhotoRendersInColourAndOcvBlack(PlanRenderDeviceTest.kt:293)
+
+INSTRUMENTATION_STATUS: current=1
+INSTRUMENTATION_STATUS_CODE: -2
+INSTRUMENTATION_RESULT: stream=
+
+Time: 5.154
+There was 1 failure:
+1) aWholeA4PageStraightenedFromABigPhotoRendersInColourAndOcvBlack(in.printsaathi.app.engine.PlanRenderDeviceTest)
+java.lang.AssertionError: render outcome Damaged(itemIndex=1) (original)
+	at org.junit.Assert.fail(Assert.java:89)
+	at org.junit.Assert.assertTrue(Assert.java:42)
+	at in.printsaathi.app.engine.PlanRenderDeviceTest.aWholeA4PageStraightenedFromABigPhotoRendersInColourAndOcvBlack(PlanRenderDeviceTest.kt:293)
+
+FAILURES!!!
+Tests run: 1,  Failures: 1
+
+
+INSTRUMENTATION_CODE: -1

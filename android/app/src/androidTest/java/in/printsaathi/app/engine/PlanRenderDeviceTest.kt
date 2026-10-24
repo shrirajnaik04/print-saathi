@@ -92,7 +92,8 @@ class PlanRenderDeviceTest {
 
     private fun render(plan: RenderPlan, items: Map<Int, RenderItem>): RenderOutcome {
         val steps = EngineRenderer(client, PoisonMarkers(root))
-        return PlanRenderer(steps, steps).render(plan, items, File(root, "work"), File(root, "out"), CancelToken())
+        // As the app builds it (PrintEnginePlugin): pages and straightened parts (cards, straightened photos) too.
+        return PlanRenderer(steps, steps, steps, cards = steps).render(plan, items, File(root, "work"), File(root, "out"), CancelToken())
     }
 
     /** Colour at a point given in points (top-left origin) on page [n], rendered by the platform's PDF engine. */
@@ -226,6 +227,130 @@ stream
             val start = m.range.last + 1
             pdf.copyOfRange(start, start + m.groupValues[1].toInt())
         }.toList()
+    }
+
+    private fun box(x: Double, y: Double, w: Double, h: Double) = JSONObject().put("x", x).put("y", y).put("w", w).put("h", h)
+    private val whole = JSONObject().put("x", 0).put("y", 0).put("w", 1).put("h", 1)
+
+    /**
+     * Owner, 2026-10-24 (the scanner app's crop with free corners): a straightened photo prints exactly the part inside
+     * its frame, at every turn, at 300 dpi of its box. The frame is slanted inside the red top-left quarter.
+     */
+    @Test fun aStraightenedPhotoPrintsThePartInsideItsFrameAt300Dpi() {
+        val quad = JSONArray(listOf(0.05, 0.02, 0.45, 0.06, 0.48, 0.45, 0.02, 0.48))
+        val pages = JSONArray()
+        for (t in 0..3) {
+            val placement = JSONObject().put("itemIndex", 1).put("turns", t).put("style", "original").put("crop", whole)
+                .put("quad", quad).put("box", box(100.0, 100.0, 216.0, 216.0))
+            pages.put(JSONObject().put("orientation", "portrait").put("placements", JSONArray().put(placement)))
+        }
+        val r = render(RenderPlan.parse(planJson(1).put("pages", pages)), mapOf(1 to RenderItem(1, quadrants("s.jpg", 1), "sha-s")))
+        val pdf = (r as RenderOutcome.Done).pdf
+        for (n in 0..3) for ((fx, fy) in listOf(0.5 to 0.5, 0.1 to 0.1, 0.9 to 0.1, 0.1 to 0.9, 0.9 to 0.9))
+            assertEquals("page $n at ($fx, $fy)", "red", colourName(colourAt(pdf, n, 100 + 216 * fx, 100 + 216 * fy)))
+        // 300 dpi of a 3-inch box: 900 × 900 px, made from the original photo.
+        val sizes = jpegStreams(pdf.readBytes()).map { j ->
+            val o = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            android.graphics.BitmapFactory.decodeByteArray(j, 0, j.size, o)
+            o.outWidth to o.outHeight
+        }
+        assertTrue("an image", sizes.isNotEmpty())
+        for ((w, h) in sizes) {
+            assertEquals(900.0, w.toDouble(), 1.0)
+            assertEquals(900.0, h.toDouble(), 1.0)
+        }
+    }
+
+    /** Owner, 2026-10-24: OCV Black on a straightened photo: straightened first, then printed 1-bit (never a JPEG). */
+    @Test fun ocvBlackOnAStraightenedPhotoIsOneBit() {
+        val quad = JSONArray(listOf(0.05, 0.02, 0.95, 0.06, 0.98, 0.95, 0.02, 0.98))
+        val placement = JSONObject().put("itemIndex", 1).put("turns", 0).put("style", "ocv").put("crop", whole)
+            .put("quad", quad).put("box", box(100.0, 100.0, 216.0, 288.0))
+        val plan = planJson(1, JSONObject().put("orientation", "portrait").put("placements", JSONArray().put(placement)), colour = "bw")
+        val r = render(RenderPlan.parse(plan), mapOf(1 to RenderItem(1, quadrants("o.jpg", 1), "sha-o")))
+        val bytes = (r as RenderOutcome.Done).pdf.readBytes()
+        assertTrue("a 1-bit image", String(bytes, Charsets.ISO_8859_1).contains("/BitsPerComponent 1 /Filter /FlateDecode"))
+        assertTrue("no JPEG image", jpegStreams(bytes).isEmpty())
+    }
+
+    /**
+     * Phases 21–24 (spec 2026-10-24): the web app's own plan (tests/fixtures/plan-v1-free.json, kept equal to buildPlan
+     * by plan.test.ts). On page 1 two photos placed by hand overlap; the second, straightened and turned, is drawn on
+     * top. Page 2 has a third photo that flowed on from Word's Narrow margin (12.7 mm). Leaves
+     * files/render-check-free/{print.pdf, expected.json} for the pdf.js check of every picture's box.
+     */
+    @Test fun theWebAppsHandPlacedPlanPrintsEveryPhotoAtItsBox() {
+        val text = InstrumentationRegistry.getInstrumentation().context.assets.open("plan-v1-free.json").bufferedReader().readText()
+        val plan = RenderPlan.parse(JSONObject(text).getJSONObject("plan"))
+        val items = mapOf(
+            1 to RenderItem(1, quadrants("f1.jpg", 1), "sha-f1"),
+            2 to RenderItem(2, quadrants("f2.jpg", 1), "sha-f2"),
+            3 to RenderItem(3, photo("f3.jpg", 1500, 1000), "sha-f3"),
+        )
+        val r = render(plan, items)
+        assertTrue("render outcome $r", r is RenderOutcome.Done)
+        val pdf = (r as RenderOutcome.Done).pdf
+        val (b1, b2) = plan.pages[0].map { it.box }
+        // Photo 1's top-left (red), clear of photo 2.
+        val (ax, ay) = b1.x + b1.w * 0.1 to b1.y + b1.h * 0.1
+        assertFalse("the point is clear of photo 2", ax in b2.x..(b2.x + b2.w) && ay in b2.y..(b2.y + b2.h))
+        assertEquals("photo 1", "red", colourName(colourAt(pdf, 0, ax, ay)))
+        // Where they overlap, photo 2 (the straightened red quarter) is on top, not photo 1's yellow quarter.
+        val ox = (maxOf(b1.x, b2.x) + minOf(b1.x + b1.w, b2.x + b2.w)) / 2
+        val oy = (maxOf(b1.y, b2.y) + minOf(b1.y + b1.h, b2.y + b2.h)) / 2
+        assertEquals("the overlap", "red", colourName(colourAt(pdf, 0, ox, oy)))
+        val b3 = plan.pages[1].single().box
+        assertEquals("photo 3 at the Narrow margin (x)", 12.7 * 72 / 25.4, b3.x, 1e-6)
+        assertEquals("photo 3 at the Narrow margin (y)", 12.7 * 72 / 25.4, b3.y, 1e-6)
+        assertTrue("photo 3 top", isRed(colourAt(pdf, 1, b3.x + b3.w / 2, b3.y + b3.h * 0.25)))
+        assertTrue("photo 3 bottom", isBlue(colourAt(pdf, 1, b3.x + b3.w / 2, b3.y + b3.h * 0.75)))
+        // For the PC-side pdf.js check: every picture's box and turns, in drawing order.
+        val check = File(ctx.filesDir, "render-check-free").apply { deleteRecursively(); mkdirs() }
+        pdf.copyTo(File(check, "print.pdf"))
+        val pages = JSONArray()
+        plan.pages.forEach { pl ->
+            val boxes = JSONArray()
+            pl.forEach { p ->
+                boxes.put(JSONObject().put("x", p.box.x).put("y", p.box.y).put("w", p.box.w).put("h", p.box.h).put("turns", p.quarterTurnsCcw))
+            }
+            pages.put(JSONObject().put("widthPt", a4w).put("heightPt", a4h).put("boxes", boxes))
+        }
+        File(check, "expected.json").writeText(JSONObject().put("pages", pages).toString())
+    }
+
+    /**
+     * Review, 2026-10-24: a whole A4 page straightened from a 12 MP photo, in colour and in OCV Black, renders within
+     * the engine's memory (a 2 GB Android 7 phone keeps pictures in the app's small memory) at 300 dpi of its box.
+     */
+    @Test fun aWholeA4PageStraightenedFromABigPhotoRendersInColourAndOcvBlack() {
+        val quad = JSONArray(listOf(0.03, 0.02, 0.97, 0.04, 0.98, 0.97, 0.01, 0.99))
+        val src = photo("big.jpg", 3000, 4000)
+        // Narrow margins: 12.7 mm (36 pt) each side.
+        val a4Box = box(36.0, 36.0, a4w - 72.0, a4h - 72.0)
+        for (style in listOf("original", "ocv")) {
+            // The output folder is one plan's (the app names it by the plan's hash): a new plan, a new folder.
+            File(root, "out").deleteRecursively()
+            val placement = JSONObject().put("itemIndex", 1).put("turns", 0).put("style", style).put("crop", whole)
+                .put("quad", quad).put("box", a4Box)
+            val plan = planJson(1, JSONObject().put("orientation", "portrait").put("placements", JSONArray().put(placement)),
+                colour = if (style == "ocv") "bw" else "colour")
+            val r = render(RenderPlan.parse(plan), mapOf(1 to RenderItem(1, src, "sha-big")))
+            assertTrue("render outcome $r ($style)", r is RenderOutcome.Done)
+            val bytes = (r as RenderOutcome.Done).pdf.readBytes()
+            if (style == "ocv") {
+                val heads = Regex("/Subtype /Image[^>]*").findAll(String(bytes, Charsets.ISO_8859_1)).map { it.value }.toList()
+                assertTrue("a 1-bit image: $heads", heads.any { it.contains("/BitsPerComponent 1 /Filter /FlateDecode") })
+            } else {
+                val sizes = jpegStreams(bytes).map { j ->
+                    val o = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                    android.graphics.BitmapFactory.decodeByteArray(j, 0, j.size, o)
+                    o.outWidth to o.outHeight
+                }
+                assertEquals(1, sizes.size)
+                assertEquals((a4w - 72.0) / 72 * 300, sizes[0].first.toDouble(), 2.0)
+                assertEquals((a4h - 72.0) / 72 * 300, sizes[0].second.toDouble(), 2.0)
+            }
+        }
     }
 
     /** Phase 4 (PLAN §G2/§U): a Black & white print carries grey data only — every pixel of every image R = G = B. */

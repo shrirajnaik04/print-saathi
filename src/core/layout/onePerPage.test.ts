@@ -18,6 +18,17 @@ describe('onePerPage (PLAN §G0: largest uncut fit, page direction per photo)', 
     expect(onePerPage([{ index: 1, aspect: 4 / 3 }], A4)[0]?.orientation).toBe('landscape');
   });
 
+  // Photos fill a page like Word (owner, 2026-10-24); documents keep their page centred (the default).
+  it('top-left: the photo at the top-left corner inside the edges, as large as fits', () => {
+    for (const aspect of [0.5, 3 / 4, 1, 4 / 3, 3]) {
+      const [p] = onePerPage([{ index: 1, aspect }], A4, 'portrait', 'topLeft');
+      const b = p!.placements[0]!.box;
+      expect(b.x).toBeCloseTo(EDGE_MM * MM, 6);
+      expect(b.y).toBeCloseTo(EDGE_MM * MM, 6);
+      expect(Math.abs(b.w / b.h - aspect) / aspect).toBeLessThan(0.001);
+    }
+  });
+
   it('property: one photo per page, in order, uncut, inside the printable area, centred, maximal', () => {
     fc.assert(
       fc.property(

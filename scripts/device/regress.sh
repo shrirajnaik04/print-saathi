@@ -38,6 +38,12 @@ echo "Android $("$ADB" -s "$S" shell getprop ro.build.version.release | tr -d '\
 node scripts/device/render-check.mjs "$OUT/render-$LABEL.pdf" "$OUT/render-expected-$LABEL.json" > "$OUT/render-check-$LABEL.json" 2>&1
 echo "render check exit $?" >> "$OUT/device-$LABEL.txt"
 rm -f "$OUT/render-$LABEL.pdf"
+# Phases 21-24: the web app's own plan with photos placed by hand (overlapping, one straightened) at Narrow margins.
+"$ADB" -s "$S" exec-out run-as in.printsaathi.app cat files/render-check-free/print.pdf > "$OUT/render-free-$LABEL.pdf" 2>/dev/null
+"$ADB" -s "$S" exec-out run-as in.printsaathi.app cat files/render-check-free/expected.json > "$OUT/render-free-expected-$LABEL.json" 2>/dev/null
+node scripts/device/render-check.mjs "$OUT/render-free-$LABEL.pdf" "$OUT/render-free-expected-$LABEL.json" > "$OUT/render-check-free-$LABEL.json" 2>&1
+echo "render check (placed by hand) exit $?" >> "$OUT/device-$LABEL.txt"
+rm -f "$OUT/render-free-$LABEL.pdf"
 "$ADB" -s "$S" shell am start -n in.printsaathi.app/.MainActivity > /dev/null; sleep 6
 EVIDENCE="$OUT/share-matrix-$LABEL.json" node scripts/device/share.mjs "$S" > /dev/null 2>&1
 echo "share matrix exit $?" >> "$OUT/device-$LABEL.txt"

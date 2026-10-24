@@ -1,0 +1,76 @@
+{
+ "A": {
+  "apk": "PrintSaathi-1.0.203-1353ebf.apk",
+  "runs": [
+   {
+    "frames": 117,
+    "firstLogo": "f015.png",
+    "home": "f087.png",
+    "peak": 6041,
+    "lowest": "f029.png",
+    "minRatio": 0
+   },
+   {
+    "frames": 97,
+    "firstLogo": "f015.png",
+    "home": "f091.png",
+    "peak": 6043,
+    "lowest": "f028.png",
+    "minRatio": 0
+   },
+   {
+    "frames": 90,
+    "firstLogo": "f014.png",
+    "home": "f086.png",
+    "peak": 6124,
+    "lowest": "f029.png",
+    "minRatio": 0
+   },
+   {
+    "frames": 85,
+    "firstLogo": "f014.png",
+    "home": "f080.png",
+    "peak": 6124,
+    "lowest": "f025.png",
+    "minRatio": 0
+   }
+  ]
+ },
+ "B": {
+  "apk": "splashfix-release.apk",
+  "runs": [
+   {
+    "frames": 62,
+    "firstLogo": "f014.png",
+    "home": "f058.png",
+    "peak": 5836,
+    "lowest": "f056.png",
+    "minRatio": 0.927
+   },
+   {
+    "frames": 68,
+    "firstLogo": "f014.png",
+    "home": "f065.png",
+    "peak": 5505,
+    "lowest": "f014.png",
+    "minRatio": 0.892
+   },
+   {
+    "frames": 61,
+    "firstLogo": "f015.png",
+    "home": "f057.png",
+    "peak": 5836,
+    "lowest": "f015.png",
+    "minRatio": 0.842
+   },
+   {
+    "frames": 60,
+    "firstLogo": "f014.png",
+    "home": null,
+    "peak": 0,
+    "lowest": null,
+    "minRatio": null
+   }
+  ]
+ }
+}

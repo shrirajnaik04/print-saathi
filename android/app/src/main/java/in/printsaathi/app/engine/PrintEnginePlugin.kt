@@ -1084,6 +1084,16 @@ class PrintEnginePlugin : Plugin() {
         }
     }
 
+    /** The page's own splash is on screen: Android's splash goes at once (MainActivity.pageSplashShown). */
+    @PluginMethod
+    fun splashShown(call: PluginCall) {
+        val act = activity as? `in`.printsaathi.app.MainActivity ?: return call.resolve()
+        act.runOnUiThread {
+            act.pageSplashShown()
+            call.resolve()
+        }
+    }
+
     /** Called by MainActivity when the phone's text size changes while the app runs. */
     fun notifyFontScale(fontScale: Float) {
         notifyListeners("fontScaleChanged", JSObject().put("fontScale", fontScale.toDouble()))
@@ -1269,22 +1279,30 @@ class PrintEnginePlugin : Plugin() {
     @PluginMethod
     fun pickFiles(call: PluginCall) {
         val kind = call.getString("kind") ?: "photos"
-        val many = kind != "passport"
-        // ID cards: photos of the card from the gallery (front and back: at most 2), or an e-Aadhaar PDF from the file
-        // manager, which shows photos and PDFs (Phase 14; the owner's choice screen, 2026-10-23).
-        val cardPhotos = kind == "cards" && call.getString("from") == "gallery"
-        val photoPicker = (cardPhotos || (kind != "documents" && kind != "cards")) && hasPhotoPicker()
-        val max = if (cardPhotos) 2 else MAX_PICK
+        // Where from: the gallery (Android's photo picker, photos only) or the file manager (the document picker). Home's
+        // tiles say nothing: photos and passport photos come from the gallery, documents and ID cards from the file
+        // manager. The choice screens say which (ID cards, 2026-10-23; Add photos / Add files, 2026-10-24).
+        val from = call.getString("from")
+        val gallery = when (from) {
+            "gallery" -> true
+            "files" -> false
+            else -> kind != "documents" && kind != "cards"
+        }
+        // At most: ID card photos 2 (front and back); Add photos what still fits the job (a job holds 100).
+        val max = minOf(if (kind == "cards" && gallery) 2 else MAX_PICK, call.getInt("max") ?: MAX_PICK)
+            .coerceAtLeast(1)
+        val many = kind != "passport" && max > 1
+        val photoPicker = gallery && hasPhotoPicker()
         val intent = when {
             photoPicker -> Intent(MediaStore.ACTION_PICK_IMAGES).apply {
                 type = "image/*" // photos only, never videos (review M2)
                 if (many) putExtra(MediaStore.EXTRA_PICK_IMAGES_MAX, minOf(max, MediaStore.getPickImagesMaxLimit()))
             }
-            (kind == "documents" || kind == "cards") && !cardPhotos -> Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+            (kind == "documents" || kind == "cards") && !gallery -> Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
                 addCategory(Intent.CATEGORY_OPENABLE)
                 type = "*/*"
                 putExtra(Intent.EXTRA_MIME_TYPES, arrayOf("application/pdf", "image/*"))
-                putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
+                putExtra(Intent.EXTRA_ALLOW_MULTIPLE, many)
             }
             else -> Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
                 addCategory(Intent.CATEGORY_OPENABLE)

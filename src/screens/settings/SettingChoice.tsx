@@ -58,6 +58,15 @@ const QUESTIONS: Record<string, Question> = {
       apply: (s) => ({ ...s, edges: e }),
     })),
   },
+  margins: {
+    title: t.margins,
+    help: t.marginsHelp,
+    choices: (['narrow', 'normal', 'small'] as const).map((m) => ({
+      title: t.marginNames[m],
+      selected: (s) => s.margins === m,
+      apply: (s) => ({ ...s, margins: m }),
+    })),
+  },
   photosColour: { title: t.photosColour, help: t.colourHelp, choices: colour('photos') },
   photosPaper: {
     title: t.photosPaper,

@@ -14,6 +14,11 @@ import type {
 } from './printEngine';
 
 /** A photo as an SVG data URL (CSP allows data: images), so screens can be tested without files. */
+/** Tests: what the phone was told about the start-up splash, in order. */
+const splashStep = (step: string) => {
+  const g = globalThis as { __splashSteps?: string[] };
+  g.__splashSteps = [...(g.__splashSteps ?? []), step];
+};
 const samplePhoto = (n: number, w: number, h: number) =>
   `data:image/svg+xml,${encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' width='${w}' height='${h}'><rect width='100%' height='100%' fill='hsl(${(n * 57) % 360} 60% 70%)'/><text x='50%' y='55%' font-size='${Math.round(h / 3)}' text-anchor='middle' font-family='sans-serif'>${n}</text></svg>`)}`;
 
@@ -604,20 +609,30 @@ export class PrintEngineMock extends WebPlugin implements PrintEnginePlugin {
   async pickFiles({
     kind,
     from,
+    max,
   }: {
     kind: 'photos' | 'passport' | 'documents' | 'cards';
     from?: 'gallery' | 'files';
+    max?: number;
   }): Promise<{ picked: number }> {
-    (globalThis as { __pickFrom?: string }).__pickFrom = from; // tests: which picker the cards asked for
+    (globalThis as { __pickFrom?: string }).__pickFrom = from; // tests: which picker was asked for
+    (globalThis as { __pickMax?: number }).__pickMax = max;
     const q = new URLSearchParams(globalThis.location?.search ?? '').get('mockPick');
     if (q === 'fail') throw new Error('no picker');
     if (q === '0') return { picked: 0 };
     // ID cards: two photos (front and back), or with `?mockPdfAt=1` one e-Aadhaar PDF.
     const pdfCard =
       kind === 'cards' && from !== 'gallery' && new URLSearchParams(globalThis.location?.search ?? '').has('mockPdfAt');
-    const n = kind === 'photos' ? 4 : kind === 'cards' && !pdfCard ? 2 : 1;
+    // Tests: `?mockPickN=<n>` chooses that many photos (Add photos); the gallery never gives PDFs.
+    const asked = Number(new URLSearchParams(globalThis.location?.search ?? '').get('mockPickN') ?? 0);
+    // The file manager (Android's document picker) cannot be told a most, as on a phone.
+    const n = Math.min(
+      from === 'files' ? Number.POSITIVE_INFINITY : (max ?? Number.POSITIVE_INFINITY),
+      asked > 0 ? asked : kind === 'photos' ? 4 : kind === 'cards' && !pdfCard ? 2 : 1,
+    );
     const intake = sampleIntake(n, `mock-pick-${this.later.length + 2}`) as Intake;
-    if (kind === 'documents') intake.files = intake.files.map((f) => ({ ...f, sniffedType: 'pdf' as const }));
+    if (kind === 'documents' && from !== 'gallery')
+      intake.files = intake.files.map((f) => ({ ...f, sniffedType: 'pdf' as const }));
     intake.pick = kind;
     this.later.push(intake);
     setTimeout(() => this.notifyListeners('intakeReady', { intakeId: intake.intakeId, repeat: false }), 50);
@@ -724,6 +739,11 @@ export class PrintEngineMock extends WebPlugin implements PrintEnginePlugin {
 
   async splashGone(): Promise<void> {
     (globalThis as { __splashGone?: boolean }).__splashGone = true; // tests: the phone was told
+    splashStep('gone');
+  }
+
+  async splashShown(): Promise<void> {
+    splashStep(document.getElementById('splash')?.isConnected ? 'shown with the splash' : 'shown without it');
   }
 
   async setCustomerContentShown({ shown }: { shown: boolean }): Promise<{ secure: boolean }> {

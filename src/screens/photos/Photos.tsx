@@ -7,6 +7,7 @@ import { Panel } from '../../ui/Panel';
 import { TopBar } from '../../ui/TopBar';
 import { JobGone } from '../JobGone';
 import { push, type ScreenProps } from '../types';
+import { takeAddedChoice, useAddNotice } from '../useAddNotice';
 import { useJob } from '../useJob';
 import { forgetRemoved, rememberRemoved, removedFor } from './undo';
 
@@ -20,6 +21,9 @@ export function Photos({ go, params }: ScreenProps) {
   const jobId = String(params?.jobId ?? '');
   const { job, srcOf, gone, failed, retry, change, saveFailed } = useJob(jobId);
   const [undo, setUndo] = useState(() => removedFor(jobId));
+  const added = useAddNotice(jobId);
+  // Added here, not on Adjust: a later Adjust opens on the photo tapped, not on the first one added (review).
+  useState(() => takeAddedChoice(jobId));
   if (gone) return <JobGone go={go} title={t.title} />;
   const photos = job ? job.order.filter((i) => srcOf(i)) : [];
   return (
@@ -42,6 +46,7 @@ export function Photos({ go, params }: ScreenProps) {
                   at: undo.at,
                   pages: undo.pages,
                   size: undo.size,
+                  ...(undo.spot ? { spot: undo.spot } : {}),
                 }))
               )
                 return;
@@ -53,7 +58,16 @@ export function Photos({ go, params }: ScreenProps) {
         />
       )}
       {saveFailed && <Panel kind="error" title={en.change.saveFailed} />}
+      {added && <Panel kind="warn" title={added} />}
       {job && photos.length === 0 && <Panel kind="warn" title={t.none} />}
+      {/* More photos from the phone (owner, 2026-10-24): they join this job at its end. */}
+      {job && (
+        <div class="stack section-gap">
+          <Button variant="secondary" icon="plus" onClick={() => go(push('addsource', { jobId, kind: 'photos' }))}>
+            {en.add.photos}
+          </Button>
+        </div>
+      )}
       {job && photos.length > 0 && (
         <>
           <p>{t.hint}</p>
@@ -146,8 +160,9 @@ export function PhotoTools({ go, params }: ScreenProps) {
                 const place = job.order.indexOf(index);
                 const pages = job.pages;
                 const size = job.sizes?.[index];
+                const spot = job.spots?.[index];
                 if (!(await change({ type: 'removeItem', index }))) return;
-                rememberRemoved(jobId, item, place, pages, size);
+                rememberRemoved(jobId, item, place, pages, size, spot);
                 go({ type: 'back' });
               }}
             >

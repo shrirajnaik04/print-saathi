@@ -23,6 +23,15 @@ export function useJob(jobId: string) {
     return () => void PrintEngine.setCustomerContentShown({ shown: false });
   }, []);
 
+  // Files added to this job from the phone (Add photos, owner 2026-10-24): read it and its pictures again.
+  useEffect(() => {
+    const changed = (e: Event) => {
+      if ((e as CustomEvent<{ jobId: string }>).detail?.jobId === jobId) setAttempt((n) => n + 1);
+    };
+    window.addEventListener('ps-job-changed', changed);
+    return () => window.removeEventListener('ps-job-changed', changed);
+  }, [jobId]);
+
   useEffect(() => {
     let live = true;
     setFailed(false);

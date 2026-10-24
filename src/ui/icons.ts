@@ -11,6 +11,7 @@ import earlierSvg from '@phosphor-icons/core/assets/bold/arrow-up-bold.svg?raw';
 import backSvg from '@phosphor-icons/core/assets/bold/caret-left-bold.svg?raw';
 import checkSvg from '@phosphor-icons/core/assets/bold/check-bold.svg?raw';
 import recentSvg from '@phosphor-icons/core/assets/bold/clock-counter-clockwise-bold.svg?raw';
+import wholeSvg from '@phosphor-icons/core/assets/bold/corners-out-bold.svg?raw';
 import cardSvg from '@phosphor-icons/core/assets/bold/credit-card-bold.svg?raw';
 import cropSvg from '@phosphor-icons/core/assets/bold/crop-bold.svg?raw';
 import documentSvg from '@phosphor-icons/core/assets/bold/file-text-bold.svg?raw';
@@ -28,6 +29,7 @@ import shareSvg from '@phosphor-icons/core/assets/bold/share-network-bold.svg?ra
 import removeSvg from '@phosphor-icons/core/assets/bold/trash-bold.svg?raw';
 import warningSvg from '@phosphor-icons/core/assets/bold/warning-bold.svg?raw';
 import errorSvg from '@phosphor-icons/core/assets/bold/warning-circle-bold.svg?raw';
+import closeSvg from '@phosphor-icons/core/assets/bold/x-bold.svg?raw';
 
 export const ICONS = {
   photos: photosSvg,
@@ -49,6 +51,9 @@ export const ICONS = {
   next: nextSvg,
   files: filesSvg,
   turn: turnSvg,
+  turnLeft: undoSvg,
+  close: closeSvg,
+  whole: wholeSvg,
   crop: cropSvg,
   undo: undoSvg,
   earlier: earlierSvg,

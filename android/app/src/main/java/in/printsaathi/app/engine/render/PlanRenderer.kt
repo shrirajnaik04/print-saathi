@@ -164,7 +164,9 @@ class PlanRenderer(
                 val tmp = File(workDir, dst.name + ".part")
                 val r = if (key.quad != null) {
                     val c = cards ?: return RenderOutcome.Failed("no card decoder")
-                    c.card(item, tmp, key.outW, key.outH, key.style, key.quad, key.pdfPage).let { if (it is DecodeOutcome.Ok) it to ImageKind.JPEG_RGB else it to null }
+                    c.card(item, tmp, key.outW, key.outH, key.style, key.quad, key.pdfPage).let {
+                        if (it is DecodeOutcome.Ok) it to (if (it.mode == PageMode.ONE_BIT_RAW) ImageKind.GREY1_RAW else ImageKind.JPEG_RGB) else it to null
+                    }
                 } else if (key.pdfPage != null) {
                     val p = pages ?: return RenderOutcome.Failed("no page decoder")
                     documentPage(p, item, key, tmp)

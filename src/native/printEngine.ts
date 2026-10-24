@@ -261,6 +261,8 @@ export interface PrintEnginePlugin {
   getFontScale(): Promise<{ fontScale: number }>;
   /** The start-up splash is gone (the page has drawn): the phone stops drawing the splash picture under the page. */
   splashGone(): Promise<void>;
+  /** The page's own start-up splash is on screen: the phone's splash, held until now, goes at once (Android 12+). */
+  splashShown(): Promise<void>;
   /** The shop owner's settings (PLAN §I-15) as saved, or null before the first save (src/core/settings). */
   getSettings(): Promise<{ settings: object | null }>;
   saveSettings(o: { settings: object }): Promise<{ saved: boolean }>;
@@ -270,10 +272,15 @@ export interface PrintEnginePlugin {
    * Choose from phone (PLAN §D3, §J0): the phone's photo picker (one photo for passport) or document picker. The
    * files arrive like a share (intakeReady); [picked] is how many were chosen, 0 when the picker was closed.
    */
-  /** [from] (ID cards only): 'gallery' = the photo picker (at most 2 photos), 'files' = the file manager (default). */
+  /**
+   * [from]: 'gallery' = the photo picker (photos only; ID cards at most 2), 'files' = the file manager; none = the kind's
+   * own (photos and passport: gallery; documents and cards: file manager). [max]: at most this many (Add photos: what
+   * still fits the job).
+   */
   pickFiles(o: {
     kind: 'photos' | 'passport' | 'documents' | 'cards';
     from?: 'gallery' | 'files';
+    max?: number;
   }): Promise<{ picked: number }>;
   /**
    * Aadhaar & ID cards (Phase 14): the cards the engine finds in each photo of a job, and the card panels on its PDFs'

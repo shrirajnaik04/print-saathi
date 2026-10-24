@@ -98,20 +98,28 @@ object Cards {
         val scale = min(1.0, max(outW / cardW, outH / cardH) * 1.05)
         val cropLong = max(box[2] * pw, box[3] * ph)
         val (bmp, path) = Decode.upright(src, ceil(cropLong * scale).toInt().coerceAtLeast(16), crop = box)
-        try {
-            val w = bmp.width
-            val h = bmp.height
-            val pixels = IntArray(w * h)
-            bmp.getPixels(pixels, 0, w, 0, 0, w, h)
-            val inCrop = DoubleArray(8) { i ->
-                if (i % 2 == 0) (quad[i] - box[0]) / box[2] * w else (quad[i] - box[1]) / box[3] * h
-            }
-            write(Warp.warp(pixels, w, h, inCrop, outW, outH), outW, outH, dst, quality, style)
-            val ms = (android.os.SystemClock.elapsedRealtime() - t0).toInt()
-            return intArrayOf(outW, outH, path, ms, android.os.Debug.getPss().toInt(), -1, (cardW * scale).roundToInt().coerceAtMost((cardW).roundToInt()))
+        val out = straightened(bmp, outW, outH) { w, h ->
+            DoubleArray(8) { i -> if (i % 2 == 0) (quad[i] - box[0]) / box[2] * w else (quad[i] - box[1]) / box[3] * h }
+        }
+        write(out, outW, outH, dst, quality, style)
+        val ms = (android.os.SystemClock.elapsedRealtime() - t0).toInt()
+        return intArrayOf(outW, outH, path, ms, android.os.Debug.getPss().toInt(), -1, (cardW * scale).roundToInt().coerceAtMost((cardW).roundToInt()))
+    }
+
+    /**
+     * The part of [bmp] at the corners [inBmp] gives for its size, straightened to [outW] × [outH]. [bmp] is recycled as
+     * soon as its pixels are read, and those pixels are let go when this returns: a whole A4 page straightened on a
+     * 2 GB Android 7 phone, whose pictures live in the app's small memory (review, 2026-10-24).
+     */
+    private fun straightened(bmp: Bitmap, outW: Int, outH: Int, inBmp: (Int, Int) -> DoubleArray): IntArray {
+        val w = bmp.width
+        val h = bmp.height
+        val pixels = try {
+            IntArray(w * h).also { bmp.getPixels(it, 0, w, 0, 0, w, h) }
         } finally {
             bmp.recycle()
         }
+        return Warp.warp(pixels, w, h, inBmp(w, h), outW, outH)
     }
 
     /** Card panels on PDF page [page] (an e-Aadhaar): the same reply as [detect], or a PdfOpen code. */
@@ -154,10 +162,10 @@ object Cards {
         val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888).apply { eraseColor(Color.WHITE) }
         try {
             draw(bmp, Matrix().apply { setScale(scale.toFloat(), scale.toFloat()); postTranslate((-box[0] * pw * scale).toFloat(), (-box[1] * ph * scale).toFloat()) })
-            val pixels = IntArray(w * h)
-            bmp.getPixels(pixels, 0, w, 0, 0, w, h)
-            val inBox = DoubleArray(8) { i -> if (i % 2 == 0) (quad[i] - box[0]) * pw * scale else (quad[i] - box[1]) * ph * scale }
-            write(Warp.warp(pixels, w, h, inBox, outW, outH), outW, outH, dst, quality, style)
+            val out = straightened(bmp, outW, outH) { _, _ ->
+                DoubleArray(8) { i -> if (i % 2 == 0) (quad[i] - box[0]) * pw * scale else (quad[i] - box[1]) * ph * scale }
+            }
+            write(out, outW, outH, dst, quality, style)
             intArrayOf(outW, outH, Decode.PATH_CROP, 0, android.os.Debug.getPss().toInt(), -1, outW)
         } finally {
             bmp.recycle()
@@ -176,16 +184,24 @@ object Cards {
         return doubleArrayOf(x0, y0, x1 - x0, y1 - y0)
     }
 
+    /** The straightened picture in print [style]: a JPEG, or 1-bit rows for OCV Black (a straightened photo, 2026-10-24). */
     private fun write(out: IntArray, w: Int, h: Int, dst: ParcelFileDescriptor, quality: Int, style: Int) {
-        val bmp = Bitmap.createBitmap(out, w, h, Bitmap.Config.ARGB_8888).copy(Bitmap.Config.ARGB_8888, true)
-        try {
-            if (style != Styles.ORIGINAL) StyleOutput.apply(bmp, style)
-            FileOutputStream(dst.fileDescriptor).use { o ->
-                check(bmp.compress(Bitmap.CompressFormat.JPEG, quality, o)) { "encode failed" }
-                o.flush()
+        FileOutputStream(dst.fileDescriptor).use { o ->
+            if (style == Styles.OCV) {
+                // 1-bit rows straight from the pixels, as StyleOutput.oneBit makes them: no picture in between.
+                o.write(Styles.ocv(ByteArray(w * h) { Grey.luma(out[it]).toByte() }, w, h))
+            } else {
+                // One picture, filled in place (never a copy of a picture made from the pixels).
+                val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+                try {
+                    bmp.setPixels(out, 0, w, 0, 0, w, h)
+                    if (style != Styles.ORIGINAL) StyleOutput.apply(bmp, style)
+                    check(bmp.compress(Bitmap.CompressFormat.JPEG, quality, o)) { "encode failed" }
+                } finally {
+                    bmp.recycle()
+                }
             }
-        } finally {
-            bmp.recycle()
+            o.flush()
         }
     }
 

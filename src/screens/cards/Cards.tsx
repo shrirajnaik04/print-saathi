@@ -1,6 +1,8 @@
 import { Capacitor } from '@capacitor/core';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { type IdCardSide, type IdCardSize, validQuad } from '../../core/job/job';
+import { FULL } from '../../core/layout/crop';
+import { moveCorner, quadOfBox } from '../../core/layout/quad';
 import { maxCardSets } from '../../core/plan/plan';
 import { en } from '../../i18n/en';
 import { fill } from '../../i18n/fill';
@@ -8,15 +10,20 @@ import { passwords } from '../../native/passwords';
 import { type CardsInItem, PrintEngine } from '../../native/printEngine';
 import { ActionBar } from '../../ui/ActionBar';
 import { Button } from '../../ui/Button';
+import { CropBar } from '../../ui/CropBar';
+import { CropFrame } from '../../ui/CropFrame';
 import { Panel } from '../../ui/Panel';
 import { Tile } from '../../ui/Tile';
 import { TopBar } from '../../ui/TopBar';
 import { JobGone } from '../JobGone';
 import { push, type ScreenProps } from '../types';
+import { takeAddedChoice } from '../useAddNotice';
 import { useJob } from '../useJob';
 import { loadSettings, settingsStore } from '../useSettings';
+import { useStraightImages } from '../useStraightImages';
 
 const t = en.cards;
+const c = en.crop;
 /** A card found at or above this is taken as it is; below, it is shown with "Check the corners" (spec Part 2). */
 const AUTO_ACCEPT = 0.75;
 /** A frame to start from when no card was found: the middle of the photo, card-shaped on a 4:3 photo. */
@@ -85,37 +92,7 @@ export function landscapeQuad(q: number[], aspect: number): number[] {
 }
 
 /** The straightened image of each card (made by the engine), refreshed when its corners change. */
-export function useCardImages(jobId: string, cards: IdCardSide[] | undefined, width = 640) {
-  const [images, setImages] = useState<Record<string, string | null>>({});
-  const key = (c: IdCardSide) => `${c.item}:${c.page ?? ''}:${c.quad.join(',')}`;
-  useEffect(() => {
-    let live = true;
-    for (const c of cards ?? []) {
-      const k = key(c);
-      if (k in images) continue;
-      void PrintEngine.cardImage({
-        jobId,
-        item: c.item,
-        ...(c.page !== undefined ? { page: c.page } : {}),
-        quad: c.quad,
-        width,
-        password: passwords.forJob(jobId)[c.item],
-      }).then(
-        ({ path }) => live && setImages((m) => ({ ...m, [k]: path })),
-        () => live && setImages((m) => ({ ...m, [k]: null })),
-      );
-    }
-    return () => {
-      live = false;
-    };
-  }, [jobId, cards?.map(key).join('|')]);
-  /** The picture; undefined while it is being made, null when it could not be made (review m14). */
-  return (c: IdCardSide): string | null | undefined => {
-    const p = images[key(c)];
-    if (p === null) return null;
-    return p ? (p.startsWith('data:') ? p : Capacitor.convertFileSrc(p)) : undefined;
-  };
-}
+export const useCardImages = useStraightImages;
 
 /**
  * Screen 1 of ID card copy (spec Part 2, the approved mockup): the cards found, straightened, Front and Back. Swap,
@@ -127,7 +104,38 @@ export function CardsFound({ go, params }: ScreenProps) {
   const [state, setState] = useState<'finding' | 'ready' | 'locked' | 'failed'>('finding');
   const [lockedItem, setLockedItem] = useState<number | null>(null);
   const [attempt, setAttempt] = useState(0);
+  // A back side just added from the phone (owner, 2026-10-24): its photo is looked at, and its card goes after the front.
+  const [addedBack, setAddedBack] = useState(() => takeAddedChoice(jobId));
+  // The back left out by "Print front only", for Undo.
+  const [leftOut, setLeftOut] = useState<IdCardSide | null>(null);
   const started = useRef(-1);
+  useEffect(() => {
+    const cards = job?.idCard?.cards;
+    if (!job || addedBack === null || !cards || cards.length !== 1 || !job.items.some((i) => i.index === addedBack))
+      return;
+    const item = addedBack;
+    setAddedBack(null);
+    let live = true;
+    void (async () => {
+      try {
+        const { items } = await PrintEngine.findCards({ jobId, passwords: passwords.forJob(jobId) });
+        if (!live) return;
+        // The surest card in the added photo; none found: a starting frame to fix (as for any photo).
+        const back = pickCards(items.filter((f) => f.index === item))[0] ?? {
+          item,
+          quad: DEFAULT_QUAD,
+          turns: 0 as const,
+          sure: false,
+        };
+        await change({ type: 'setIdCards', cards: [...cards, back] });
+      } catch {
+        if (live) setState('failed');
+      }
+    })();
+    return () => {
+      live = false;
+    };
+  }, [job?.id, job?.rev, addedBack]);
   useEffect(() => {
     if (!job || started.current === attempt) return;
     started.current = attempt;
@@ -248,11 +256,44 @@ export function CardsFound({ go, params }: ScreenProps) {
             })}
           </ul>
           {cards.length === 2 && (
-            <Button variant="secondary" disabled={busy} onClick={() => void change({ type: 'swapIdCards' })}>
-              {t.swap}
-            </Button>
+            <div class="nudge-grid">
+              <Button variant="secondary" disabled={busy} onClick={() => void change({ type: 'swapIdCards' })}>
+                {t.swap}
+              </Button>
+              {/* Optional (owner, 2026-10-24): the customer may want the front alone. */}
+              <Button
+                variant="secondary"
+                icon="remove"
+                disabled={busy}
+                onClick={async () => {
+                  const [front, back] = cards;
+                  if (front && back && (await change({ type: 'setIdCards', cards: [front] }))) setLeftOut(back);
+                }}
+              >
+                {t.frontOnly}
+              </Button>
+            </div>
           )}
-          {cards.length === 1 && <Panel kind="info" title={t.oneSide} />}
+          {cards.length === 1 && leftOut && (
+            <Panel
+              kind="info"
+              title={t.oneSide}
+              action={{
+                label: en.photos.undo,
+                onClick: async () => {
+                  const [front] = cards;
+                  if (front && (await change({ type: 'setIdCards', cards: [front, leftOut] }))) setLeftOut(null);
+                },
+              }}
+            />
+          )}
+          {cards.length === 1 && !leftOut && (
+            <Panel
+              kind="info"
+              title={t.oneSide}
+              action={{ label: t.addBack, onClick: () => go(push('addsource', { jobId, kind: 'back' })) }}
+            />
+          )}
         </>
       )}
       {state === 'ready' && cards && (
@@ -267,12 +308,11 @@ export function CardsFound({ go, params }: ScreenProps) {
 }
 
 const STEP = 0.01;
-const CORNER_NAMES = t.cornerNames;
 
 /**
- * Fix corners (spec Part 2): the photo with the card's four corner dots. Drag a dot, or pick one ("Next corner") and
- * move it with the arrows, 1 % a tap (no precision needed, PLAN §H2.5). The straightened card shows below as it will
- * print; Done keeps it.
+ * Fix corners (spec Part 2; the scanner app's frame since 2026-10-24): the photo with the card's frame. Drag a corner or
+ * a side, or pick a corner ("Next corner") and move it with the arrows, 1 % a tap (no precision needed, PLAN §H2.5).
+ * The straightened card shows below as it will print; Upside down turns it; Done keeps it.
  */
 export function FixCorners({ go, params }: ScreenProps) {
   const jobId = String(params?.jobId ?? '');
@@ -312,97 +352,52 @@ export function FixCorners({ go, params }: ScreenProps) {
     return () => clearTimeout(timer);
   }, [q?.join(',')]);
   const preview = useCardImages(jobId, card && shown ? [{ ...card, quad: shown }] : undefined, 480);
-  const stage = useRef<HTMLDivElement>(null);
-  const dragging = useRef<number | null>(null);
   if (gone) return <JobGone go={go} title={t.fixTitle} />;
   const aspect = card?.page !== undefined ? pageAspect : (aspects.get(card?.item ?? -1) ?? 4 / 3);
   const src = card?.page !== undefined ? pageSrc : srcOf(card?.item ?? -1);
-  const setCornerAt = (k: number, x: number, y: number) => {
-    if (!q) return;
-    const next = [...q];
-    next[2 * k] = Math.min(1, Math.max(0, x));
-    next[2 * k + 1] = Math.min(1, Math.max(0, y));
-    // Never a crossed or folded shape: such a move is not taken.
-    if (validQuad(next)) setQuad(next);
-  };
   const nudge = (dx: number, dy: number) =>
-    q && setCornerAt(corner, (q[2 * corner] ?? 0) + dx, (q[2 * corner + 1] ?? 0) + dy);
-  const fromPointer = (e: PointerEvent) => {
-    const r = stage.current?.getBoundingClientRect();
-    if (!r || dragging.current === null) return;
-    setCornerAt(dragging.current, (e.clientX - r.left) / r.width, (e.clientY - r.top) / r.height);
-  };
-  const pct = (v: number) => `${Math.round(v * 10000) / 100}%`;
+    q && setQuad(moveCorner(q, corner, (q[2 * corner] ?? 0) + dx, (q[2 * corner + 1] ?? 0) + dy));
   const preSrc = card && shown ? preview({ ...card, quad: shown }) : undefined;
-  // The dots are read top to bottom, left to right, as they start (fixed: moving one never reorders them).
-  const start = card?.quad ?? DEFAULT_QUAD;
-  const reading = [0, 1, 2, 3].sort((a, b) => {
-    const dy = (start[2 * a + 1] ?? 0) - (start[2 * b + 1] ?? 0);
-    return Math.abs(dy) > 0.05 ? dy : (start[2 * a] ?? 0) - (start[2 * b] ?? 0);
-  });
   return (
     <main class="screen">
       <TopBar title={t.fixTitle} onBack={() => go({ type: 'back' })} onHome={() => go({ type: 'home' })} />
       {saveFailed && <Panel kind="error" title={en.change.saveFailed} />}
       <p>{t.fixHint}</p>
       {q && (
-        <div
-          class="crop-stage corner-stage"
-          ref={stage}
-          style={{ aspectRatio: `${aspect}` }}
-          onPointerMove={(e) => fromPointer(e as unknown as PointerEvent)}
-          onPointerUp={() => {
-            dragging.current = null;
-          }}
-          onPointerCancel={() => {
-            dragging.current = null;
-          }}
-        >
-          {src && <img src={src} alt="" class="corner-photo" />}
-          <svg class="corner-lines" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
-            <polygon
-              points={[0, 1, 2, 3].map((k) => `${(q[2 * k] ?? 0) * 100},${(q[2 * k + 1] ?? 0) * 100}`).join(' ')}
-            />
-          </svg>
-          {reading.map((k) => (
-            <button
-              key={k}
-              type="button"
-              class={k === corner ? 'corner-dot corner-dot-on' : 'corner-dot'}
-              style={{ left: pct(q[2 * k] ?? 0), top: pct(q[2 * k + 1] ?? 0) }}
-              aria-label={fill(t.cornerLabel, { name: CORNER_NAMES[k] ?? '' })}
-              aria-pressed={k === corner}
-              onClick={() => setCorner(k)}
-              onPointerDown={(e) => {
-                setCorner(k);
-                dragging.current = k;
-                (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
-              }}
-            />
-          ))}
-        </div>
+        <CropFrame
+          src={src}
+          turns={0}
+          aspect={aspect}
+          quad={q}
+          onChange={setQuad}
+          chosen={corner}
+          onChoose={setCorner}
+          label={t.fixTitle}
+          cornerLabel={c.cornerLabel}
+          cornerNames={c.cornerNames}
+        />
       )}
       <p role="status" class="corner-now">
-        {fill(t.corner, { k: corner + 1, name: CORNER_NAMES[corner] ?? '' })}
+        {fill(c.corner, { k: corner + 1, name: c.cornerNames[corner] ?? '' })}
       </p>
       <div class="nudge-grid">
         <Button variant="secondary" icon="next" onClick={() => setCorner((corner + 1) % 4)}>
-          {t.nextCorner}
+          {c.nextCorner}
         </Button>
         <Button variant="secondary" icon="up" onClick={() => nudge(0, -STEP)}>
-          {t.up}
+          {c.up}
         </Button>
         <Button variant="secondary" icon="left" onClick={() => nudge(-STEP, 0)}>
-          {t.left}
+          {c.left}
         </Button>
         <Button variant="secondary" icon="right" onClick={() => nudge(STEP, 0)}>
-          {t.right}
+          {c.right}
         </Button>
         <Button variant="secondary" icon="down" onClick={() => nudge(0, STEP)}>
-          {t.down}
+          {c.down}
         </Button>
         <Button variant="secondary" icon="undo" onClick={() => setQuad(card?.quad ?? null)}>
-          {t.reset}
+          {c.reset}
         </Button>
       </div>
       <h2>{t.preview}</h2>
@@ -413,20 +408,30 @@ export function FixCorners({ go, params }: ScreenProps) {
           <span class="thumb-note">{preSrc === null ? t.noPicture : t.making}</span>
         )}
       </div>
-      <ActionBar>
-        <Button
-          icon="check"
-          busy={busy}
-          onClick={async () => {
+      <CropBar
+        busy={busy}
+        tools={[
+          { label: c.cancel, icon: 'close', onClick: () => go({ type: 'back' }) },
+          { label: c.whole, icon: 'whole', onClick: () => setQuad(quadOfBox(FULL)) },
+          // A card always prints lying flat: one turn, upside down (Phase 14).
+          {
+            label: c.upsideDown,
+            icon: 'turn',
+            disabled: busy,
+            onClick: () => void change({ type: 'turnIdCard', at }),
+          },
+        ]}
+        done={{
+          label: c.done,
+          icon: 'check',
+          onClick: async () => {
             if (!q) return;
             // The card always prints lying down, whichever corner the shopkeeper started from (review I4).
             if (quad && !(await change({ type: 'setIdCardQuad', at, quad: landscapeQuad(quad, aspect) }))) return;
             go({ type: 'back' });
-          }}
-        >
-          {t.done}
-        </Button>
-      </ActionBar>
+          },
+        }}
+      />
     </main>
   );
 }

@@ -30,7 +30,7 @@ class EngineRenderer(
             r.exceptionOrNull()?.let { e -> return@turn failed(item, dst, e) }
             poison.end(item.sha256)
             val v = r.getOrThrow()
-            DecodeOutcome.Ok(v[0], v[1], PageMode.COLOUR_JPEG, sourcePx = v[6])
+            DecodeOutcome.Ok(v[0], v[1], if (style == Styles.OCV) PageMode.ONE_BIT_RAW else PageMode.COLOUR_JPEG, sourcePx = v[6])
         }
 
     override fun page(item: RenderItem, page: Int, dst: File, longSidePx: Int, mode: PageMode, style: Int): DecodeOutcome =

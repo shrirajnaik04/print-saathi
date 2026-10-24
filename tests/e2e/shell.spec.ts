@@ -229,6 +229,84 @@ for (const vp of VIEWPORTS) {
   }
 }
 
+// Owner, 2026-10-24 ("fix invisible border for the cards, also check other places"; their phone's screenshot of Home):
+// every card or tile on the grey page shows its edge — a border or ring of 2 px or more at 3:1 against the page.
+for (const [screen, reach] of Object.entries(SCREENS))
+  test(`cards show their edges: ${screen}`, async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.setViewportSize({ width: 360, height: 800 });
+    if (reach.route === 'bars') await serveBars(page);
+    await page.goto(reach.url);
+    for (const name of reach.taps ?? []) await page.getByRole('button', { name }).click();
+    if (reach.share) {
+      await expect(page.locator('main h1')).not.toHaveText('Files received');
+      await shareAgain(page, reach.share);
+    }
+    if (reach.title) await expect(page.locator('main h1')).toHaveText(reach.title);
+    await page.evaluate(() => document.fonts.ready);
+    const faint = await page.evaluate(() => {
+      const rgba = (s: string) => {
+        const v = (s.match(/[\d.]+/g) ?? []).map(Number);
+        return { c: v.slice(0, 3), a: v[3] ?? 1 };
+      };
+      const lum = (c: number[]) => {
+        const f = (v: number) => {
+          const x = v / 255;
+          return x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4;
+        };
+        return 0.2126 * f(c[0] ?? 0) + 0.7152 * f(c[1] ?? 0) + 0.0722 * f(c[2] ?? 0);
+      };
+      const contrast = (a: number[], b: number[]) => {
+        const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p) as [number, number];
+        return (x + 0.05) / (y + 0.05);
+      };
+      const behindOf = (el: Element) => {
+        for (let e = el.parentElement; e; e = e.parentElement) {
+          const b = rgba(getComputedStyle(e).backgroundColor);
+          if (b.a > 0) return b.c;
+        }
+        return [255, 255, 255];
+      };
+      const same = (a: number[], b: number[]) => a.every((v, i) => Math.abs(v - (b[i] ?? 0)) < 2);
+      const page = [243, 244, 246]; // --bg
+      const cards = [
+        [255, 255, 255], // --surface
+        [229, 231, 235], // --stage
+      ];
+      const out: string[] = [];
+      for (const el of Array.from(document.querySelectorAll('main *'))) {
+        const cs = getComputedStyle(el);
+        const bg = rgba(cs.backgroundColor);
+        if (bg.a < 1 || !cards.some((c) => same(c, bg.c))) continue;
+        if (el.matches(':disabled')) continue; // WCAG 1.4.11 exempts a control that cannot be used now
+        const r = el.getBoundingClientRect();
+        if (r.width < 48 || r.height < 40) continue;
+        const behind = behindOf(el);
+        if (!same(behind, page)) continue;
+        const bc = rgba(cs.borderTopColor);
+        const borderOk =
+          Number.parseFloat(cs.borderTopWidth) >= 1.99 &&
+          bc.a === 1 &&
+          contrast(bc.c, behind) >= 3 &&
+          Number.parseFloat(cs.borderLeftWidth) >= 1.99;
+        let ringOk = false;
+        for (const m of cs.boxShadow.matchAll(
+          /(rgba?\([^)]*\))\s+(-?[\d.]+)px\s+(-?[\d.]+)px\s+([\d.]+)px\s+([\d.]+)px/g,
+        )) {
+          const col = rgba(m[1] ?? '');
+          if (Number(m[2]) === 0 && Number(m[3]) === 0 && Number(m[4]) === 0 && Number(m[5]) >= 1.99 && col.a === 1)
+            ringOk ||= contrast(col.c, behind) >= 3;
+        }
+        if (!borderOk && !ringOk)
+          out.push(
+            `${el.tagName.toLowerCase()}.${String(el.className).split(' ')[0]}: ${el.textContent?.trim().slice(0, 30)}`,
+          );
+      }
+      return out;
+    });
+    expect(faint).toEqual([]);
+  });
+
 test('Android-style Back walk: Home -> Help -> Back returns to Home with the page at the top', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Help' }).click();
@@ -384,11 +462,61 @@ test('the splash prints the PS printer while the app loads and never holds Home 
   await expect.poll(() => page.evaluate(() => (globalThis as { __splashGone?: boolean }).__splashGone)).toBe(true);
 });
 
+// Owner, 2026-10-24 ("app logo isn't proper on splash screen"): the sheet fed in from nowhere and the tray printed from
+// nothing while the app loaded, so a fast phone only ever showed half a logo. Every frame now shows the whole logo.
+test('the splash shows the whole logo at every moment of its motion', async ({ page }) => {
+  // Hold the app's code back so the splash stays up to be looked at.
+  await page.route('**/assets/*.js', async (route) => {
+    await new Promise((ok) => setTimeout(ok, 3000));
+    await route.continue();
+  });
+  await page.goto('/?splash=1', { waitUntil: 'commit' });
+  await page.locator('.splash-paper').waitFor({ state: 'attached' });
+  const frames = await page.evaluate(() => {
+    const out: { layer: string; t: number; opacity: number; scaleY: number; dyPct: number }[] = [];
+    const stage = (document.querySelector('.splash-stage') as HTMLElement).getBoundingClientRect().height;
+    for (const el of document.querySelectorAll<HTMLElement>('.splash-layer')) {
+      const anims = el.getAnimations();
+      const end = Math.max(0, ...anims.map((a) => Number(a.effect?.getComputedTiming().endTime ?? 0)));
+      for (let t = 0; t <= end; t += 20) {
+        for (const a of anims) {
+          a.pause();
+          a.currentTime = t;
+        }
+        const s = getComputedStyle(el);
+        const m = new DOMMatrixReadOnly(s.transform === 'none' ? undefined : s.transform);
+        out.push({ layer: el.className, t, opacity: Number(s.opacity), scaleY: m.d, dyPct: (100 * m.f) / stage });
+      }
+    }
+    return out;
+  });
+  expect(frames.length).toBeGreaterThan(4);
+  for (const f of frames) {
+    expect(f.opacity, `${f.layer} at ${f.t} ms`).toBe(1);
+    expect(f.scaleY, `${f.layer} at ${f.t} ms`).toBeGreaterThan(0.999);
+    expect(Math.abs(f.dyPct), `${f.layer} at ${f.t} ms`).toBeLessThanOrEqual(5);
+  }
+});
+
 test('with Remove animations on there is no splash at all', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto('/?splash=1');
   await expect(page.locator('#splash')).toHaveCount(0, { timeout: 300 });
   await expect.poll(() => page.evaluate(() => (globalThis as { __splashGone?: boolean }).__splashGone)).toBe(true);
+  // No page splash to hand over to: the phone keeps its own splash until the first screen is up.
+  const steps = await page.evaluate(() => (globalThis as { __splashSteps?: string[] }).__splashSteps);
+  expect(steps).toEqual(['gone']);
+});
+
+// Device recording, 2026-10-24 (API 35): Android's splash faded out before the page had drawn its own, so the logo
+// dipped to almost nothing for ~0.2 s between the two. The page now tells the phone the moment its splash is on screen
+// (the phone holds its splash until then and removes it without a fade).
+test('the page tells the phone when its own splash is on screen, before the splash goes', async ({ page }) => {
+  await page.goto('/?splash=1');
+  await expect.poll(() => page.evaluate(() => (globalThis as { __splashGone?: boolean }).__splashGone)).toBe(true);
+  const steps = await page.evaluate(() => (globalThis as { __splashSteps?: string[] }).__splashSteps);
+  // Told while the page's splash was still there, then told it had gone.
+  expect(steps).toEqual(['shown with the splash', 'gone']);
 });
 
 test('Home shows the PS printer beside the name; screen readers hear only "PrintSaathi"', async ({ page }) => {
@@ -868,21 +996,6 @@ test('Delete all customer files deletes the jobs and says so', async ({ page }) 
   await expect(page.getByText('Customer files deleted', { exact: false })).toBeVisible();
   await page.getByRole('button', { name: 'Home' }).click();
   await expect(page.getByText('Continue the last job')).toHaveCount(0);
-});
-
-test('until a test page has printed, Home says the shop printer is not set up and Help shows how', async ({ page }) => {
-  await page.goto('/');
-  await expect(page.getByText('The shop printer is not set up yet', { exact: false })).toBeVisible();
-  await page.getByRole('button', { name: 'Set up the printer' }).click();
-  await expect(page.getByRole('heading', { name: 'Setting up the shop printer (once)' })).toBeVisible();
-  await page.getByRole('button', { name: 'Print a test page' }).click();
-  await expect(page.locator('main h1')).toHaveText('Print a test page');
-});
-
-test('once the printer is set up, Home no longer asks', async ({ page }) => {
-  await page.goto('/?mockPhotoPaper=1');
-  await expect(page.getByRole('button', { name: /Settings/ })).toBeVisible();
-  await expect(page.getByText('The shop printer is not set up yet', { exact: false })).toHaveCount(0);
 });
 
 test('after part 1 printed, leaving and coming back continues with part 2 (never part 1 again)', async ({ page }) => {
@@ -1692,7 +1805,10 @@ type Placed = { crop: { x: number; y: number; w: number; h: number } };
 const crops = async (page: import('@playwright/test').Page) =>
   (await lastPlan(page))?.pages.flatMap((pg) => pg.placements.map((x) => (x as unknown as Placed).crop));
 
-test('manual crop: smaller and moved up, then printed that way; Whole photo puts it back', async ({ page }) => {
+// The scanner-style crop (owner, 2026-10-24): the arrows move one corner at a time; a side moved straight is a crop.
+test('manual crop: the top side moved down with the arrows, then printed that way; Whole photo puts it back', async ({
+  page,
+}) => {
   await page.goto('/?mockIntake=2');
   await page.getByRole('button', { name: 'One on each page' }).click();
   await page.getByRole('button', { name: 'Change' }).click();
@@ -1700,25 +1816,24 @@ test('manual crop: smaller and moved up, then printed that way; Whole photo puts
   await page.getByRole('button', { name: 'Photo 1' }).click();
   await page.getByRole('button', { name: /^Crop/ }).click();
   await expect(page.locator('main h1')).toHaveText('Crop photo 1');
-  await page.getByRole('button', { name: 'Smaller' }).click();
-  await page.getByRole('button', { name: 'Smaller' }).click();
-  await page.getByRole('button', { name: 'Move up' }).click();
-  await page.getByRole('button', { name: 'Use this part' }).click();
+  for (let i = 0; i < 3; i++) await page.getByRole('button', { name: 'Down' }).click();
+  await page.getByRole('button', { name: 'Next corner' }).click();
+  for (let i = 0; i < 3; i++) await page.getByRole('button', { name: 'Down' }).click();
+  await page.getByRole('button', { name: 'Done' }).click();
   await expect(page.getByRole('button', { name: /^Crop · Cropped/ })).toBeVisible();
   await page.getByRole('button', { name: 'Done' }).click();
   await page.getByRole('button', { name: 'Done' }).click();
   await page.getByRole('button', { name: 'Done' }).click();
   await expect(page.locator('main h1')).toHaveText('Ready to print');
-  await expect.poll(async () => (await crops(page))?.[0]?.w).toBeCloseTo(1 / 1.21, 2);
-  const c = (await crops(page))?.[0];
-  expect(c?.y).toBeCloseTo((1 - 1 / 1.21) / 2 - 0.02, 2);
+  await expect.poll(async () => (await crops(page))?.[0]?.y).toBeCloseTo(0.03, 5);
+  expect((await crops(page))?.[0]?.h).toBeCloseTo(0.97, 5);
   // Whole photo: the crop goes.
   await page.getByRole('button', { name: 'Change' }).click();
   await page.getByRole('button', { name: /^Photos/ }).click();
   await page.getByRole('button', { name: 'Photo 1' }).click();
   await page.getByRole('button', { name: /^Crop/ }).click();
   await page.getByRole('button', { name: 'Whole photo' }).click();
-  await page.getByRole('button', { name: 'Use this part' }).click();
+  await page.getByRole('button', { name: 'Done' }).click();
   await expect(page.getByRole('button', { name: /^Crop$/ })).toBeVisible();
 });
 
@@ -1731,7 +1846,7 @@ test('the crop screen starts on the black edges found, even after "Keep as they 
   await page.getByRole('button', { name: /^Photos/ }).click();
   await page.getByRole('button', { name: 'Photo 1' }).click();
   await page.getByRole('button', { name: /^Crop/ }).click();
-  await page.getByRole('button', { name: 'Use this part' }).click();
+  await page.getByRole('button', { name: 'Done' }).click();
   await page.getByRole('button', { name: 'Done' }).click();
   await page.getByRole('button', { name: 'Done' }).click();
   await page.getByRole('button', { name: 'Done' }).click();
@@ -1779,28 +1894,28 @@ test('J6: a wrong "Remove black edges" can be undone from the page tools of a do
   await expect(page.locator('.paper-crop')).toHaveCount(1);
   await page.getByRole('button', { name: /^Crop · Cropped/ }).click();
   await page.getByRole('button', { name: 'Whole photo' }).click();
-  await page.getByRole('button', { name: 'Use this part' }).click();
+  await page.getByRole('button', { name: 'Done' }).click();
   // Whole photo sticks: the crop screen now starts on the whole photo, not on the edges found (gate M-1).
   await page.getByRole('button', { name: /^Crop$/ }).click();
-  await page.getByRole('button', { name: 'Use this part' }).click();
+  await page.getByRole('button', { name: 'Done' }).click();
   await page.getByRole('button', { name: 'Done' }).click();
   await page.getByRole('button', { name: 'Done' }).click();
   await expect.poll(async () => (await crops(page))?.[0]?.h).toBe(1);
 });
 
-test('Reset puts the frame back where it was when the crop screen opened', async ({ page }) => {
+test('Start again puts the frame back where it was when the crop screen opened', async ({ page }) => {
   await page.goto('/?mockIntake=2');
   await page.getByRole('button', { name: 'One on each page' }).click();
   await page.getByRole('button', { name: 'Change' }).click();
   await page.getByRole('button', { name: /^Photos/ }).click();
   await page.getByRole('button', { name: 'Photo 1' }).click();
   await page.getByRole('button', { name: /^Crop/ }).click();
-  const frame = page.locator('.passport-frame');
-  const before = await frame.getAttribute('style');
-  await page.getByRole('button', { name: 'Smaller' }).click();
-  expect(await frame.getAttribute('style')).not.toBe(before);
-  await page.getByRole('button', { name: 'Reset' }).click();
-  expect(await frame.getAttribute('style')).toBe(before);
+  const frame = page.locator('.scan-lines polygon');
+  const before = await frame.getAttribute('points');
+  await page.getByRole('button', { name: 'Down' }).click();
+  expect(await frame.getAttribute('points')).not.toBe(before);
+  await page.getByRole('button', { name: 'Start again' }).click();
+  expect(await frame.getAttribute('points')).toBe(before);
 });
 
 const openCrop = async (page: Page) => {
@@ -1812,12 +1927,33 @@ const openCrop = async (page: Page) => {
   await page.getByRole('button', { name: /^Crop/ }).click();
 };
 
+/** Drags the middle of [sel] by (dx, dy) screen px in small steps (a mouse: one finger). */
+const dragBy = async (page: Page, sel: string, dx: number, dy: number) => {
+  const b = await page.locator(sel).boundingBox();
+  if (!b) throw new Error(`no ${sel}`);
+  await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(b.x + b.width / 2 + dx, b.y + b.height / 2 + dy, { steps: 8 });
+  await page.mouse.up();
+};
+const framePoints = async (page: Page) =>
+  ((await page.locator('.scan-lines polygon').getAttribute('points')) ?? '')
+    .split(' ')
+    .map((p) => p.split(',').map(Number));
+/** The frame made smaller by its side handles (each side moved in by about a fifth of the photo). */
+const shrinkFrame = async (page: Page) => {
+  const b = await page.locator('.scan-stage').boundingBox();
+  if (!b) throw new Error('no stage');
+  await dragBy(page, '.scan-side >> nth=3', b.width / 5, 0); // left side
+  await dragBy(page, '.scan-side >> nth=1', -b.width / 5, 0); // right side
+  await dragBy(page, '.scan-side >> nth=0', 0, b.height / 5); // top side
+  await dragBy(page, '.scan-side >> nth=2', 0, -b.height / 5); // bottom side
+};
+
 test('Crop: dragging inside the frame moves it (owner, 2026-10-23)', async ({ page }) => {
   await openCrop(page);
-  await page.getByRole('button', { name: 'Smaller' }).click();
-  await page.getByRole('button', { name: 'Smaller' }).click();
-  await page.getByRole('button', { name: 'Smaller' }).click();
-  const frame = page.locator('.passport-frame');
+  await shrinkFrame(page);
+  const frame = page.locator('.scan-lines polygon');
   const b = await frame.boundingBox();
   if (!b) throw new Error('no frame');
   await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2);
@@ -1834,8 +1970,8 @@ test.describe('two fingers on Crop', () => {
   test.use({ hasTouch: true });
   test('pinching makes the frame bigger (owner, 2026-10-23)', async ({ page }) => {
     await openCrop(page);
-    for (let i = 0; i < 4; i++) await page.getByRole('button', { name: 'Smaller' }).click();
-    const frame = page.locator('.passport-frame');
+    await shrinkFrame(page);
+    const frame = page.locator('.scan-lines polygon');
     const b = await frame.boundingBox();
     if (!b) throw new Error('no frame');
     const cdp = await page.context().newCDPSession(page);
@@ -1860,30 +1996,17 @@ test.describe('two fingers on Crop', () => {
   });
 });
 
-test('after a corner is dragged small, the other corner still drags (re-review I-B)', async ({ page }) => {
-  await page.goto('/?mockIntake=2');
-  await page.getByRole('button', { name: 'One on each page' }).click();
-  await page.getByRole('button', { name: 'Change' }).click();
-  await page.getByRole('button', { name: /^Photos/ }).click();
-  await page.getByRole('button', { name: 'Photo 1' }).click();
-  await page.getByRole('button', { name: /^Crop/ }).click();
-  const drag = async (sel: string, dx: number, dy: number) => {
-    const b = await page.locator(sel).boundingBox();
-    if (!b) throw new Error(`no ${sel}`);
-    await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2);
-    await page.mouse.down();
-    await page.mouse.move(b.x + b.width / 2 + dx, b.y + b.height / 2 + dy, { steps: 8 });
-    await page.mouse.up();
-  };
-  const frame = page.locator('.passport-frame');
-  await drag('.crop-handle-tr', -260, 0); // narrower than 30 %: the top-right handle hides after this drag
-  const narrow = await frame.boundingBox();
+test('after one corner is dragged, another corner still drags (re-review I-B)', async ({ page }) => {
+  await openCrop(page);
+  const before = await framePoints(page);
+  await dragBy(page, '.scan-corner >> nth=1', -100, 0); // the top-right corner, in
+  const narrow = await framePoints(page);
   // The first drag really moved the corner (a browser drag must never cancel it after one step).
-  expect(narrow?.width ?? 999).toBeLessThan(120);
-  // Another corner (the top-left one: the bottom one sits under the action bar in this short window) still drags.
-  await drag('.crop-handle-tl', 0, 120);
-  const after = await frame.boundingBox();
-  expect(after?.height ?? 0).toBeLessThan((narrow?.height ?? 0) - 50);
+  expect(narrow[1]?.[0] ?? 100).toBeLessThan((before[1]?.[0] ?? 0) - 10);
+  // Another corner (the top-left one: the bottom ones may sit under the action bar in this short window) still drags.
+  await dragBy(page, '.scan-corner >> nth=0', 0, 80);
+  const after = await framePoints(page);
+  expect(after[0]?.[1] ?? 0).toBeGreaterThan((narrow[0]?.[1] ?? 0) + 10);
 });
 
 test('back from Crop, the page tools are on the same page (re-review m-1)', async ({ page }) => {
@@ -2276,6 +2399,30 @@ test('Space at paper edges: More keeps at least 9 mm clear on the print', async 
     );
   });
   expect(edgeMm).toBeGreaterThanOrEqual(9 - 1e-6);
+});
+
+// Owner, 2026-10-24: "default margin layout must be narrow, same as Word".
+test('Settings → Margins offers Word’s Narrow, Normal and Small; Narrow is chosen and keeps 12.7 mm', async ({
+  page,
+}) => {
+  await openSettings(page);
+  await expect(page.getByRole('button', { name: /^Margins.*Narrow \(1\.27 cm\), like Word/ })).toBeVisible();
+  await page.getByRole('button', { name: /^Margins/ }).click();
+  await expect(page.locator('main h1')).toHaveText('Margins');
+  for (const name of [/Narrow \(1\.27 cm\)/, /Normal \(2\.54 cm\)/, /Small \(0\.6 cm\)/])
+    await expect(page.getByRole('button', { name })).toBeVisible();
+  await expect(page.getByRole('button', { name: /Narrow \(1\.27 cm\)/ })).toHaveAttribute('aria-pressed', 'true');
+  await page.goto('/?mockIntake=3');
+  await page.getByRole('button', { name: 'All on one page' }).click();
+  await expect(page.locator('main h1')).toHaveText('Ready to print');
+  await expect.poll(() => page.evaluate(() => !!(globalThis as { __lastPlan?: unknown }).__lastPlan)).toBe(true);
+  const firstMm = await page.evaluate(() => {
+    type P = { pages: { placements: { box: { x: number; y: number } }[] }[] };
+    const b = ((globalThis as { __lastPlan?: P }).__lastPlan as P).pages[0]?.placements[0]?.box ?? { x: 0, y: 0 };
+    return [b.x * (25.4 / 72), b.y * (25.4 / 72)];
+  });
+  expect(firstMm[0]).toBeGreaterThanOrEqual(12.7 - 1e-6);
+  expect(firstMm[1]).toBeGreaterThanOrEqual(12.7 - 1e-6);
 });
 
 test('Send problem report shares a plain report through Android, with nothing about customers', async ({ page }) => {
@@ -2854,6 +3001,9 @@ for (const size of [
       await page.evaluate((t) => {
         document.documentElement.style.fontSize = `${t}%`;
       }, size.text);
+      // The first screen is drawn after the app's code has run: under load the page's "load" came first and the check
+      // found no screen yet (no title, focus on the page itself). The title gets focus in the same step that draws it.
+      await expect(page.locator('main h1')).toBeVisible();
       await page.evaluate(() => document.fonts.ready);
       await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
       const problems = await page.evaluate(() => {

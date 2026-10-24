@@ -167,11 +167,12 @@ export function PassportCrop({ go, params }: ScreenProps) {
         </div>
       )}
       <div class="nudge-grid">
-        <Button variant="secondary" icon="plus" onClick={() => zoom(ZOOM)}>
-          {t.zoomIn}
-        </Button>
+        {/* Zoom out on the left, zoom in on the right (owner, 2026-10-24). */}
         <Button variant="secondary" icon="minus" onClick={() => zoom(1 / ZOOM)}>
           {t.zoomOut}
+        </Button>
+        <Button variant="secondary" icon="plus" onClick={() => zoom(ZOOM)}>
+          {t.zoomIn}
         </Button>
         <Button variant="secondary" icon="up" onClick={() => pan(0, -STEP)}>
           {t.photoUp}

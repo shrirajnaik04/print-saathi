@@ -445,3 +445,170 @@ describe('paper (Phase 10c)', () => {
     expect(jobReducer(j, { type: 'setPaper', paper: 'A4' }, 2).paper).toBe('A4');
   });
 });
+
+// Owner, 2026-10-24: the scanner app's crop, each corner free; a photo has a crop or a straightened frame, never both.
+describe('straightened frames (spec 2026-10-24 Part 4)', () => {
+  const job = jobFromIntake('job1', intake, 1000);
+  const quad = [0.1, 0.12, 0.85, 0.05, 0.9, 0.8, 0.15, 0.92];
+
+  it('setQuad keeps the frame and clears the crop; setCrop clears the frame; null clears it', () => {
+    const cropped = jobReducer(job, { type: 'setCrop', item: 1, crop: { x: 0.1, y: 0.1, w: 0.5, h: 0.5 } }, 2);
+    const straight = jobReducer(cropped, { type: 'setQuad', item: 1, quad }, 3);
+    expect(straight.quads).toEqual({ 1: quad });
+    expect(straight.crops).toBeUndefined();
+    const back = jobReducer(straight, { type: 'setCrop', item: 1, crop: { x: 0.2, y: 0.2, w: 0.5, h: 0.5 } }, 4);
+    expect(back.quads).toBeUndefined();
+    expect(back.crops).toEqual({ 1: { x: 0.2, y: 0.2, w: 0.5, h: 0.5 } });
+    expect(jobReducer(straight, { type: 'setQuad', item: 1, quad: null }, 4).quads).toBeUndefined();
+  });
+
+  it('a crossed frame, a frame outside the photo or one for a file not in the job is not taken', () => {
+    expect(jobReducer(job, { type: 'setQuad', item: 1, quad: [0.9, 0.9, 0.1, 0.1, 0.9, 0.1, 0.1, 0.9] }, 2)).toBe(job);
+    expect(jobReducer(job, { type: 'setQuad', item: 1, quad: [0, 0, 1.5, 0, 1, 1, 0, 1] }, 2)).toBe(job);
+    expect(jobReducer(job, { type: 'setQuad', item: 9, quad }, 2)).toBe(job);
+  });
+
+  it('a saved job keeps only real frames of its photos', () => {
+    const saved = JSON.parse(JSON.stringify({ ...job, quads: { 1: quad, 3: [1, 2, 3], 7: quad } }));
+    expect(normalizeJob(saved)?.quads).toEqual({ 1: quad });
+  });
+
+  it('Remove black edges never adds a crop to a straightened photo', () => {
+    let j = jobReducer(job, { type: 'setQuad', item: 1, quad }, 2);
+    j = jobReducer(j, { type: 'setSuggestions', crops: { 1: { x: 0, y: 0.1, w: 1, h: 0.8 } } }, 3);
+    j = jobReducer(j, { type: 'answerEdges', remove: true }, 4);
+    expect(j.crops?.[1]).toBeUndefined();
+    expect(j.quads?.[1]).toEqual(quad);
+  });
+
+  it('a removed straightened photo keeps its frame for Undo, and new files never take its number', () => {
+    let j = jobReducer(job, { type: 'setQuad', item: 3, quad }, 2);
+    j = jobReducer(j, { type: 'removeItem', index: 3 }, 3);
+    expect(j.quads?.[3]).toEqual(quad);
+    const added = jobReducer(
+      j,
+      {
+        type: 'addItems',
+        items: [{ index: 3, path: '/p/x.jpg', type: 'jpeg', bytes: 1, sha256: 'z' }],
+        intakeId: 'in2',
+        notices: [],
+      },
+      4,
+    );
+    expect(added.items.map((i) => i.index)).not.toContain(3);
+  });
+});
+
+describe('Turn left (the scanner-style crop, owner 2026-10-24)', () => {
+  it('turns a quarter anticlockwise; Turn right stays clockwise', () => {
+    const job = jobFromIntake('job1', intake, 1000);
+    expect(jobReducer(job, { type: 'turnItem', index: 1, by: 3 }, 2).turns[1]).toBe(3);
+    expect(jobReducer(job, { type: 'turnItem', index: 1 }, 2).turns[1]).toBe(1);
+    const twice = jobReducer(
+      jobReducer(job, { type: 'turnItem', index: 1, by: 3 }, 2),
+      { type: 'turnItem', index: 1 },
+      3,
+    );
+    expect(twice.turns[1]).toBe(0);
+  });
+});
+
+// Press and hold to place a photo anywhere (owner, 2026-10-24): spots are each photo's centre on its page.
+describe('photos placed by hand (spec 2026-10-24 Part 5)', () => {
+  const job = jobFromIntake('job1', intake, 1000);
+  const spots = { 1: { page: 0, x: 50, y: 60, z: 1 }, 3: { page: 0, x: 120, y: 60, z: 2 } };
+  const placed = jobReducer(job, { type: 'setSpots', spots, sizes: { 1: 60, 3: 70 } }, 2);
+
+  it('the first drop fixes every photo where it is, with its size', () => {
+    expect(placed.spots).toEqual(spots);
+    expect(placed.sizes).toEqual({ 1: 60, 3: 70 });
+  });
+
+  it('placeItem moves one photo, puts it on top, and may set its size', () => {
+    const j = jobReducer(placed, { type: 'placeItem', item: 1, page: 1, x: 30, y: 40, size: 80 }, 3);
+    expect(j.spots?.[1]).toEqual({ page: 1, x: 30, y: 40, z: 3 });
+    expect(j.sizes?.[1]).toBe(80);
+    expect(j.spots?.[3]).toEqual(spots[3]);
+    // Not a photo of the job, or not a real place: not taken.
+    expect(jobReducer(placed, { type: 'placeItem', item: 9, page: 0, x: 1, y: 1 }, 3)).toBe(placed);
+    expect(jobReducer(placed, { type: 'placeItem', item: 1, page: -1, x: 1, y: 1 }, 3)).toBe(placed);
+    expect(jobReducer(placed, { type: 'placeItem', item: 1, page: 0, x: Number.NaN, y: 1 }, 3)).toBe(placed);
+  });
+
+  it('all: several changes as one, with one new revision', () => {
+    const j = jobReducer(
+      placed,
+      {
+        type: 'all',
+        actions: [
+          { type: 'turnItem', index: 1 },
+          { type: 'placeItem', item: 1, page: 0, x: 55, y: 65 },
+        ],
+      },
+      3,
+    );
+    expect(j.rev).toBe(placed.rev + 1);
+    expect(j.turns[1]).toBe(1);
+    expect(j.spots?.[1]?.x).toBe(55);
+    expect(jobReducer(placed, { type: 'all', actions: [] }, 3)).toBe(placed);
+  });
+
+  it('Automatic, another paper, direction or layout put every photo back in rows (Review Focus 5)', () => {
+    expect(jobReducer(placed, { type: 'setSizes', sizes: null }, 3).spots).toBeUndefined();
+    expect(jobReducer(placed, { type: 'setSizes', sizes: null }, 3).sizes).toBeUndefined();
+    expect(jobReducer(placed, { type: 'setPaper', paper: 'PHOTO_4x6' }, 3).spots).toBeUndefined();
+    expect(jobReducer(placed, { type: 'setDirection', direction: 'landscape' }, 3).spots).toBeUndefined();
+    expect(jobReducer(placed, { type: 'setLayout', layout: 'morePages' }, 3).spots).toBeUndefined();
+    // Turning or cropping keeps them.
+    expect(jobReducer(placed, { type: 'turnItem', index: 1 }, 3).spots).toEqual(spots);
+  });
+
+  it('a saved job keeps only real spots of its photos; new files never take a placed photo’s number', () => {
+    const saved = JSON.parse(
+      JSON.stringify({ ...placed, spots: { ...spots, 2: { page: 0, x: 'a', y: 1, z: 1 }, 8: spots[1] } }),
+    );
+    expect(normalizeJob(saved)?.spots).toEqual(spots);
+    const removed = jobReducer(placed, { type: 'removeItem', index: 3 }, 3);
+    const added = jobReducer(
+      removed,
+      {
+        type: 'addItems',
+        items: [{ index: 3, path: '/p/y.jpg', type: 'jpeg', bytes: 1, sha256: 'y' }],
+        intakeId: 'in3',
+        notices: [],
+      },
+      4,
+    );
+    expect(added.items.map((i) => i.index)).not.toContain(3);
+  });
+
+  it('Undo of Remove puts the photo back on its spot', () => {
+    const removed = jobReducer(placed, { type: 'removeItem', index: 3 }, 3);
+    const item = placed.items.find((i) => i.index === 3);
+    if (!item) throw new Error('no item');
+    const back = jobReducer(removed, { type: 'restoreItem', item, at: 1, pages: 'best', size: 70, spot: spots[3] }, 4);
+    expect(back.spots?.[3]).toEqual(spots[3]);
+  });
+});
+
+describe('Print front only (review, 2026-10-24)', () => {
+  it('keeps the cards’ own size', () => {
+    const job = jobFromIntake('job1', intake, 1000);
+    const two = jobReducer(
+      job,
+      {
+        type: 'setIdCards',
+        cards: [
+          { item: 1, quad: [0.1, 0.1, 0.9, 0.1, 0.9, 0.5, 0.1, 0.5], turns: 0 },
+          { item: 3, quad: [0.1, 0.5, 0.9, 0.5, 0.9, 0.9, 0.1, 0.9], turns: 0 },
+        ],
+        size: 'custom',
+      },
+      2,
+    );
+    const sized = jobReducer(two, { type: 'setIdCardScale', scale: 1.5 }, 3);
+    const front = sized.idCard?.cards[0];
+    if (!front) throw new Error('no card');
+    expect(jobReducer(sized, { type: 'setIdCards', cards: [front] }, 4).idCard?.scale).toBe(1.5);
+  });
+});

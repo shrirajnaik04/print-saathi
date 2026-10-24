@@ -1,0 +1,50 @@
+{
+ "A-run1": {
+  "logoFrom": "f015.png",
+  "logoUntil": "f086.png",
+  "lowestBetween": "f029.png",
+  "dipRatio": 0.0
+ },
+ "A-run2": {
+  "logoFrom": "f015.png",
+  "logoUntil": "f090.png",
+  "lowestBetween": "f028.png",
+  "dipRatio": 0.0
+ },
+ "A-run3": {
+  "logoFrom": "f014.png",
+  "logoUntil": "f085.png",
+  "lowestBetween": "f029.png",
+  "dipRatio": 0.0
+ },
+ "A-run4": {
+  "logoFrom": "f014.png",
+  "logoUntil": "f079.png",
+  "lowestBetween": "f025.png",
+  "dipRatio": 0.0
+ },
+ "B-run1": {
+  "logoFrom": "f014.png",
+  "logoUntil": "f057.png",
+  "lowestBetween": "f056.png",
+  "dipRatio": 0.927
+ },
+ "B-run2": {
+  "logoFrom": "f014.png",
+  "logoUntil": "f064.png",
+  "lowestBetween": "f014.png",
+  "dipRatio": 0.892
+ },
+ "B-run3": {
+  "logoFrom": "f015.png",
+  "logoUntil": "f056.png",
+  "lowestBetween": "f015.png",
+  "dipRatio": 0.842
+ },
+ "B-run4": {
+  "logoFrom": "f014.png",
+  "logoUntil": "f060.png",
+  "lowestBetween": "f015.png",
+  "dipRatio": 0.984
+ }
+}

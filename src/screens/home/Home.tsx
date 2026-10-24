@@ -9,6 +9,7 @@ import { Button } from '../../ui/Button';
 import type { IconName } from '../../ui/icons';
 import { Panel } from '../../ui/Panel';
 import { Tile, type TileTone } from '../../ui/Tile';
+import { usePinWhileSmall } from '../../ui/usePinWhileSmall';
 import { useRevealOnShow } from '../../ui/useRevealOnShow';
 import { jobText } from '../recent/Recent';
 import { push, type ScreenProps } from '../types';
@@ -61,18 +62,12 @@ export function Home({ go }: ScreenProps) {
       () => setCanPrint(null),
     );
   }, []);
-  // The shop printer becomes known when a test page prints on it (PLAN §D4 setup); until then the owner is asked.
-  const [setUp, setSetUp] = useState(true);
-  useEffect(() => {
-    void PrintEngine.paperSetup().then(
-      (s) => setSetUp(!!s.printer),
-      () => {},
-    );
-  }, []);
   // Choose from phone (PLAN §D3, §J0): the phone's own picker; the files then arrive like a share. A picker that
   // cannot open says so right where the shopkeeper tapped.
   const [failed, setFailed] = useState<string | null>(null);
   const noteRef = useRevealOnShow<HTMLDivElement>(failed);
+  // The logo bar stays at the top while it is small (owner, 2026-10-24); a tall one (big text, phone sideways) scrolls.
+  const [brandRef, brandPinned] = usePinWhileSmall(0.15, 'top');
   const note = (key: string) =>
     failed === key && (
       <div ref={noteRef}>
@@ -97,7 +92,7 @@ export function Home({ go }: ScreenProps) {
   };
   return (
     <main class="screen">
-      <h1 class="brand-title">
+      <h1 ref={brandRef} class={brandPinned ? 'brand-title brand-pinned' : 'brand-title'}>
         <BrandMark />
         {en.app.name}
       </h1>
@@ -147,7 +142,6 @@ export function Home({ go }: ScreenProps) {
       {canPrint === false && (
         <Panel kind="warn" title={t.noPrintService} action={{ label: t.howToFix, onClick: () => go(push('help')) }} />
       )}
-      {!setUp && <Panel kind="warn" title={t.notSetUp} action={{ label: t.setUp, onClick: () => go(push('help')) }} />}
       <div class="stack">
         <Button variant="secondary" icon="settings" onClick={() => go(push('settings'))}>
           {t.settings}

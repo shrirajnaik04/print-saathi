@@ -346,6 +346,21 @@ Please also note: how many of your real card photos were found without Fix corne
 | X10 | A photo received on WhatsApp (sent as a photo, so about 1600 px) → One on each page → print; compare with the photo on the phone | Same sharpness and colours as the original: no visible loss. This photo goes into the print as it is (a 12 MP camera photo is first reduced to what A4 needs, so it would not test this) | ☐ ☐ |
 | X11 | Copy `tests/fixtures/prog-small.jpg` from this repository to the phone (WhatsApp it to yourself as a document) → One on each page → print | It prints whole, with the right colours. It is a "progressive" JPEG, also put in as it is: this proves the shop printer's path reads such photos. If it prints wrong or blank, tell the person who set up the app (the fix is one line) | ☐ ☐ |
 
+## §Y Place anywhere, scanner crop, Word margins, Add photos, whole logo (Phases 20–24) — 30 min
+
+| # | What to do | What to check | Result |
+|---|---|---|---|
+| Y1 | Open the app from the launcher a few times | Android's splash and the app's splash both show the **whole** logo (paper, PS printer, tray) from the first moment; nothing feeds in from nothing; the logo never blinks or fades between them; it does not feel slower than 1.0.203 | ☐ ☐ |
+| Y2 | Share 4 photos → All on one page → print on A4. Ruler from the paper's top-left corner to the first photo | 12.7 mm (Word's Narrow) ± 1 mm; the photos start top-left. Settings → Margins → Normal: 25.4 mm | ☐ ☐ |
+| Y3 | Photo list → **Add photos** → From the gallery → 2 photos; then Adjust → Add photos → From the file manager | The photos join the job at the end, no "New files arrived" question; back where you pressed Add | ☐ ☐ |
+| Y4 | Photograph a page lying on a table at an angle → share it → Print as document → Crop → drag the four corners onto the page's corners (use the magnifier) → Done → print | The page prints flat and straight, sharp; Cancel, Whole photo, Turn left and Turn right do what they say | ☐ ☐ |
+| Y5 | Adjust: press and hold a photo, drag it anywhere, let go; try near the page's middle and another photo's edge | It lifts after about half a second, follows the finger, snaps to the guide lines, stays inside the margins; the page does not scroll while it is held; a quick swipe still scrolls | ☐ ☐ |
+| Y6 | Adjust: drag a photo's side pill in, then print | That side is cut off, the rest prints the same size; the round corner still resizes. The pills are easy to grab on your phone | ☐ ☐ |
+| Y7 | Home on your phone: look at the tiles' edges at the curved sides; scroll Home | Every card's edge is clearly visible; the PrintSaathi bar stays at the top while Home scrolls | ☐ ☐ |
+| Y8 | Aadhaar photo (front only) → ID card copy → **Add the back side** → gallery → the back photo → Card copy → Real card size → print | Front above back on one page; with two sides, **Print front only** prints the front alone (Undo brings the back) | ☐ ☐ |
+| Y9 | Passport photos → Fit the face | Zoom out is on the left, Zoom in on the right | ☐ ☐ |
+| Y10 | Adjust on an ID card copy, a passport sheet and a PDF page: drag the round corner out and in, then print | Each one grows and shrinks as you drag, in the same steps as Smaller / Bigger, and prints at the size shown | ☐ ☐ |
+
 ## Decisions only you can make
 
 | Topic | Choice | My recommendation |

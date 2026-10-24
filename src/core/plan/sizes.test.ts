@@ -69,14 +69,15 @@ describe('sizes the shopkeeper chose', () => {
     expect(jobReducer(j, { type: 'setDirection', direction: 'landscape' }, 4).sizes).toEqual({ 1: 60, 2: 100, 3: 40 });
   });
 
-  it('one on each page: each photo keeps its page, centred at its size', () => {
+  // Owner, 2026-10-24: at the top-left inside Word's Narrow margins (12.7 mm), like a Word page (was centred).
+  it('one on each page: each photo keeps its page, at its top-left at its size', () => {
     const j = jobReducer(base, { type: 'setSizes', sizes: { 1: 100, 2: 90, 3: 50 } }, 3);
     const plan = buildPlan(j, aspects);
     expect(plan.pages).toHaveLength(3);
     const b = plan.pages[2]?.placements[0]?.box as { x: number; y: number; w: number; h: number };
     expect(b.w / MM).toBeCloseTo(50, 6);
-    expect(b.x + b.w / 2).toBeCloseTo(595.2755905511812 / 2, 6);
-    expect(b.y + b.h / 2).toBeCloseTo(841.8897637795275 / 2, 6);
+    expect(b.x / MM).toBeCloseTo(12.7, 6);
+    expect(b.y / MM).toBeCloseTo(12.7, 6);
   });
 
   it('only real sizes of photos in the job are kept (old or damaged jobs load)', () => {

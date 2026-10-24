@@ -3,6 +3,10 @@
  * is the only writer and reads any file field by field, so a damaged or old file never breaks a screen (§E).
  */
 export type Retention = '1h' | '1d' | '7d';
+/** Space kept blank around photos on A4, by Word's names (owner, 2026-10-24: "narrow, same as Word"). */
+export type Margins = 'narrow' | 'normal' | 'small';
+/** Each side, in mm: Word's Narrow and Normal; Small is the edge photos had before (PLAN §G0). */
+export const MARGIN_MM: Record<Margins, number> = { narrow: 12.7, normal: 25.4, small: 6 };
 export type PassportPreset = '35x45' | '20x25' | '2x2in' | 'custom';
 /** Passport photo border widths in points (the line weights Word offers); 0 = none (owner, 2026-10-23). */
 export const PASSPORT_BORDERS = [0, 0.5, 1, 1.5, 2.25, 3] as const;
@@ -41,6 +45,8 @@ export type Settings = {
   photoPaperReminder: boolean;
   /** Advanced: "Space at paper edges" — more for printers that cut off the edge despite calibration. */
   edges: 'normal' | 'more';
+  /** Photo pages on A4: Word's margins (passport sheets, ID cards, documents and 4×6 paper keep their own). */
+  margins: Margins;
   /** "Allow screenshots for 15 minutes" (PLAN §D6): until this time (ms), 0 = off. */
   screenshotsUntil: number;
   /** The first-start steps were shown (PLAN §I-16): never again. */
@@ -61,6 +67,7 @@ export const DEFAULT_SETTINGS: Settings = {
   defaults: { photos: { colour: 'colour', paper: 'A4' }, documents: { colour: 'bw' } },
   photoPaperReminder: true,
   edges: 'normal',
+  margins: 'narrow',
   screenshotsUntil: 0,
   welcomed: false,
   cardSize: 'real',
@@ -120,6 +127,7 @@ export function normalizeSettings(o: unknown): Settings {
     },
     photoPaperReminder: typeof s.photoPaperReminder === 'boolean' ? s.photoPaperReminder : d.photoPaperReminder,
     edges: oneOf(s.edges, ['normal', 'more'] as const, d.edges),
+    margins: oneOf(s.margins, ['narrow', 'normal', 'small'] as const, d.margins),
     screenshotsUntil: Number.isFinite(until) && until > 0 ? Math.round(until) : 0,
     welcomed: s.welcomed === true,
     cardSize: oneOf(s.cardSize, ['real', 'big', 'sets', 'page'] as const, d.cardSize),

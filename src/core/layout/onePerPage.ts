@@ -12,7 +12,8 @@ export type LayoutPage = { orientation: 'portrait' | 'landscape'; placements: { 
 
 /**
  * "One on each page" (PLAN §G0, J3): every photo on its own page at the largest size that fits uncut inside the
- * printable area, centred; a wide photo gets a sideways page. Boxes are in points, top-left origin, in the page's
+ * printable area, centred (documents' pages) or at the top-left like a Word page (photos, owner 2026-10-24); a wide
+ * photo gets a sideways page. Boxes are in points, top-left origin, in the page's
  * own direction (the renderer turns sideways pages into the portrait PDF page).
  * [aspect] = width / height of the photo as it should appear (after EXIF and turns).
  */
@@ -21,6 +22,7 @@ export function onePerPage(
   paper: Paper,
   /** The paper's direction (the job's choice); none = each photo's own (wide photos sideways). */
   direction?: 'portrait' | 'landscape',
+  align: 'centre' | 'topLeft' = 'centre',
 ): LayoutPage[] {
   const edge = mmToPt(paper.edgeMm ?? EDGE_MM);
   return items.map(({ index, aspect }) => {
@@ -30,6 +32,7 @@ export function onePerPage(
     const ah = ph - 2 * edge;
     const w = aspect >= aw / ah ? aw : ah * aspect;
     const h = w / aspect;
-    return { orientation, placements: [{ itemIndex: index, box: { x: (pw - w) / 2, y: (ph - h) / 2, w, h } }] };
+    const at = align === 'topLeft' ? { x: edge, y: edge } : { x: (pw - w) / 2, y: (ph - h) / 2 };
+    return { orientation, placements: [{ itemIndex: index, box: { ...at, w, h } }] };
   });
 }

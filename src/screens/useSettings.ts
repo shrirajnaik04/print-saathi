@@ -25,8 +25,3 @@ export function useSettings(): { settings: Settings; ready: boolean } {
   }, []);
   return { settings, ready };
 }
-
-/** Settings → Space at paper edges: More keeps 3 mm more clear at every edge (every plan drawn, not only Ready). */
-export function useExtraEdgeMm(): number {
-  return useSettings().settings.edges === 'more' ? 3 : 0;
-}
