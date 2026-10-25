@@ -2727,16 +2727,25 @@ test('Ready has Previous page / Next page buttons, never swipe-only paging (PLAN
   await expect(page.getByRole('status').filter({ hasText: 'Page 2 of 3' })).toBeVisible();
 });
 
-test('Recent jobs shows a picture of each job, and a printed job has Print again (PLAN §I-14)', async ({ page }) => {
+// Owner, round 7: a printed job opens on its pages (PRINT is there); its second button is Choose again, back to "What
+// did the customer ask?" (review I2: passport photos or an ID card copy from the same file).
+test('Recent jobs shows a picture of each job; a printed job opens on its pages and has Choose again (PLAN §I-14)', async ({
+  page,
+}) => {
   await page.goto('/?mockIntake=2');
   await page.getByRole('button', { name: 'One on each page' }).click();
   await page.getByRole('button', { name: 'PRINT', exact: true }).click();
   await page.getByRole('button', { name: /Yes/ }).click();
   await page.getByRole('button', { name: 'Recent jobs' }).click();
   await expect(page.locator('.tile img.tile-image')).toHaveCount(1);
-  await page.getByRole('button', { name: 'Print again' }).click();
+  await expect(page.getByRole('button', { name: 'Print again' })).toHaveCount(0);
+  await page.getByRole('button', { name: /^2 files/ }).click();
   await expect(page.locator('main h1')).toHaveText('Ready to print');
   await expect(page.getByText('2 photos · 2 pages', { exact: false })).toBeVisible();
+  await page.getByRole('button', { name: 'Back' }).click();
+  await page.getByRole('button', { name: 'Choose again' }).click();
+  await expect(page.locator('main h1')).toHaveText('Files received');
+  await expect(page.getByRole('button', { name: 'Passport photos' })).toBeVisible();
 });
 
 test('first start: four short steps with Next, then Done; never again (PLAN §I-16)', async ({ page }) => {

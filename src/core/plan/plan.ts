@@ -444,6 +444,11 @@ export const CARD_W_MM = 85.6;
 export const CARD_H_MM = 54;
 const CARD_TOP_MM = 20;
 const CARD_GAP_MM = 10;
+/**
+ * Between front and back one under the other (owner, round 7: "keep the distance this much", about 6 cm), where the
+ * page has room: cards made big keep their size and the gap narrows (to CARD_GAP_MM at least).
+ */
+const STACK_GAP_MM = 60;
 const SET_GAP_MM = 5;
 
 /**
@@ -479,8 +484,10 @@ function outline(b: Box) {
 /**
  * Aadhaar & ID card copy (Phase 14 spec "How big?"), always on A4 portrait, as a document (exact size, never
  * enlarged by the print service):
- * - real: each card exactly 85.6 × 54 mm, centred, stacked 10 mm apart from 20 mm below the top, cut lines around;
- * - big: both enlarged equally to the largest that fits (at most 2×), stacked 10 mm apart, centred, no cut lines;
+ * - real: each card exactly 85.6 × 54 mm, centred, one under the other 60 mm apart (owner, round 7) from 20 mm below
+ *   the top, cut lines around (side by side: 10 mm apart);
+ * - big: both enlarged equally to the largest that fits (at most 2×), one under the other up to 60 mm apart (never
+ *   smaller for it), centred, no cut lines;
  * - sets: real-size sets (front left, back right) in rows 5 mm apart, as many as asked and fit, cut lines;
  * - page: the whole e-Aadhaar page, fitted inside the edges.
  */
@@ -520,9 +527,9 @@ export function idCardPlan(job: Job, edgeMm: number, docs: ReadonlyMap<number, P
   const sizes = choice.cards.map((c) => cardBox(c.turns));
   const widest = Math.max(...sizes.map((s) => s.w));
   const sumH = sizes.reduce((t, s) => t + s.h, 0);
-  const gaps = CARD_GAP_MM * (sides - 1);
   // Side by side (owner, round 5): one row, centred across, each card in the middle of the row's height.
   const row = choice.arrange === 'row';
+  const gaps = CARD_GAP_MM * (sides - 1);
   const sumW = sizes.reduce((t, s) => t + s.w, 0);
   const tallest = Math.max(...sizes.map((s) => s.h));
   const fit = row
@@ -541,12 +548,14 @@ export function idCardPlan(job: Job, edgeMm: number, docs: ReadonlyMap<number, P
         return b;
       });
     }
-    let y = top ?? (hMm - (sumH * scale + gaps)) / 2;
+    const room = hMm - edgeMm - (top ?? edgeMm) - sumH * scale;
+    const gap = sides > 1 ? Math.min(STACK_GAP_MM, Math.max(CARD_GAP_MM, room / (sides - 1))) : 0;
+    let y = top ?? (hMm - (sumH * scale + gap * (sides - 1))) / 2;
     return sizes.map((s) => {
       const w = s.w * scale;
       const h = s.h * scale;
       const b = { x: ((wMm - w) / 2) * MM, y: y * MM, w: w * MM, h: h * MM };
-      y += h + CARD_GAP_MM;
+      y += h + gap;
       return b;
     });
   };

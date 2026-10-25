@@ -414,6 +414,18 @@ AB3 replaces AA6's "a sideways swipe": pages now move with ‹ › only (owner, 
 | AC6 | Drag one photo over another. With the top one chosen tap **Send to back**; then with the other tap **Bring to front** | The photo goes under (or over) the one it covers, on screen and in the print. The buttons are greyed out when the chosen photo covers nothing, or is already where the button would put it | ☐ ☐ |
 | AC7 | ID card copy → Real card size → Adjust cards: drag the cards over each other, then **Send to back** / **Bring to front** | The same for the two cards | ☐ ☐ |
 
+## §AD Tool order, the blinking line, side bars, ID card gap, printed jobs (Phases 39–40) — 10 min
+
+AD1 replaces AC1's "Undo and Redo are the 3rd and 4th tools" for photos.
+
+| # | What to do | What to check | Result |
+|---|---|---|---|
+| AD1 | Photos → Adjust photos | The row starts **Cut, Copy, Crop, Turn, Undo**, then Redo, Paste, Zoom out, Zoom in, Smaller, Bigger… (documents, passport and ID cards: Zoom, Undo, Redo first as before) | ☐ ☐ |
+| AD2 | Copy a photo, then tap an empty spot on the page; then Paste | A thin **blinking line** appears where you tapped ("Paste goes to the line."); the pasted photo's **top-left corner** is at the line. Without anything copied, a tap shows no line | ☐ ☐ |
+| AD3 | Choose a photo at the top-left of the page (near the paper's edge) | All four white side bars sit **on the photo's edges**; dragging the top bar crops (it never turns the photo) | ☐ ☐ |
+| AD4 | ID card copy → Real card size → print; measure with a ruler | Front at the top, back **6 cm** below the front's bottom edge; cards 8.56 × 5.4 cm. Side by side unchanged | ☐ ☐ |
+| AD5 | Print a job → Home → Recent jobs → tap that job | It opens on its pages (Page 1 of N, ‹ ›) with PRINT; **Choose again** goes back to "What did the customer ask?" (for passport photos or an ID card from the same file) | ☐ ☐ |
+
 ## Decisions only you can make
 
 | Topic | Choice | My recommendation |

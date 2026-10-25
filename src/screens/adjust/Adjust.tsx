@@ -618,7 +618,7 @@ export function Adjust({ go, params }: ScreenProps) {
     return true;
   };
   // Copy, Cut and Paste (owner, round 5: "copy paste, cut paste"), within this job: Copy remembers the chosen photo as
-  // it is now; Cut also takes it off (its Undo stays); Paste puts it on the page shown, at the + mark or the page's
+  // it is now; Cut also takes it off (its Undo stays); Paste puts it on the page shown, at the line or the page's
   // middle, placed by hand and chosen. A copy is the same file printed again; a cut photo comes back once.
   const [clip, setClip] = useState<Clip | null>(() => clipFor(jobId));
   const [clipNote, setClipNote] = useState<string | null>(null);
@@ -668,7 +668,8 @@ export function Adjust({ go, params }: ScreenProps) {
     remember(cut);
     setClipNote(fill(t.cutDone, { n }));
   };
-  // The + mark (Word's cursor): where the next Paste goes, on the page shown; set by a tap on an empty spot.
+  // The line (Word's cursor, owner rounds 5 and 7): where the next Paste goes, on the page shown; set by a tap on an
+  // empty spot once something is copied or cut.
   const [mark, setMark] = useState<{ page: number; x: number; y: number } | null>(null);
   // Another page in the middle: the mark was on the page left behind.
   useEffect(() => {
@@ -679,9 +680,11 @@ export function Adjust({ go, params }: ScreenProps) {
     if (!c || !job || !plan) return;
     const onPage = mark?.page ?? shown;
     const sz = pageSize(plan, onPage);
-    const cx = mark ? mark.x : sz.w / 2;
-    const cy = mark ? mark.y : sz.h / 2;
-    const box = byHand.inside(onPage, { x: cx - c.w / 2, y: cy - c.h / 2, w: c.w, h: c.h });
+    // At the blinking line the photo's top-left corner (owner, round 7: Word's cursor); without one, the page's middle.
+    const box = byHand.inside(
+      onPage,
+      mark ? { x: mark.x, y: mark.y, w: c.w, h: c.h } : { x: (sz.w - c.w) / 2, y: (sz.h - c.h) / 2, w: c.w, h: c.h },
+    );
     const x = (box.x + box.w / 2) / MM;
     const y = (box.y + box.h / 2) / MM;
     const fixed = spotsFromPlan(plan, job.spots);
@@ -1014,34 +1017,114 @@ export function Adjust({ go, params }: ScreenProps) {
   // Every tool for this kind, once: in the bottom row on a phone, beside the page when held sideways (round 3).
   const tools = (
     <>
-      {/* Zoom first, on every kind (owner, round 4). */}
-      <Button variant="secondary" icon="zoomOut" disabled={zoom <= ZOOM_MIN} onClick={() => zoomTo(nextZoom(zoom, -1))}>
-        {t.zoomOut}
-      </Button>
-      <Button variant="secondary" icon="zoomIn" disabled={zoom >= ZOOM_MAX} onClick={() => zoomTo(nextZoom(zoom, 1))}>
-        {t.zoomIn}
-      </Button>
-      {/* Then Undo and Redo, on every kind (owner, round 6). */}
-      <Button
-        variant="secondary"
-        icon="undo"
-        label={t.undoStep}
-        disabled={busy || !steps.canUndo}
-        onClick={() => void stepBy('undo')}
-      >
-        {t.undo}
-      </Button>
-      <Button
-        variant="secondary"
-        icon="redo"
-        label={t.redoStep}
-        disabled={busy || !steps.canRedo}
-        onClick={() => void stepBy('redo')}
-      >
-        {t.redo}
-      </Button>
+      {/* Documents, passport sheets and ID cards: Zoom, then Undo and Redo first (rounds 4 and 6). */}
+      {kind !== 'photos' && (
+        <>
+          <Button
+            variant="secondary"
+            icon="zoomOut"
+            disabled={zoom <= ZOOM_MIN}
+            onClick={() => zoomTo(nextZoom(zoom, -1))}
+          >
+            {t.zoomOut}
+          </Button>
+          <Button
+            variant="secondary"
+            icon="zoomIn"
+            disabled={zoom >= ZOOM_MAX}
+            onClick={() => zoomTo(nextZoom(zoom, 1))}
+          >
+            {t.zoomIn}
+          </Button>
+          <Button
+            variant="secondary"
+            icon="undo"
+            label={t.undoStep}
+            disabled={busy || !steps.canUndo}
+            onClick={() => void stepBy('undo')}
+          >
+            {t.undo}
+          </Button>
+          <Button
+            variant="secondary"
+            icon="redo"
+            label={t.redoStep}
+            disabled={busy || !steps.canRedo}
+            onClick={() => void stepBy('redo')}
+          >
+            {t.redo}
+          </Button>
+        </>
+      )}
       {kind === 'photos' && (
         <>
+          {/* First on photos (owner, round 7): Cut, Copy, Crop, Turn, Undo, Redo, Paste, then Zoom, Smaller, Bigger. */}
+          <Button
+            variant="secondary"
+            icon="cut"
+            disabled={busy || sel === null || keys.length < 2}
+            onClick={() => void cutPhoto()}
+          >
+            {t.cut}
+          </Button>
+          <Button variant="secondary" icon="copy" disabled={busy || sel === null} onClick={copyPhoto}>
+            {t.copy}
+          </Button>
+          <Button
+            variant="secondary"
+            icon="crop"
+            disabled={sel === null}
+            onClick={() => sel !== null && goOut(push('cropphoto', { jobId, index: sel }))}
+          >
+            {t.crop}
+          </Button>
+          <Button
+            variant="secondary"
+            icon="turn"
+            disabled={busy || sel === null}
+            onClick={() => sel !== null && void onTop({ type: 'turnItem', index: sel })}
+          >
+            {t.turn}
+          </Button>
+          {/* Undo and Redo (owner, round 6). */}
+          <Button
+            variant="secondary"
+            icon="undo"
+            label={t.undoStep}
+            disabled={busy || !steps.canUndo}
+            onClick={() => void stepBy('undo')}
+          >
+            {t.undo}
+          </Button>
+          <Button
+            variant="secondary"
+            icon="redo"
+            label={t.redoStep}
+            disabled={busy || !steps.canRedo}
+            onClick={() => void stepBy('redo')}
+          >
+            {t.redo}
+          </Button>
+          <Button variant="secondary" icon="paste" disabled={busy || !clip} onClick={() => void pastePhoto()}>
+            {t.paste}
+          </Button>
+          {/* Zoom (owner, round 4). */}
+          <Button
+            variant="secondary"
+            icon="zoomOut"
+            disabled={zoom <= ZOOM_MIN}
+            onClick={() => zoomTo(nextZoom(zoom, -1))}
+          >
+            {t.zoomOut}
+          </Button>
+          <Button
+            variant="secondary"
+            icon="zoomIn"
+            disabled={zoom >= ZOOM_MAX}
+            onClick={() => zoomTo(nextZoom(zoom, 1))}
+          >
+            {t.zoomIn}
+          </Button>
           <Button
             variant="secondary"
             icon="minus"
@@ -1053,28 +1136,12 @@ export function Adjust({ go, params }: ScreenProps) {
           <Button variant="secondary" icon="plus" disabled={busy || !canGrow} onClick={() => resizePhoto(STEP)}>
             {t.bigger}
           </Button>
-          <Button
-            variant="secondary"
-            icon="turn"
-            disabled={busy || sel === null}
-            onClick={() => sel !== null && void onTop({ type: 'turnItem', index: sel })}
-          >
-            {t.turn}
-          </Button>
           {/* Any angle without dragging (PLAN §H2.4): 1° a tap. */}
           <Button variant="secondary" icon="turnLeft" disabled={busy || sel === null} onClick={() => tiltBy(-1)}>
             {t.tiltLeft}
           </Button>
           <Button variant="secondary" icon="turn" disabled={busy || sel === null} onClick={() => tiltBy(1)}>
             {t.tiltRight}
-          </Button>
-          <Button
-            variant="secondary"
-            icon="crop"
-            disabled={sel === null}
-            onClick={() => sel !== null && goOut(push('cropphoto', { jobId, index: sel }))}
-          >
-            {t.crop}
           </Button>
           {/* Placed by hand: pages, not order (the photos stay where they were put). */}
           {free ? (
@@ -1146,20 +1213,6 @@ export function Adjust({ go, params }: ScreenProps) {
             onClick={() => void removePhoto()}
           >
             {t.remove}
-          </Button>
-          <Button variant="secondary" icon="copy" disabled={busy || sel === null} onClick={copyPhoto}>
-            {t.copy}
-          </Button>
-          <Button
-            variant="secondary"
-            icon="cut"
-            disabled={busy || sel === null || keys.length < 2}
-            onClick={() => void cutPhoto()}
-          >
-            {t.cut}
-          </Button>
-          <Button variant="secondary" icon="paste" disabled={busy || !clip} onClick={() => void pastePhoto()}>
-            {t.paste}
           </Button>
           <Button
             variant="secondary"
@@ -1498,16 +1551,16 @@ export function Adjust({ go, params }: ScreenProps) {
                 const sz = pageSize(plan, n);
                 const onWhere = n === where.page;
                 return (
-                  // biome-ignore lint/a11y/useKeyWithClickEvents: the + mark is an extra; Paste without it goes to the page's middle
+                  // biome-ignore lint/a11y/useKeyWithClickEvents: the line is an extra; Paste without it goes to the page's middle
                   // biome-ignore lint/a11y/noStaticElementInteractions: the same tap, on the page itself
                   <div
                     key={n}
                     class={`adjust-sheet${onWhere ? ' adjust-paper' : ''}${n === shown ? ' adjust-shown' : ''}`}
                     data-page={n}
                     onClick={(e) => {
-                      // A tap on an empty spot of the page shown sets the + mark (photos; a photo or a handle is not
-                      // empty).
-                      if (kind !== 'photos' || n !== shown || !plan) return;
+                      // A tap on an empty spot of the page shown sets the line (photos; a photo or a handle is not
+                      // empty), only when there is something to paste (round 7 review M1).
+                      if (kind !== 'photos' || n !== shown || !plan || !clip) return;
                       const target = e.target as HTMLElement;
                       if (target.closest('.adjust-pick, .adjust-handle, .adjust-side, .adjust-rotate')) return;
                       const r = paperOf(n)?.getBoundingClientRect();
@@ -1516,7 +1569,8 @@ export function Adjust({ go, params }: ScreenProps) {
                       setMark({
                         page: n,
                         x: ((e.clientX - r.left) / r.width) * sz.w,
-                        y: ((e.clientY - r.top) / r.height) * sz.h,
+                        // The line is drawn down from the tap: kept on the page (round 7 review M3).
+                        y: Math.min(((e.clientY - r.top) / r.height) * sz.h, sz.h * (1 - (1.75 * remPx) / r.height)),
                       });
                     }}
                     style={{
@@ -1661,7 +1715,7 @@ export function Adjust({ go, params }: ScreenProps) {
               })}
             </div>
             <p class="adjust-size">{sizeText}</p>
-            {/* Under the page, so the page never moves when it shows (Copy, Cut, the + mark). */}
+            {/* Under the page, so the page never moves when it shows (Copy, Cut, the line). */}
             {!lifted && (mark || clipNote) && (
               <p role="status" class="adjust-note">
                 {mark ? t.markShown : clipNote}

@@ -18,14 +18,12 @@ import { forgetClipsExcept } from './screens/adjust/clipboard';
 import { Help } from './screens/help/Help';
 import { Welcome } from './screens/help/Welcome';
 import { Home } from './screens/home/Home';
-import { Photos, PhotoTools } from './screens/photos/Photos';
 import { forgetRemoved } from './screens/photos/undo';
 import { seenPrinted } from './screens/printedJobs';
 import { Problem } from './screens/problem/Problem';
 import { Ready } from './screens/ready/Ready';
 import { Received } from './screens/received/Received';
 import { Receiving } from './screens/received/Receiving';
-import { Result } from './screens/result/Result';
 import type { ScreenProps } from './screens/types';
 import { loadSettings } from './screens/useSettings';
 import { ConfirmSheet } from './ui/ConfirmSheet';
@@ -37,6 +35,7 @@ const cards = () => import('./screens/cards/Cards');
 const passport = () => import('./screens/passport/Passport');
 const docs = () => import('./screens/docs/Docs');
 const groups = () => import('./screens/settings/SettingsGroups');
+const photos = () => import('./screens/photos/Photos');
 const CardsFound = lazyScreen(() => cards().then((m) => m.CardsFound));
 const FixCorners = lazyScreen(() => cards().then((m) => m.FixCorners));
 const CardSize = lazyScreen(() => cards().then((m) => m.CardSize));
@@ -54,6 +53,9 @@ const PassportBorderChoice = lazyScreen(() => passport().then((m) => m.PassportB
 const PassportCustom = lazyScreen(() => groups().then((m) => m.PassportCustom));
 const CropPhoto = lazyScreen(() => import('./screens/photos/CropPhoto').then((m) => m.CropPhoto));
 const AddSource = lazyScreen(() => import('./screens/add/AddSource').then((m) => m.AddSource));
+const Photos = lazyScreen(() => photos().then((m) => m.Photos));
+const PhotoTools = lazyScreen(() => photos().then((m) => m.PhotoTools));
+const Result = lazyScreen(() => import('./screens/result/Result').then((m) => m.Result));
 const Adjust = lazyScreen(() => import('./screens/adjust/Adjust').then((m) => m.Adjust));
 // Recent jobs loads when first opened (round 5: its Delete buttons pushed startup JS to its budget).
 const Recent = lazyScreen(() => import('./screens/recent/Recent').then((m) => m.Recent));
@@ -85,6 +87,9 @@ const TestPage = lazyScreen(() => import('./screens/testpage/TestPage').then((m)
 const Tests = lazyScreen(() => import('./screens/tests/Tests').then((m) => m.Tests));
 const LAZY = [
   CardsFound,
+  Photos,
+  PhotoTools,
+  Result,
   FixCorners,
   CardSize,
   CardSource,

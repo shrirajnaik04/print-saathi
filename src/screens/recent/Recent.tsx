@@ -72,12 +72,13 @@ export function Recent({ go }: ScreenProps) {
                 icon={j.items.some((i) => i.type === 'pdf') ? 'document' : 'photos'}
                 image={cover ? (cover.startsWith('/') ? Capacitor.convertFileSrc(cover) : cover) : undefined}
                 {...jobText(j, now)}
-                onClick={() => go(push('received', { jobId: j.id }))}
+                // A printed job opens on its pages, PRINT there (owner, round 7: "how to view printed pages?").
+                onClick={() => go(push(j.printedAt ? 'ready' : 'received', { jobId: j.id }))}
               />
-              {/* A printed job prints again with the same choices, straight from Ready (PLAN §I-14). */}
+              {/* ...and Choose again goes back to what the customer asked (passport photos, an ID card, round 7 I2). */}
               {j.printedAt && (
-                <Button variant="secondary" icon="print" onClick={() => go(push('ready', { jobId: j.id }))}>
-                  {t.printAgain}
+                <Button variant="secondary" icon="undo" onClick={() => go(push('received', { jobId: j.id }))}>
+                  {t.chooseAgain}
                 </Button>
               )}
               <Button

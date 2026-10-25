@@ -1450,18 +1450,28 @@ main h2 {
 .adjust-strip.adjust-zoomed .adjust-sheet .paper {
   width: 100%;
 }
-/* The + mark (owner, round 5: Word's cursor): where the next Paste goes; drawn only, never in the way of a tap. */
+/* Where the next Paste goes (owner, rounds 5 and 7): drawn only, never in the way of a tap. */
+/* Where Paste goes (owner, round 7): Word's cursor, a blinking vertical line from the spot tapped down; the pasted photo's
+   top-left corner is at its top. Steady when the phone asks for less motion. */
 .adjust-mark {
   position: absolute;
   z-index: 4;
-  width: 24px;
-  height: 24px;
-  margin: -12px 0 0 -12px;
+  width: 2px;
+  height: 1.75rem;
+  margin-left: -1px;
   pointer-events: none;
-  background:
-    linear-gradient(var(--primary), var(--primary)) center / 3px 100% no-repeat,
-    linear-gradient(var(--primary), var(--primary)) center / 100% 3px no-repeat;
-  filter: drop-shadow(0 0 1px #fff) drop-shadow(0 0 1px #fff);
+  background: var(--primary);
+  box-shadow: 0 0 0 1px #fff;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .adjust-mark {
+    animation: adjust-blink 1.06s steps(1) infinite;
+  }
+}
+@keyframes adjust-blink {
+  50% {
+    opacity: 0;
+  }
 }
 /* "Page n of N" with ‹ › at its sides, outside the page (nothing covers it); at big text the words wrap between them. */
 .adjust-pagebar {
@@ -1556,7 +1566,7 @@ main h2 {
 /* Sides to crop (Word's crop, owner 2026-10-24): a pill in the middle of each side, drawn small, touched at 56 px. */
 .adjust-side {
   position: absolute;
-  z-index: 2;
+  z-index: 3; /* above the turn handle, whose touch area reaches over the top bar (round 7 review I1) */
   width: 3.5rem;
   height: 3.5rem;
   touch-action: none;
@@ -1627,16 +1637,30 @@ main h2 {
   inset: -1.5rem -0.25rem -0.25rem -1.5rem;
 }
 .adjust-side-r.adjust-in {
-  right: 0;
+  right: -0.25rem;
 }
 .adjust-side-b.adjust-in {
-  bottom: 0;
+  bottom: -0.25rem;
 }
 .adjust-side-l.adjust-in {
-  left: 0;
+  left: -0.25rem;
 }
 .adjust-side-t.adjust-in {
-  top: 0;
+  top: -0.25rem;
+}
+/* ...a little past the edge, so a finger just outside still takes the bar (round 7 review I1); the bar itself is drawn on
+   the photo's edge (owner, round 7: "must be on edges"). */
+.adjust-side-l.adjust-in::after {
+  left: 0.25rem;
+}
+.adjust-side-r.adjust-in::after {
+  left: calc(100% - 0.25rem);
+}
+.adjust-side-t.adjust-in::after {
+  top: 0.25rem;
+}
+.adjust-side-b.adjust-in::after {
+  top: calc(100% - 0.25rem);
 }
 .adjust-handle::before {
   content: "";

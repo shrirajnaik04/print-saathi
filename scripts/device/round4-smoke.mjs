@@ -335,8 +335,9 @@ try {
   result.tools = tools;
   result.checks.toolsAreCompact =
     tools.length > 4 &&
-    tools[0]?.name === 'Zoom out' &&
-    tools[1]?.name === 'Zoom in' &&
+    // Owner, round 7: photos start with Cut and Copy (Zoom follows Paste).
+    tools[0]?.name === 'Cut' &&
+    tools[1]?.name === 'Copy' &&
     tools.every((t) => t.h >= 56 && t.h <= 64 && t.w >= 56);
   // Where the strip is on the screen (px): the page's box times the density, plus the page's offset (the title's).
   const strip = await evaluate(

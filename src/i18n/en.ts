@@ -35,7 +35,8 @@ export const en = {
     title: 'Recent jobs',
     empty: 'No jobs yet. Files you share from WhatsApp appear here.',
     kept: 'Customer files are deleted {period} after they were last used.',
-    printAgain: 'Print again',
+    /** Owner, round 7: a printed job opens on its pages; this goes back to what the customer asked (review I2). */
+    chooseAgain: 'Choose again',
     /** Owner, round 5: delete one job or all of them, each asked once (the app stays light). */
     delete: 'Delete',
     deleteOne: 'Delete this job?',
@@ -495,7 +496,7 @@ export const en = {
     paste: 'Paste',
     copied: 'Photo {n} copied.',
     cutDone: 'Photo {n} cut. Paste puts it back.',
-    markShown: 'Paste goes to the + mark.',
+    markShown: 'Paste goes to the line.',
     /** ID cards (owner, round 5): front above back (the default) or side by side; two lines in a tool at most. */
     stacked: 'Top and bottom',
     sideBySide: 'Side by side',

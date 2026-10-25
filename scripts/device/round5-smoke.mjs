@@ -262,8 +262,14 @@ try {
   const markY = Math.round((paper.y + below * paper.dpr + Math.min(paper.y + paper.h, bar.y)) / 2);
   sh('input', 'tap', String(Math.round(paper.x + paper.w / 2)), String(markY));
   await sleep(1000);
-  const marked = has('Paste goes to the + mark.');
+  // Owner, round 7: the mark is a line ("Paste goes to the line.").
+  const marked = has('Paste goes to the line.');
   await shot('05-mark');
+  // Paste sits past the tools on screen since round 7: brought into view, then a real tap.
+  await evaluate(
+    `JSON.stringify(!![...document.querySelectorAll('.actionbar button')].find((b) => b.textContent.trim() === 'Paste')?.scrollIntoView({ block: 'nearest', inline: 'center' }))`,
+  );
+  await sleep(800);
   await tapExact('Paste');
   await sleep(2000);
   const after = jobJson();

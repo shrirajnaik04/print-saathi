@@ -39,7 +39,7 @@ function cardJob(size?: 'real' | 'big' | 'sets' | 'page', two = true): Job {
 }
 
 describe('ID card plans (Phase 14 spec "How big?")', () => {
-  it('real size: two boxes of exactly 85.6 × 54 mm, centred, 10 mm apart, from 20 mm below the top, cut lines', () => {
+  it('real size: two boxes of exactly 85.6 × 54 mm, centred, 60 mm apart (owner, round 7), from 20 mm below the top, cut lines', () => {
     const plan = idCardPlan(cardJob('real'), 6);
     expect(plan.paper.id).toBe('A4');
     expect(plan.contentType).toBe('document');
@@ -50,11 +50,18 @@ describe('ID card plans (Phase 14 spec "How big?")', () => {
       near((p?.box.x ?? 0) + (p?.box.w ?? 0) / 2, 595.2756 / 2);
     }
     near(a?.box.y ?? 0, 56.6929);
-    near((b?.box.y ?? 0) - ((a?.box.y ?? 0) + (a?.box.h ?? 0)), 28.3465);
+    near((b?.box.y ?? 0) - ((a?.box.y ?? 0) + (a?.box.h ?? 0)), 60 * MM);
     expect(plan.pages[0]?.guides).toHaveLength(8);
     expect(a?.quad).toEqual(front);
     expect(b?.quad).toEqual(back);
     expect(a?.crop).toEqual({ x: 0, y: 0, w: 1, h: 1 });
+  });
+
+  it('big size and own size, one under the other: 60 mm between them too (owner, round 7)', () => {
+    for (const job of [cardJob('big'), jobReducer(cardJob('real'), { type: 'setIdCardScale', scale: 1.5 }, 3)]) {
+      const [a, b] = idCardPlan(job, 6).pages[0]?.placements ?? [];
+      near(((b?.box.y ?? 0) - ((a?.box.y ?? 0) + (a?.box.h ?? 0))) / MM, 60);
+    }
   });
 
   it('big size: both enlarged equally, at most 2× (171.2 × 108 mm), no cut lines', () => {

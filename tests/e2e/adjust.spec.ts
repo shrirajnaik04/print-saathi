@@ -550,20 +550,24 @@ test.describe('zoom (owner, round 4)', () => {
   test.use({ viewport: { width: 412, height: 915 } });
   const label = (page: Page) => page.locator('.adjust-page');
   const paperW = async (page: Page) => (await page.locator('.adjust-paper figure').boundingBox())?.width ?? 0;
-  test('Zoom out / Zoom in are the first two tools on every kind, 56 px or more; 100 % to start', async ({ page }) => {
-    for (const open of [
-      () => openAdjust(page, 'One on each page', 2),
-      async () => {
-        await page.goto('/?mockIntake=1&mockPdfAt=1');
-        await button(page, 'Adjust pages').click();
-        await expect(title(page)).toHaveText('Page 1 of 3');
-      },
-    ]) {
+  // Owner, round 7: on photos Cut, Copy, Crop, Turn, Undo, Redo and Paste come first; zoom follows them.
+  test('Zoom out / Zoom in: first on pages, after Paste on photos, 56 px or more; 100 % to start', async ({ page }) => {
+    for (const [open, at] of [
+      [() => openAdjust(page, 'One on each page', 2), 7],
+      [
+        async () => {
+          await page.goto('/?mockIntake=1&mockPdfAt=1');
+          await button(page, 'Adjust pages').click();
+          await expect(title(page)).toHaveText('Page 1 of 3');
+        },
+        0,
+      ],
+    ] as const) {
       await open();
       const tools = page.locator('.actionbar .tool-row .btn');
-      await expect(tools.nth(0)).toHaveAccessibleName('Zoom out');
-      await expect(tools.nth(1)).toHaveAccessibleName('Zoom in');
-      for (const i of [0, 1]) {
+      await expect(tools.nth(at)).toHaveAccessibleName('Zoom out');
+      await expect(tools.nth(at + 1)).toHaveAccessibleName('Zoom in');
+      for (const i of [at, at + 1]) {
         const b = await tools.nth(i).boundingBox();
         expect(Math.min(b?.width ?? 0, b?.height ?? 0)).toBeGreaterThanOrEqual(56 - 0.5);
       }
@@ -799,35 +803,6 @@ test.describe('copy, cut and paste (owner, round 5)', () => {
     expect(copy?.crop).toEqual(original?.crop);
     expect(Math.round(copy?.box.w ?? 0)).toBe(Math.round(original?.box.w ?? -1));
     await expect(page.getByText('These photos are the same:')).toHaveCount(0);
-  });
-  test('Paste goes to the + mark: tap an empty spot, Paste, the copy is centred there', async ({ page }) => {
-    await openAdjust(page);
-    await button(page, 'Copy').click();
-    const paper = await page.locator('.adjust-paper figure').boundingBox();
-    if (!paper) throw new Error('no page');
-    // An empty spot: under the lowest photo (they flow from the top) and above the tool row pinned at the bottom.
-    const lowest = Math.max(
-      ...(await page
-        .locator('.adjust-sheet[data-page="0"] .adjust-pick')
-        .evaluateAll((els) => els.map((e) => e.getBoundingClientRect().bottom))),
-    );
-    const barTop = (await page.locator('.actionbar').boundingBox())?.y ?? paper.y + paper.height;
-    const clickY = (lowest + Math.min(paper.y + paper.height, barTop)) / 2;
-    expect(clickY - lowest).toBeGreaterThan(20);
-    await page.mouse.click(paper.x + paper.width * 0.5, clickY);
-    await expect(page.locator('.adjust-mark')).toBeVisible();
-    await expect(page.getByText('Paste goes to the + mark.')).toBeVisible();
-    const s = paper.width / 595.2756;
-    await button(page, 'Paste').click();
-    await expect(page.locator('.adjust-mark')).toHaveCount(0);
-    await done(page);
-    await expect.poll(async () => (await all(page)).length).toBe(5);
-    const copy = (await all(page)).find((p) => p.itemIndex > 4);
-    const cx = (copy?.box.x ?? 0) + (copy?.box.w ?? 0) / 2;
-    const cy = (copy?.box.y ?? 0) + (copy?.box.h ?? 0) / 2;
-    expect(Math.abs(cx - (paper.width * 0.5) / s)).toBeLessThanOrEqual(2);
-    // Kept inside the margins: its centre at the mark, or as near as the photo's size lets it be.
-    expect(Math.abs(cy - (clickY - paper.y) / s)).toBeLessThanOrEqual((copy?.box.h ?? 0) / 2 + 2);
   });
   test('the page stays where it is when Copy says so (the note is under the page)', async ({ page }) => {
     await openAdjust(page);
@@ -1110,26 +1085,30 @@ test.describe('Undo and Redo (round 6)', () => {
     await expect(title(page)).toHaveText('Ready to print');
     await page.waitForTimeout(300);
   };
-  test('Undo and Redo are the 3rd and 4th tools on every kind, 56 px or more, nothing to undo at first', async ({
+  // Owner, round 7: on photos Undo and Redo follow Cut, Copy, Crop and Turn (5th and 6th).
+  test('Undo and Redo: 3rd and 4th on pages, cards and passport, 5th and 6th on photos; nothing to undo at first', async ({
     page,
   }) => {
-    for (const open of [
-      () => openAdjust(page, 'One on each page', 2),
-      async () => {
-        await page.goto('/?mockIntake=1&mockPdfAt=1');
-        await button(page, 'Adjust pages').click();
-        await expect(title(page)).toHaveText('Page 1 of 3');
-      },
-      () => kinds.cards?.(page),
-      () => kinds.passport?.(page),
-    ]) {
+    for (const [open, at] of [
+      [() => openAdjust(page, 'One on each page', 2), 4],
+      [
+        async () => {
+          await page.goto('/?mockIntake=1&mockPdfAt=1');
+          await button(page, 'Adjust pages').click();
+          await expect(title(page)).toHaveText('Page 1 of 3');
+        },
+        2,
+      ],
+      [() => kinds.cards?.(page) ?? Promise.resolve(), 2],
+      [() => kinds.passport?.(page) ?? Promise.resolve(), 2],
+    ] as const) {
       await open();
       const tools = page.locator('.actionbar .tool-row .btn');
-      await expect(tools.nth(2)).toHaveAccessibleName('Undo the last change');
-      await expect(tools.nth(3)).toHaveAccessibleName('Redo what was undone');
-      await expect(tools.nth(2)).toHaveText('Undo');
-      await expect(tools.nth(3)).toHaveText('Redo');
-      for (const i of [2, 3]) {
+      await expect(tools.nth(at)).toHaveAccessibleName('Undo the last change');
+      await expect(tools.nth(at + 1)).toHaveAccessibleName('Redo what was undone');
+      await expect(tools.nth(at)).toHaveText('Undo');
+      await expect(tools.nth(at + 1)).toHaveText('Redo');
+      for (const i of [at, at + 1]) {
         await expect(tools.nth(i)).toBeDisabled();
         expect((await tools.nth(i).boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(56 - 0.5);
       }
@@ -1415,5 +1394,182 @@ test.describe('Undo and Redo review fixes (round 6)', () => {
     await button(page, 'Keep working').click();
     await expect(undo(page)).toBeEnabled();
     await expect(redo(page)).toBeDisabled();
+  });
+});
+
+// Owner, round 7: "replace undo with crop, zoom out with cut, zoom in with copy, smaller with turn" (Undo kept by
+// Redo); "cursor must be pipe and blinking"; "must be on edges" (the side bars).
+test.describe('round 7: tool order, the blinking line, side bars on the edges', () => {
+  test.use({ viewport: { width: 412, height: 915 } });
+  type Bx = { x: number; y: number; w: number; h: number };
+  type P = { pages: { placements: { itemIndex: number; box: Bx }[] }[] };
+  const plan = (page: Page) => page.evaluate(() => (globalThis as { __lastPlan?: P }).__lastPlan);
+  test('photos: Cut, Copy, Crop, Turn, Undo, Redo, Paste, Zoom out, Zoom in, Smaller, Bigger come first', async ({
+    page,
+  }) => {
+    await openAdjust(page);
+    const names = await page
+      .locator('.actionbar .tool-row .btn')
+      .evaluateAll((els) => els.slice(0, 11).map((e) => e.getAttribute('aria-label') ?? e.textContent?.trim()));
+    expect(names).toEqual([
+      'Cut',
+      'Copy',
+      'Crop',
+      'Turn',
+      'Undo the last change',
+      'Redo what was undone',
+      'Paste',
+      'Zoom out',
+      'Zoom in',
+      'Smaller',
+      'Bigger',
+    ]);
+    // Each tool once.
+    const all = await page
+      .locator('.actionbar .tool-row .btn')
+      .evaluateAll((els) => els.map((e) => e.getAttribute('aria-label') ?? e.textContent?.trim()));
+    expect(new Set(all).size).toBe(all.length);
+  });
+  /** Copy the chosen photo, then tap an empty spot under the photos; where the tap was, in page points. */
+  const markBelow = async (page: Page) => {
+    // The chosen photo made small, so that a copy of it fits under the photos (review M4).
+    for (let i = 0; i < 12 && (await button(page, 'Smaller').isEnabled()); i++) await button(page, 'Smaller').click();
+    await button(page, 'Copy').click();
+    const paper = await page.locator('.adjust-paper figure').boundingBox();
+    if (!paper) throw new Error('no page');
+    // The first empty spot (top to bottom, left to right) where a copy of the chosen photo fits inside the margins.
+    const spot = await page.evaluate(() => {
+      const paperBox = document.querySelector('.adjust-paper figure')?.getBoundingClientRect();
+      const picks = [...document.querySelectorAll('.adjust-sheet[data-page="0"] .adjust-pick')].map((e) =>
+        e.getBoundingClientRect(),
+      );
+      const chosen = document.querySelector('.adjust-sheet[data-page="0"] .adjust-selected')?.getBoundingClientRect();
+      const bar = document.querySelector('.actionbar')?.getBoundingClientRect().top ?? Number.POSITIVE_INFINITY;
+      if (!paperBox || !chosen) return null;
+      const m = (paperBox.width * 12.7) / 210;
+      const free = (x: number, y: number) =>
+        !picks.some(
+          (r) => x < r.right + 6 && x + chosen.width > r.left - 6 && y < r.bottom + 6 && y + chosen.height > r.top - 6,
+        );
+      for (let y = paperBox.top + m; y + chosen.height <= Math.min(paperBox.bottom - m, bar - 4); y += 4)
+        for (let x = paperBox.left + m; x + chosen.width <= paperBox.right - m; x += 4) if (free(x, y)) return { x, y };
+      return null;
+    });
+    if (!spot) throw new Error('no empty spot where a copy fits');
+    const { x, y } = spot;
+    await page.mouse.click(x, y);
+    const s = paper.width / 595.2756;
+    return { x: (x - paper.x) / s, y: (y - paper.y) / s, s, paper };
+  };
+  test('the cursor is a thin vertical line that blinks, with its top where the tap was', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
+    await openAdjust(page);
+    const at = await markBelow(page);
+    const line = page.locator('.adjust-mark');
+    await expect(line).toBeVisible();
+    await expect(page.getByText('Paste goes to the line.')).toBeVisible();
+    const b = await line.boundingBox();
+    if (!b) throw new Error('no line');
+    expect(b.width).toBeLessThanOrEqual(4);
+    expect(b.height).toBeGreaterThanOrEqual(20);
+    expect(Math.abs((b.y - at.paper.y) / at.s - at.y)).toBeLessThanOrEqual(2 / at.s);
+    expect(await line.evaluate((e) => getComputedStyle(e).animationName)).not.toBe('none');
+  });
+  test('the line does not blink when the phone asks for less motion', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await openAdjust(page);
+    await markBelow(page);
+    await expect(page.locator('.adjust-mark')).toBeVisible();
+    expect(await page.locator('.adjust-mark').evaluate((e) => getComputedStyle(e).animationName)).toBe('none');
+  });
+  test("Paste puts the photo's top-left corner at the line", async ({ page }) => {
+    await openAdjust(page);
+    const at = await markBelow(page);
+    await button(page, 'Paste').click();
+    await expect(page.locator('.adjust-mark')).toHaveCount(0);
+    await button(page, 'Done').click();
+    await expect(title(page)).toHaveText('Ready to print');
+    await expect.poll(async () => (await plan(page))?.pages.flatMap((p) => p.placements).length).toBe(5);
+    const copy = (await plan(page))?.pages.flatMap((p) => p.placements).find((p) => p.itemIndex > 4)?.box;
+    if (!copy) throw new Error('no copy');
+    expect(Math.abs(copy.x - at.x)).toBeLessThanOrEqual(2);
+    // At the line's top, or as near as the bottom margin lets a photo of its size be.
+    const margin = 12.7 * (72 / 25.4);
+    expect(at.y + copy.h).toBeLessThanOrEqual(841.8898 - margin); // the spot was chosen so that it fits (review M4)
+    expect(Math.abs(copy.y - at.y)).toBeLessThanOrEqual(2);
+  });
+  test('every side bar of a photo at the top-left of the page is drawn on its edge', async ({ page }) => {
+    await openAdjust(page, 'One on each page', 2);
+    const sides = await page.evaluate(() => {
+      const out: Record<string, { at: number; edge: number }> = {};
+      for (const s of ['l', 'r', 't', 'b']) {
+        const el = document.querySelector(`.adjust-side-${s}`);
+        const pick = el?.closest('.adjust-pick') ?? el?.parentElement;
+        if (!el || !pick) continue;
+        const r = el.getBoundingClientRect();
+        const p = pick.getBoundingClientRect();
+        const a = getComputedStyle(el, '::after');
+        const cx = r.left + Number.parseFloat(a.left);
+        const cy = r.top + Number.parseFloat(a.top);
+        out[s] =
+          s === 'l'
+            ? { at: cx, edge: p.left }
+            : s === 'r'
+              ? { at: cx, edge: p.right }
+              : s === 't'
+                ? { at: cy, edge: p.top }
+                : { at: cy, edge: p.bottom };
+      }
+      return out;
+    });
+    expect(Object.keys(sides).sort()).toEqual(['b', 'l', 'r', 't']);
+    for (const [s, v] of Object.entries(sides)) expect(Math.abs(v.at - v.edge), s).toBeLessThanOrEqual(2);
+  });
+  // Review I1: the top bar of a photo at the page's top is under the turn handle; a finger on the bar, or just outside
+  // it, must take the bar (crop), never the turn handle.
+  test('a finger on a side bar, or just outside it, takes the bar, not the turn handle (review I1)', async ({
+    page,
+  }) => {
+    await openAdjust(page, 'One on each page', 2);
+    const hits = await page.evaluate(() => {
+      const out: Record<string, string[]> = {};
+      for (const s of ['l', 'r', 't', 'b']) {
+        const el = document.querySelector(`.adjust-side-${s}`);
+        if (!el) continue;
+        const r = el.getBoundingClientRect();
+        const a = getComputedStyle(el, '::after');
+        const cx = r.left + Number.parseFloat(a.left);
+        const cy = r.top + Number.parseFloat(a.top);
+        const out3 = { l: [-3, 0], r: [3, 0], t: [0, -3], b: [0, 3] }[s] as number[];
+        out[s] = [
+          [cx, cy],
+          [cx + (out3[0] ?? 0), cy + (out3[1] ?? 0)],
+        ].map(([x, y]) => document.elementFromPoint(x ?? 0, y ?? 0)?.closest('.adjust-side')?.className ?? 'none');
+      }
+      return out;
+    });
+    for (const [s, at] of Object.entries(hits)) for (const c of at) expect(c, s).toContain(`adjust-side-${s}`);
+  });
+  test('no line without something copied; the line stays on the page (review M1, M3)', async ({ page }) => {
+    await openAdjust(page);
+    const paper = await page.locator('.adjust-paper figure').boundingBox();
+    if (!paper) throw new Error('no page');
+    const rows = await page
+      .locator('.adjust-sheet[data-page="0"] .adjust-pick')
+      .evaluateAll((els) => els.map((e) => e.getBoundingClientRect().bottom));
+    await page.mouse.click(paper.x + 4, Math.max(...rows) + 4);
+    await expect(page.locator('.adjust-mark')).toHaveCount(0);
+    await button(page, 'Copy').click();
+    // At the very bottom of the page (in its empty left margin, scrolled clear of the tools): the line ends on the page.
+    await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+    const bottom = await page.locator('.adjust-paper figure').boundingBox();
+    const barTop = (await page.locator('.actionbar').boundingBox())?.y ?? Number.POSITIVE_INFINITY;
+    if (!bottom) throw new Error('no page');
+    expect(bottom.y + bottom.height).toBeLessThan(barTop);
+    await page.mouse.click(bottom.x + 4, bottom.y + bottom.height - 2);
+    await expect(page.locator('.adjust-mark')).toBeVisible();
+    const line = await page.locator('.adjust-mark').boundingBox();
+    if (!line) throw new Error('no line');
+    expect(line.y + line.height).toBeLessThanOrEqual(bottom.y + bottom.height + 0.5);
   });
 });

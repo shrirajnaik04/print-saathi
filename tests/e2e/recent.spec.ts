@@ -86,3 +86,27 @@ test('no Delete all jobs on an empty list; the buttons are 56 px or more', async
     expect(r?.height ?? 0).toBeGreaterThanOrEqual(56 - 0.5);
   }
 });
+
+// Owner, round 7: "how to view printed file / pages?": a printed job opens on its pages as printed (Ready); one not
+// printed yet opens on its choices, as before.
+test('a printed job tapped in Recent jobs opens on its pages; one not printed opens on its choices', async ({
+  page,
+}) => {
+  await page.goto('/?mockIntake=2');
+  await button(page, 'One on each page').click();
+  await expect(title(page)).toHaveText('Ready to print');
+  await button(page, 'PRINT').click();
+  await button(page, 'Yes, done').click();
+  await expect(button(page, 'Recent jobs')).toBeVisible();
+  await button(page, 'Recent jobs').click();
+  await page.getByRole('button', { name: /^2 files/ }).click();
+  await expect(title(page)).toHaveText('Ready to print');
+  await expect(page.getByText(/^Page 1 of 2/).first()).toBeVisible();
+  await button(page, 'Home').click();
+  await twoJobs(page);
+  await page
+    .getByRole('button', { name: /Not printed yet/ })
+    .first()
+    .click();
+  await expect(title(page)).toHaveText('Files received');
+});

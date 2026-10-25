@@ -333,10 +333,16 @@ test('Adjust opened by a tap on a photo on Ready shows its side handles (review 
   await button(page, 'One on each page').click();
   await expect(title(page)).toHaveText('Ready to print');
   await expect(page.locator('.sheets .paper').first()).toBeVisible();
-  const paper = await page.locator('.sheets .paper').first().boundingBox();
-  if (!paper) throw new Error('no page');
-  await page.mouse.click(paper.x + paper.width / 2, paper.y + paper.height / 3);
-  await expect(title(page)).toHaveText('Photo 1 of 1');
+  // Ready may draw its page again when the print file arrives: wait for the page to be there, then tap it.
+  await expect
+    .poll(async () => (await page.locator('.sheets .paper').first().boundingBox())?.width ?? 0)
+    .toBeGreaterThan(0);
+  await expect(async () => {
+    const paper = await page.locator('.sheets .paper').first().boundingBox();
+    if (!paper) throw new Error('no page');
+    await page.mouse.click(paper.x + paper.width / 2, paper.y + paper.height / 3);
+    await expect(title(page)).toHaveText('Photo 1 of 1', { timeout: 1500 });
+  }).toPass({ timeout: 10_000 });
   await expect(page.locator('.adjust-side').first()).toBeVisible();
   // Touched at 56 px like every handle the shopkeeper presses.
   const h = await page.locator('.adjust-side').first().boundingBox();
