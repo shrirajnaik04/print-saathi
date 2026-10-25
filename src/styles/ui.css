@@ -166,6 +166,9 @@ html {
   width: 100%;
   height: 100%;
 }
+.icon-flip svg {
+  transform: scaleX(-1);
+}
 .icon-sm {
   width: 1.125rem;
   height: 1.125rem;

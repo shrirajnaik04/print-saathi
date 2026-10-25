@@ -1,0 +1,217 @@
+{
+  "serial": "emulator-5580",
+  "checks": {
+    "homeHasNoWhatsAppCard": true,
+    "backOnHomeAsksAndStayStays": true,
+    "eachSidePassesItsCropScreen": true,
+    "changePhotoReplacesTheFront": true,
+    "turnedSidePrintsStanding": true,
+    "colourSwitchIsByTheTitle": true,
+    "glossyIsReminded": true,
+    "leavingAsksKeepWorkingStays": true,
+    "toolsAreCompact": true,
+    "theNextPageShowsAtTheSide": true,
+    "nextPageGoesToPage2": true,
+    "zoomInTwiceIs200": true,
+    "zoomedAFingerPansThePage": true
+  },
+  "cropChain": [
+    "Front of the card",
+    "Back of the card"
+  ],
+  "changePhoto": {
+    "frontBefore": 1,
+    "frontAfter": 3,
+    "items": [
+      2,
+      3
+    ]
+  },
+  "card": {
+    "turns": 1,
+    "boxes": [
+      {
+        "wMm": 54,
+        "hMm": 85.6
+      },
+      {
+        "wMm": 85.6,
+        "hMm": 54
+      }
+    ]
+  },
+  "colourSwitch": {
+    "colour": [
+      2194,
+      218,
+      2386,
+      330
+    ],
+    "summary": [
+      48,
+      384,
+      2512,
+      440
+    ]
+  },
+  "leave": {
+    "choices": true,
+    "keptOnReady": true,
+    "backInsideTheJobDoesNotAsk": true,
+    "backOutOfTheJobAsks": true,
+    "leftWithTheJobKept": true
+  },
+  "tools": [
+    {
+      "name": "Zoom out",
+      "h": 64,
+      "w": 72
+    },
+    {
+      "name": "Zoom in",
+      "h": 64,
+      "w": 72
+    },
+    {
+      "name": "Undo the last change",
+      "h": 64,
+      "w": 72
+    },
+    {
+      "name": "Redo what was undone",
+      "h": 64,
+      "w": 72
+    },
+    {
+      "name": "Smaller",
+      "h": 64,
+      "w": 72
+    },
+    {
+      "name": "Bigger",
+      "h": 64,
+      "w": 72
+    },
+    {
+      "name": "Turn",
+      "h": 64,
+      "w": 72
+    },
+    {
+      "name": "Tilt left",
+      "h": 64,
+      "w": 72
+    },
+    {
+      "name": "Tilt right",
+      "h": 64,
+      "w": 72
+    },
+    {
+      "name": "Crop",
+      "h": 64,
+      "w": 72
+    },
+    {
+      "name": "Move earlier",
+      "h": 64,
+      "w": 72
+    },
+    {
+      "name": "Move later",
+      "h": 64,
+      "w": 72
+    },
+    {
+      "name": "Move up",
+      "h": 64,
+      "w": 72
+    },
+    {
+      "name": "Move down",
+      "h": 64,
+      "w": 72
+    },
+    {
+      "name": "Move left",
+      "h": 64,
+      "w": 72
+    },
+    {
+      "name": "Move right",
+      "h": 64,
+      "w": 72
+    },
+    {
+      "name": "Bring to front",
+      "h": 64,
+      "w": 72
+    },
+    {
+      "name": "Send to back",
+      "h": 64,
+      "w": 72
+    },
+    {
+      "name": "Previous photo",
+      "h": 64,
+      "w": 72
+    },
+    {
+      "name": "Next photo",
+      "h": 64,
+      "w": 72
+    },
+    {
+      "name": "Remove",
+      "h": 64,
+      "w": 72
+    },
+    {
+      "name": "Copy",
+      "h": 64,
+      "w": 72
+    },
+    {
+      "name": "Cut",
+      "h": 64,
+      "w": 72
+    },
+    {
+      "name": "Paste",
+      "h": 64,
+      "w": 72
+    },
+    {
+      "name": "Automatic",
+      "h": 64,
+      "w": 72
+    },
+    {
+      "name": "Add photos",
+      "h": 64,
+      "w": 72
+    }
+  ],
+  "peek": 10,
+  "next": {
+    "label": "Page 2 of 6",
+    "title": "Photo 2 of 6"
+  },
+  "zoom": {
+    "label": "Page 2 of 6 · 200 %",
+    "ratio": 2
+  },
+  "zoomPan": {
+    "before": {
+      "left": 384,
+      "top": 543,
+      "label": "Page 2 of 6 · 200 %"
+    },
+    "after": {
+      "left": 768,
+      "top": 788,
+      "label": "Page 2 of 6 · 200 %"
+    }
+  }
+}

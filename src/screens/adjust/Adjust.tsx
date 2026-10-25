@@ -27,6 +27,19 @@ import { useJob } from '../useJob';
 import { usePlanPaper } from '../usePlanPaper';
 import { useStraightImages } from '../useStraightImages';
 import { type Clip, clipFor, keepClip } from './clipboard';
+import {
+  dropStep,
+  editsOf,
+  forgetSteps,
+  leaveFor,
+  recordStep,
+  returned,
+  settle,
+  stepsFor,
+  takeRedo,
+  takeUndo,
+} from './history';
+import { layerState, stackedSpots } from './layers';
 import { cmText, findItem, itemsInPlan, longMm, ownLongMm, pageSize } from './place';
 import { usePlaceByHand } from './usePlaceByHand';
 import { nextZoom, ZOOM_MAX, ZOOM_MIN } from './zoom';
@@ -62,7 +75,34 @@ const sameQuad = (a?: number[], b?: number[]) => !!a && !!b && a.join(',') === b
  */
 export function Adjust({ go, params }: ScreenProps) {
   const jobId = String(params?.jobId ?? '');
-  const { job, aspects, srcOf, gone, failed, retry, change, busy, saveFailed } = useJob(jobId);
+  const { job, aspects, srcOf, gone, failed, retry, change: save, busy, saveFailed } = useJob(jobId);
+  // Every change made on Adjust is one step that Undo can take back (owner, round 6), kept while nothing else changes
+  // the job (history.ts).
+  const jobNow = useRef(job);
+  jobNow.current = job;
+  const [, stepped] = useState(0);
+  const change = async (action: JobAction): Promise<Job | null> => {
+    const from = jobNow.current;
+    const next = await save(action);
+    if (next && from && next.rev > from.rev) {
+      // One revision on: this change. More: another change reached the phone in between, and the steps no longer join up.
+      if (next.rev === from.rev + 1) recordStep(jobId, editsOf(from), from.rev, next.rev);
+      else forgetSteps(jobId);
+      stepped((n) => n + 1);
+    }
+    return next;
+  };
+  // Back from Adjust's other screens (Crop, Fix edges, Add photos, the passport tools): what they did is one step.
+  const comeBack = useRef(false);
+  useEffect(() => {
+    if (!job || comeBack.current) return;
+    comeBack.current = true;
+    if (returned(job)) stepped((n) => n + 1);
+  }, [job]);
+  const goOut: typeof go = (to) => {
+    if (job) leaveFor(job);
+    go(to);
+  };
   const docs = useDocs(jobId, job?.layout === 'document' ? job : null);
   const paper = usePlanPaper();
   const kind: AdjustKind = job ? adjustKind(job) : 'photos';
@@ -479,6 +519,89 @@ export function Adjust({ go, params }: ScreenProps) {
   };
   const tiltBy = (deg: number) => {
     if (sel !== null) void rotateTo(sel, angleNow(sel) + deg);
+  };
+  // Undo / Redo (owner, round 6): the job's adjustable choices of the step before (or after), saved as one change.
+  const stepBy = async (dir: 'undo' | 'redo') => {
+    const cur = jobNow.current;
+    // Not while a finger holds, resizes, crops or turns a photo: its drop would undo the Undo (review M1).
+    if (!cur || busy || drag.current || sideDrag.current || turnDrag.current || byHand.lifted) return;
+    const to = (dir === 'undo' ? takeUndo : takeRedo)(jobId, cur.rev, editsOf(cur));
+    if (!to) return;
+    const next = await save({ type: 'restoreEdits', edits: to, fromRev: cur.rev });
+    if (!next || next.rev !== cur.rev + 1) {
+      // Failed, or the job had moved on (a change from elsewhere): nothing was undone, and the steps are of no use now.
+      if (next) forgetSteps(jobId);
+      else dropStep(jobId, dir, to);
+      stepped((n) => n + 1);
+      if (next) retry();
+      return;
+    }
+    settle(jobId, next.rev);
+    // Round 5's own Undo panels and a cut photo's Paste follow what the job holds now.
+    forgetRemoved();
+    setUndo(null);
+    setPagesBefore(null);
+    const c = clipFor(jobId);
+    if (c?.kind === 'cut' && next.items.some((i) => i.index === c.item.index)) {
+      remember(null);
+      setClipNote(null);
+    }
+    stepped((n) => n + 1);
+    retry(); // the pictures were listed before this change: list them again
+  };
+  const stepKeys = useRef({ undo: () => {}, redo: () => {} });
+  stepKeys.current = { undo: () => void stepBy('undo'), redo: () => void stepBy('redo') };
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
+      const el = e.target as HTMLElement | null;
+      if (el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName))) return;
+      // Not behind a question ("Leave this job?"); the key's place counts too, for keyboards of other alphabets.
+      if (document.querySelector('dialog[open]')) return;
+      const z = e.key.toLowerCase() === 'z' || e.code === 'KeyZ';
+      const y = e.key.toLowerCase() === 'y' || e.code === 'KeyY';
+      if (z && !e.shiftKey) {
+        e.preventDefault();
+        stepKeys.current.undo();
+      } else if (y || (z && e.shiftKey)) {
+        e.preventDefault();
+        stepKeys.current.redo();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+  const steps = job ? stepsFor(jobId, job.rev) : { canUndo: false, canRedo: false };
+  // Bring to front / Send to back (owner, round 6): for photos and for cards placed by hand; only where the chosen one
+  // covers another, in the direction that changes something.
+  const layers = (() => {
+    if (!plan || !where || (kind !== 'photos' && !cardsByHand)) return { front: false, back: false };
+    const list = plan.pages[where.page]?.placements ?? [];
+    const me = kind === 'photos' ? list.findIndex((p) => p.itemIndex === sel) : list.indexOf(where.placement);
+    return layerState(
+      list.map((p) => p.box),
+      me,
+    );
+  })();
+  const stackPhoto = (to: 'front' | 'back') => {
+    if (!job || !plan || sel === null) return;
+    const fixed = spotsFromPlan(plan, job.spots);
+    const spots = stackedSpots(fixed, sel, to);
+    if (spots) void change({ type: 'setSpots', spots, sizes: { ...freezeSizes(plan), ...(job.sizes ?? {}) } });
+  };
+  // Cards: placing a card puts it on top, so the layer is made by placing them in the order they should be drawn.
+  const stackCard = (to: 'front' | 'back') => {
+    if (!plan || !where || sel === null) return;
+    const centre = (t: Target) => ({
+      x: (t.placement.box.x + t.placement.box.w / 2) / MM,
+      y: (t.placement.box.y + t.placement.box.h / 2) / MM,
+    });
+    const others = targets.filter((x) => x.key !== sel && x.page === where.page);
+    const place = (t: Target) => ({ type: 'placeIdCard' as const, at: t.key, ...centre(t) });
+    void change({
+      type: 'all',
+      actions: to === 'front' ? [...others.map(place), place(where)] : [place(where), ...others.map(place)],
+    });
   };
   const removePhoto = async (): Promise<boolean> => {
     if (!job || sel === null) return false;
@@ -898,6 +1021,25 @@ export function Adjust({ go, params }: ScreenProps) {
       <Button variant="secondary" icon="zoomIn" disabled={zoom >= ZOOM_MAX} onClick={() => zoomTo(nextZoom(zoom, 1))}>
         {t.zoomIn}
       </Button>
+      {/* Then Undo and Redo, on every kind (owner, round 6). */}
+      <Button
+        variant="secondary"
+        icon="undo"
+        label={t.undoStep}
+        disabled={busy || !steps.canUndo}
+        onClick={() => void stepBy('undo')}
+      >
+        {t.undo}
+      </Button>
+      <Button
+        variant="secondary"
+        icon="redo"
+        label={t.redoStep}
+        disabled={busy || !steps.canRedo}
+        onClick={() => void stepBy('redo')}
+      >
+        {t.redo}
+      </Button>
       {kind === 'photos' && (
         <>
           <Button
@@ -930,7 +1072,7 @@ export function Adjust({ go, params }: ScreenProps) {
             variant="secondary"
             icon="crop"
             disabled={sel === null}
-            onClick={() => sel !== null && go(push('cropphoto', { jobId, index: sel }))}
+            onClick={() => sel !== null && goOut(push('cropphoto', { jobId, index: sel }))}
           >
             {t.crop}
           </Button>
@@ -990,6 +1132,12 @@ export function Adjust({ go, params }: ScreenProps) {
               {d === 'up' ? t.moveUp : d === 'down' ? t.moveDown : d === 'left' ? t.moveLeft : t.moveRight}
             </Button>
           ))}
+          <Button variant="secondary" icon="up" disabled={busy || !layers.front} onClick={() => stackPhoto('front')}>
+            {t.front}
+          </Button>
+          <Button variant="secondary" icon="down" disabled={busy || !layers.back} onClick={() => stackPhoto('back')}>
+            {t.sendBack}
+          </Button>
           {prevNext([t.previous, t.next])}
           <Button
             variant="secondary"
@@ -1021,7 +1169,7 @@ export function Adjust({ go, params }: ScreenProps) {
           >
             {t.automatic}
           </Button>
-          <Button variant="secondary" icon="photos" onClick={() => go(push('addsource', { jobId, kind: 'photos' }))}>
+          <Button variant="secondary" icon="photos" onClick={() => goOut(push('addsource', { jobId, kind: 'photos' }))}>
             {en.add.photos}
           </Button>
         </>
@@ -1056,7 +1204,7 @@ export function Adjust({ go, params }: ScreenProps) {
             <Button
               variant="secondary"
               icon="crop"
-              onClick={() => go(push('cropphoto', { jobId, index: where.placement.itemIndex }))}
+              onClick={() => goOut(push('cropphoto', { jobId, index: where.placement.itemIndex }))}
             >
               {t.crop}
             </Button>
@@ -1092,7 +1240,11 @@ export function Adjust({ go, params }: ScreenProps) {
           >
             {t.removePage}
           </Button>
-          <Button variant="secondary" icon="files" onClick={() => go(push('addsource', { jobId, kind: 'documents' }))}>
+          <Button
+            variant="secondary"
+            icon="files"
+            onClick={() => goOut(push('addsource', { jobId, kind: 'documents' }))}
+          >
             {en.add.files}
           </Button>
         </>
@@ -1108,7 +1260,7 @@ export function Adjust({ go, params }: ScreenProps) {
           <Button
             variant="secondary"
             icon="passport"
-            onClick={() => go(push('passportcrop', { jobId, from: 'change' }))}
+            onClick={() => goOut(push('passportcrop', { jobId, from: 'change' }))}
           >
             {t.face}
           </Button>
@@ -1120,13 +1272,13 @@ export function Adjust({ go, params }: ScreenProps) {
           >
             {t.turn}
           </Button>
-          <Button variant="secondary" icon="photos" onClick={() => go(push('passportsize', { jobId }))}>
+          <Button variant="secondary" icon="photos" onClick={() => goOut(push('passportsize', { jobId }))}>
             {en.passport.size}
           </Button>
-          <Button variant="secondary" icon="crop" onClick={() => go(push('passportborder', { jobId }))}>
+          <Button variant="secondary" icon="crop" onClick={() => goOut(push('passportborder', { jobId }))}>
             {en.passport.border}
           </Button>
-          <Button variant="secondary" icon="files" onClick={() => go(push('passportcount', { jobId }))}>
+          <Button variant="secondary" icon="files" onClick={() => goOut(push('passportcount', { jobId }))}>
             {t.howMany}
           </Button>
         </>
@@ -1157,7 +1309,7 @@ export function Adjust({ go, params }: ScreenProps) {
           >
             {t.turn}
           </Button>
-          <Button variant="secondary" icon="crop" onClick={() => go(push('fixcorners', { jobId, at: sel }))}>
+          <Button variant="secondary" icon="crop" onClick={() => goOut(push('fixcorners', { jobId, at: sel }))}>
             {en.cards.fix}
           </Button>
           {job.idCard.cards.length > 1 && (
@@ -1191,6 +1343,16 @@ export function Adjust({ go, params }: ScreenProps) {
                 {d === 'up' ? t.moveUp : d === 'down' ? t.moveDown : d === 'left' ? t.moveLeft : t.moveRight}
               </Button>
             ))}
+          {cardsByHand && (
+            <>
+              <Button variant="secondary" icon="up" disabled={busy || !layers.front} onClick={() => stackCard('front')}>
+                {t.front}
+              </Button>
+              <Button variant="secondary" icon="down" disabled={busy || !layers.back} onClick={() => stackCard('back')}>
+                {t.sendBack}
+              </Button>
+            </>
+          )}
           {cardsByHand && (
             <Button
               variant="secondary"

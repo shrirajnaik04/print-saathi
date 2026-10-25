@@ -1092,3 +1092,328 @@ test.describe('ID cards placed by hand (owner, round 5)', () => {
     await expect(button(page, 'Adjust cards')).toHaveCount(0);
   });
 });
+
+// Owner, round 6: "do whatever is best and recommended" — Word's Undo / Redo for every change on Adjust, and Bring to
+// front / Send to back. The tools show "Undo" / "Redo"; their full names differ from the Remove panel's Undo.
+test.describe('Undo and Redo (round 6)', () => {
+  test.use({ viewport: { width: 412, height: 915 } });
+  type Bx = { x: number; y: number; w: number; h: number };
+  type P = { pages: { placements: { itemIndex: number; turns: number; box: Bx }[] }[] };
+  const plan = (page: Page) => page.evaluate(() => (globalThis as { __lastPlan?: P }).__lastPlan);
+  const boxOf = async (page: Page, item: number) =>
+    (await plan(page))?.pages.flatMap((p) => p.placements).find((p) => p.itemIndex === item)?.box;
+  const undo = (page: Page) => button(page, 'Undo the last change');
+  const redo = (page: Page) => button(page, 'Redo what was undone');
+  const MM = 72 / 25.4;
+  const toReady = async (page: Page) => {
+    await button(page, 'Done').click();
+    await expect(title(page)).toHaveText('Ready to print');
+    await page.waitForTimeout(300);
+  };
+  test('Undo and Redo are the 3rd and 4th tools on every kind, 56 px or more, nothing to undo at first', async ({
+    page,
+  }) => {
+    for (const open of [
+      () => openAdjust(page, 'One on each page', 2),
+      async () => {
+        await page.goto('/?mockIntake=1&mockPdfAt=1');
+        await button(page, 'Adjust pages').click();
+        await expect(title(page)).toHaveText('Page 1 of 3');
+      },
+      () => kinds.cards?.(page),
+      () => kinds.passport?.(page),
+    ]) {
+      await open();
+      const tools = page.locator('.actionbar .tool-row .btn');
+      await expect(tools.nth(2)).toHaveAccessibleName('Undo the last change');
+      await expect(tools.nth(3)).toHaveAccessibleName('Redo what was undone');
+      await expect(tools.nth(2)).toHaveText('Undo');
+      await expect(tools.nth(3)).toHaveText('Redo');
+      for (const i of [2, 3]) {
+        await expect(tools.nth(i)).toBeDisabled();
+        expect((await tools.nth(i).boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(56 - 0.5);
+      }
+    }
+  });
+  test('Undo takes back a move; Redo puts it back, also after leaving Adjust and coming back', async ({ page }) => {
+    await openAdjust(page);
+    await toReady(page);
+    const before = await boxOf(page, 1);
+    await button(page, 'Adjust photos').click();
+    await button(page, 'Move right').click();
+    await expect(undo(page)).toBeEnabled();
+    await undo(page).click();
+    await expect(redo(page)).toBeEnabled();
+    await expect(undo(page)).toBeDisabled();
+    await toReady(page);
+    expect((await boxOf(page, 1))?.x).toBeCloseTo(before?.x ?? -1, 1);
+    await button(page, 'Adjust photos').click();
+    await redo(page).click();
+    await toReady(page);
+    expect(((await boxOf(page, 1))?.x ?? 0) - (before?.x ?? 0)).toBeCloseTo(2 * MM, 1);
+  });
+  test('Undo of Remove brings the photo back and closes the Remove panel', async ({ page }) => {
+    await openAdjust(page);
+    await button(page, 'Remove').click();
+    await expect(title(page)).toHaveText(/ of 3$/);
+    await expect(page.getByText('Photo removed.')).toBeVisible();
+    await undo(page).click();
+    await expect(title(page)).toHaveText(/ of 4$/);
+    await expect(page.getByText('Photo removed.')).toHaveCount(0);
+    await expect(page.locator('.adjust-sheet .adjust-pick')).toHaveCount(4);
+  });
+  test('Undo of Paste takes the copy away; Undo of Cut puts the photo back and leaves nothing to paste', async ({
+    page,
+  }) => {
+    await openAdjust(page);
+    await button(page, 'Copy').click();
+    await button(page, 'Paste').click();
+    await expect(title(page)).toHaveText(/ of 5$/);
+    await undo(page).click();
+    await expect(title(page)).toHaveText(/ of 4$/);
+    await button(page, 'Cut').click();
+    await expect(title(page)).toHaveText(/ of 3$/);
+    await undo(page).click();
+    await expect(title(page)).toHaveText(/ of 4$/);
+    await expect(button(page, 'Paste')).toBeDisabled();
+  });
+  test('a new change after Undo clears Redo', async ({ page }) => {
+    await openAdjust(page);
+    await button(page, 'Move right').click();
+    await undo(page).click();
+    await expect(redo(page)).toBeEnabled();
+    await button(page, 'Move left').click();
+    await expect(redo(page)).toBeDisabled();
+    await expect(undo(page)).toBeEnabled();
+  });
+  test('a change made outside Adjust (Colour on Ready) forgets the steps', async ({ page }) => {
+    await openAdjust(page);
+    await button(page, 'Move right').click();
+    await toReady(page);
+    await button(page, /Black & white/).click();
+    await page.waitForTimeout(300);
+    await button(page, 'Adjust photos').click();
+    await expect(title(page)).toHaveText('Photo 1 of 4');
+    await expect(undo(page)).toBeDisabled();
+  });
+  test('Ctrl+Z undoes, Ctrl+Y and Ctrl+Shift+Z redo', async ({ page }) => {
+    await openAdjust(page);
+    await button(page, 'Move right').click();
+    await expect(undo(page)).toBeEnabled();
+    await page.keyboard.press('Control+z');
+    await expect(redo(page)).toBeEnabled();
+    await page.keyboard.press('Control+y');
+    await expect(undo(page)).toBeEnabled();
+    await expect(redo(page)).toBeDisabled();
+    await page.keyboard.press('Control+z');
+    await expect(redo(page)).toBeEnabled();
+    await page.keyboard.press('Control+Shift+z');
+    await expect(redo(page)).toBeDisabled();
+  });
+  test('a page turn on a document is undone', async ({ page }) => {
+    await page.goto('/?mockIntake=1&mockPdfAt=1');
+    await button(page, 'Adjust pages').click();
+    await button(page, 'Turn').click();
+    await expect(undo(page)).toBeEnabled();
+    await undo(page).click();
+    await toReady(page);
+    await expect.poll(async () => (await plan(page))?.pages[0]?.placements[0]?.turns).toBe(0);
+  });
+  test('a card dragged is put back by Undo', async ({ page }) => {
+    await kinds.cards?.(page);
+    await expect(title(page)).toHaveText('Card 1 of 2');
+    await toReady(page);
+    const before = await boxOf(page, 2);
+    await button(page, 'Adjust cards').click();
+    const b = await page.locator('.adjust-sheet[data-page="0"] .adjust-pick').nth(1).boundingBox();
+    if (!b) throw new Error('no back card');
+    await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2);
+    await page.mouse.down();
+    await page.waitForTimeout(600);
+    await page.mouse.move(b.x + b.width / 2 + 40, b.y + b.height / 2 + 30, { steps: 10 });
+    await page.mouse.up();
+    await expect(undo(page)).toBeEnabled();
+    await undo(page).click();
+    await toReady(page);
+    expect((await boxOf(page, 2))?.x).toBeCloseTo(before?.x ?? -1, 1);
+    expect((await boxOf(page, 2))?.y).toBeCloseTo(before?.y ?? -1, 1);
+  });
+});
+
+test.describe('Bring to front / Send to back (round 6)', () => {
+  test.use({ viewport: { width: 412, height: 915 } });
+  type P = { pages: { placements: { itemIndex: number }[] }[] };
+  const order = async (page: Page) =>
+    (await page.evaluate(() => (globalThis as { __lastPlan?: P }).__lastPlan))?.pages[0]?.placements.map(
+      (p) => p.itemIndex,
+    );
+  const front = (page: Page) => button(page, 'Bring to front');
+  const back = (page: Page) => button(page, 'Send to back');
+  const toReady = async (page: Page) => {
+    await button(page, 'Done').click();
+    await expect(title(page)).toHaveText('Ready to print');
+    await page.waitForTimeout(300);
+  };
+  /** Press and hold the [from]th one on page 1, and drop it over the middle of the [onto]th. */
+  const dragOnto = async (page: Page, from: number, onto: number) => {
+    const picks = page.locator('.adjust-sheet[data-page="0"] .adjust-pick');
+    const a = await picks.nth(from).boundingBox();
+    const b = await picks.nth(onto).boundingBox();
+    if (!a || !b) throw new Error('nothing to drag');
+    await page.mouse.move(a.x + a.width / 2, a.y + a.height / 2);
+    await page.mouse.down();
+    await page.waitForTimeout(600);
+    await page.mouse.move(b.x + b.width / 2 + 6, b.y + b.height / 2 + 6, { steps: 12 });
+    await page.mouse.up();
+    await page.waitForTimeout(300);
+  };
+  test('nothing overlaps: both are disabled, 56 px or more', async ({ page }) => {
+    await openAdjust(page, 'All on one page', 2);
+    for (const b of [front(page), back(page)]) {
+      await expect(b).toBeDisabled();
+      expect((await b.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(56 - 0.5);
+    }
+  });
+  test('a photo dropped over another is on top: Send to back puts it under, Bring to front over; one Undo each', async ({
+    page,
+  }) => {
+    await openAdjust(page, 'All on one page', 2);
+    await dragOnto(page, 1, 0);
+    await expect(title(page)).toHaveText('Photo 2 of 2');
+    await expect(front(page)).toBeDisabled();
+    await expect(back(page)).toBeEnabled();
+    await back(page).click();
+    await expect(front(page)).toBeEnabled();
+    await expect(back(page)).toBeDisabled();
+    await toReady(page);
+    expect(await order(page)).toEqual([2, 1]);
+    await button(page, 'Adjust photos').click();
+    await button(page, 'Next photo').click();
+    await expect(title(page)).toHaveText('Photo 2 of 2');
+    await front(page).click();
+    await toReady(page);
+    expect(await order(page)).toEqual([1, 2]);
+    await button(page, 'Adjust photos').click();
+    await button(page, 'Undo the last change').click();
+    await toReady(page);
+    expect(await order(page)).toEqual([2, 1]);
+  });
+  test('ID cards dropped over each other: Send to back and Bring to front', async ({ page }) => {
+    await kinds.cards?.(page);
+    await expect(title(page)).toHaveText('Card 1 of 2');
+    await expect(front(page)).toBeDisabled();
+    await dragOnto(page, 1, 0);
+    await expect(back(page)).toBeEnabled();
+    await back(page).click();
+    await toReady(page);
+    // The dragged back card was drawn last; Send to back draws it first.
+    expect(await order(page)).toEqual([2, 1]);
+    await button(page, 'Adjust cards').click();
+    await button(page, 'Next card').click();
+    await front(page).click();
+    await toReady(page);
+    expect(await order(page)).toEqual([1, 2]);
+  });
+});
+
+// Round 6 review: I1 (a change made elsewhere is never taken back), I2 (what Adjust's other screens change is undoable),
+// I3 (Redo's arrow turns the other way), M1/M2 (no Undo mid-gesture, nor behind a question).
+test.describe('Undo and Redo review fixes (round 6)', () => {
+  test.use({ viewport: { width: 412, height: 915 } });
+  type Bx = { x: number; y: number; w: number; h: number };
+  type P = { pages: { placements: { itemIndex: number; crop?: { y: number }; box: Bx }[] }[] };
+  const plan = (page: Page) => page.evaluate(() => (globalThis as { __lastPlan?: P }).__lastPlan);
+  const undo = (page: Page) => button(page, 'Undo the last change');
+  const redo = (page: Page) => button(page, 'Redo what was undone');
+  const toReady = async (page: Page) => {
+    await button(page, 'Done').click();
+    await expect(title(page)).toHaveText('Ready to print');
+    await page.waitForTimeout(300);
+  };
+  test('I3: the Redo arrow turns the other way from the Undo arrow, under the app’s own page rules', async ({
+    page,
+  }) => {
+    await openAdjust(page);
+    const flips = await page.evaluate(() => {
+      const t = (name: string) => {
+        const b = [...document.querySelectorAll('.actionbar .tool-row .btn')].find(
+          (x) => x.textContent?.trim() === name,
+        );
+        const svg = b?.querySelector('.icon svg');
+        return svg ? getComputedStyle(svg).transform : 'none';
+      };
+      return { undo: t('Undo'), redo: t('Redo') };
+    });
+    expect(flips.undo).toBe('none');
+    expect(flips.redo).toBe('matrix(-1, 0, 0, 1, 0, 0)');
+  });
+  test('I2: a crop made on the Crop screen is one step; the steps before it are still there', async ({ page }) => {
+    await openAdjust(page, 'One on each page', 2);
+    await button(page, 'Move down').click();
+    await button(page, 'Crop').click();
+    await expect(title(page)).toHaveText('Crop photo 1');
+    for (let i = 0; i < 3; i++) await button(page, 'Down').click();
+    await button(page, 'Done').click();
+    await expect(title(page)).toHaveText('Photo 1 of 2');
+    await expect(undo(page)).toBeEnabled();
+    await undo(page).click();
+    await expect(redo(page)).toBeEnabled();
+    await toReady(page);
+    expect((await plan(page))?.pages[0]?.placements[0]?.crop?.y ?? 0).toBe(0);
+    await button(page, 'Adjust photos').click();
+    await expect(undo(page)).toBeEnabled(); // the move before the crop is still a step
+    await redo(page).click();
+    await toReady(page);
+    expect((await plan(page))?.pages[0]?.placements[0]?.crop?.y ?? 0).toBeGreaterThan(0.02);
+  });
+  test('I2: a crop screen left without a change adds no step', async ({ page }) => {
+    await openAdjust(page, 'One on each page', 2);
+    await button(page, 'Crop').click();
+    await expect(title(page)).toHaveText('Crop photo 1');
+    await button(page, 'Cancel').click();
+    await expect(title(page)).toHaveText('Photo 1 of 2');
+    await expect(undo(page)).toBeDisabled();
+  });
+  test('I2: the passport count changed from Adjust is undone', async ({ page }) => {
+    await kinds.passport?.(page);
+    await button(page, /^How many/).click();
+    await expect(title(page)).toHaveText('How many photos?');
+    const typed = page.getByRole('textbox', { name: 'Or type a number' });
+    await typed.fill('12');
+    await typed.press('Enter');
+    await button(page, 'Done').click();
+    await expect(title(page)).toHaveText('Ready to print');
+    await button(page, 'Adjust passport photo').click();
+    await expect(undo(page)).toBeEnabled();
+    await undo(page).click();
+    await toReady(page);
+    await expect.poll(async () => (await plan(page))?.pages.flatMap((p) => p.placements).length).toBe(5);
+  });
+  test('M1: Ctrl+Z while a photo is held does nothing; after it is dropped Undo still works', async ({ page }) => {
+    await openAdjust(page);
+    await button(page, 'Move right').click();
+    await expect(undo(page)).toBeEnabled();
+    const b = await page.locator('.adjust-sheet[data-page="0"] .adjust-pick').nth(1).boundingBox();
+    if (!b) throw new Error('no photo');
+    await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2);
+    await page.mouse.down();
+    await page.waitForTimeout(600);
+    await page.keyboard.press('Control+z');
+    await page.mouse.up();
+    await page.waitForTimeout(400);
+    // The held photo's own drop is one more step; the Ctrl+Z took nothing back (Redo was never offered).
+    await expect(redo(page)).toBeDisabled();
+    await expect(undo(page)).toBeEnabled();
+  });
+  test('M2: Ctrl+Z behind the “Leave this job?” question does nothing', async ({ page }) => {
+    await openAdjust(page);
+    await button(page, 'Move right').click();
+    await expect(undo(page)).toBeEnabled();
+    await button(page, 'Home').click();
+    await expect(page.getByRole('dialog', { name: 'Leave this job?' })).toBeVisible();
+    await page.keyboard.press('Control+z');
+    await button(page, 'Keep working').click();
+    await expect(undo(page)).toBeEnabled();
+    await expect(redo(page)).toBeDisabled();
+  });
+});

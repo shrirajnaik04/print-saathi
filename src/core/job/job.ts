@@ -295,6 +295,30 @@ export function styleOf(job: Pick<Job, 'colour' | 'style' | 'layout'>): StyleId 
   return job.style && group.includes(job.style) ? job.style : (group[0] as StyleId);
 }
 
+/**
+ * What Undo / Redo on Adjust takes back and puts back (owner, round 6): the shopkeeper's adjustable choices only. What
+ * Change chose (colour, paper, layout, copies, style) and what happened outside Adjust (printed, parts) are never in it.
+ */
+export const EDIT_KEYS = [
+  'items',
+  'order',
+  'turns',
+  'autoTurned',
+  'tilts',
+  'crops',
+  'quads',
+  'sizes',
+  'spots',
+  'pages',
+  'docPages',
+  'docTurns',
+  'docScale',
+  'idCard',
+  'passport',
+  'duplicates',
+] as const;
+export type JobEdits = Partial<Pick<Job, (typeof EDIT_KEYS)[number]>>;
+
 export type JobAction =
   | { type: 'setLayout'; layout: JobLayout }
   | { type: 'setColour'; colour: 'colour' | 'bw' }
@@ -378,6 +402,8 @@ export type JobAction =
   | { type: 'setIdCards'; cards: IdCardSide[]; size?: IdCardSize }
   | { type: 'setIdCardSize'; size: IdCardSize; sets?: number }
   | { type: 'swapIdCards' }
+  /** Owner, round 6: Undo / Redo: the adjustable choices of an earlier moment, put back (see EDIT_KEYS). */
+  | { type: 'restoreEdits'; edits: JobEdits; fromRev: number }
   /** Owner, round 5: a card placed by hand, its centre at [x], [y] mm, on top. */
   | { type: 'placeIdCard'; at: number; x: number; y: number }
   /** One under another (default) or side by side; places set by hand go (it is the automatic arrangement). */
@@ -797,6 +823,14 @@ export function jobReducer(job: Job, action: JobAction, nowMs: number): Job {
       if (!job.idCard) break;
       const { spots: _s, arrange: _a, ...rest } = job.idCard;
       next = { idCard: action.arrange === 'row' ? { ...rest, arrange: 'row' } : rest };
+      break;
+    }
+    case 'restoreEdits': {
+      // Only the job it was taken from: one that has moved on since (a change from elsewhere) is left as it is.
+      if (action.fromRev !== job.rev) break;
+      const next2: Record<string, unknown> = {};
+      for (const k of EDIT_KEYS) next2[k] = action.edits?.[k];
+      next = next2 as Partial<Job>;
       break;
     }
     case 'clearIdCardSpots': {

@@ -1,0 +1,40 @@
+{
+  "serial": "emulator-5580",
+  "sdk": 35,
+  "when": "2026-10-25T11:59:46.080Z",
+  "retention": {
+    "oldJobDeleted": true,
+    "openJobKept": true,
+    "verdict": "PASS"
+  },
+  "retentionCold": {
+    "processKilledFirst": true,
+    "forced": "Running job [FORCED]",
+    "leftJobDeleted": true,
+    "onScreenJobKept": true,
+    "verdict": "PASS"
+  },
+  "recents": {
+    "live": "recents-live-api35.png",
+    "stored": "recents-stored-api35.png",
+    "expected": "stored: a blank PrintSaathi card (setRecentsScreenshotEnabled(false))",
+    "verdict": "LOOK AT THE SCREENSHOTS"
+  },
+  "backupDebug": {
+    "output": "Running incremental backup for 1 requested packages.\r\nPackage in.printsaathi.app with result: Backup is not allowed\r\nBackup finished with result: Success",
+    "verdict": "PASS"
+  },
+  "logs": {
+    "linesSearched": 5977,
+    "appLines": 123,
+    "hits": 0,
+    "verdict": "PASS"
+  },
+  "release": {
+    "debuggable": false,
+    "allowBackupFlag": false,
+    "internet": false,
+    "backup": "Running incremental backup for 1 requested packages.\r\nPackage in.printsaathi.app with result: Backup is not allowed\r\nBackup finished with result: Success",
+    "verdict": "PASS"
+  }
+}

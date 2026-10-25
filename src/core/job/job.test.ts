@@ -1,6 +1,15 @@
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
-import { type Job, type JobAction, jobFromIntake, jobReducer, nextItemIndex, normalizeJob } from './job';
+import {
+  EDIT_KEYS,
+  type Job,
+  type JobAction,
+  type JobEdits,
+  jobFromIntake,
+  jobReducer,
+  nextItemIndex,
+  normalizeJob,
+} from './job';
 
 const intake = {
   intakeId: 'in1',
@@ -807,5 +816,71 @@ describe('ID cards placed by hand, and their arrangement (owner, round 5)', () =
     const n = normalizeJob(bad);
     expect(n?.idCard?.arrange).toBeUndefined();
     expect(n?.idCard?.spots).toEqual({ 1: { x: 5, y: 6, z: 2 } });
+  });
+});
+
+describe('Undo / Redo (owner, round 6)', () => {
+  const base = jobFromIntake('job1', intake, 1000);
+  const pick = (j: Job): JobEdits =>
+    Object.fromEntries(EDIT_KEYS.filter((k) => j[k] !== undefined).map((k) => [k, j[k]])) as JobEdits;
+  const moved = jobReducer(
+    jobReducer(base, { type: 'turnItem', index: 1 }, 2),
+    { type: 'setSpots', spots: { 1: { page: 0, x: 40, y: 50, z: 1 } }, sizes: { 1: 90 } },
+    3,
+  );
+  it('restoreEdits puts back every adjustable choice, removing ones added since', () => {
+    const r = jobReducer(moved, { type: 'restoreEdits', edits: pick(base), fromRev: moved.rev }, 4);
+    expect(r.turns).toEqual(base.turns);
+    expect(r.spots).toBeUndefined();
+    expect(r.sizes).toBeUndefined();
+    expect(r.items).toEqual(base.items);
+    expect(r.order).toEqual(base.order);
+    expect(r.rev).toBe(moved.rev + 1);
+  });
+  it('restoreEdits keeps what was chosen or happened outside Adjust (printed, colour, layout, copies)', () => {
+    const outside = jobReducer(
+      jobReducer(jobReducer(moved, { type: 'setColour', colour: 'bw' }, 4), { type: 'setCopies', copies: 3 }, 5),
+      { type: 'markPrinted' },
+      6,
+    );
+    const r = jobReducer(outside, { type: 'restoreEdits', edits: pick(base), fromRev: outside.rev }, 7);
+    expect(r.colour).toBe('bw');
+    expect(r.printedAt).toBe(outside.printedAt);
+    expect(r.layout).toBe(outside.layout);
+    expect(r.copies).toBe(3);
+    expect(r.spots).toBeUndefined();
+  });
+  it('a removed photo comes back with restoreEdits', () => {
+    const removed = jobReducer(moved, { type: 'removeItem', index: 3 }, 4);
+    const r = jobReducer(removed, { type: 'restoreEdits', edits: pick(moved), fromRev: removed.rev }, 5);
+    expect(r.items.map((i) => i.index)).toEqual([1, 2, 3]);
+    expect(r.order).toEqual(moved.order);
+  });
+  it('review I1: a job that has moved on since (another revision) is left as it is', () => {
+    const stale = jobReducer(moved, { type: 'restoreEdits', edits: pick(base), fromRev: moved.rev - 1 }, 4);
+    expect(stale).toBe(moved);
+  });
+  it('a card placed by hand and the arrangement come back too', () => {
+    const quad = [0, 0, 1, 0, 1, 1, 0, 1];
+    const cards = jobReducer(
+      base,
+      {
+        type: 'setIdCards',
+        cards: [
+          { item: 1, quad, turns: 0 },
+          { item: 3, quad, turns: 0 },
+        ],
+        size: 'real',
+      },
+      2,
+    );
+    const placed = jobReducer(cards, { type: 'placeIdCard', at: 0, x: 50, y: 60 }, 3);
+    const r = jobReducer(placed, { type: 'restoreEdits', edits: pick(cards), fromRev: placed.rev }, 4);
+    expect(r.idCard?.spots).toBeUndefined();
+    expect(jobReducer(r, { type: 'restoreEdits', edits: pick(placed), fromRev: r.rev }, 5).idCard?.spots?.[0]).toEqual({
+      x: 50,
+      y: 60,
+      z: 1,
+    });
   });
 });

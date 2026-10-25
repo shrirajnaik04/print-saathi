@@ -482,6 +482,13 @@ export const en = {
     zoomIn: 'Zoom in',
     zoomOut: 'Zoom out',
     zoomShown: 'Page {n} of {total} · {z} %',
+    /** Undo / Redo for every change on Adjust, and Word's layers (owner, round 6). */
+    undo: 'Undo',
+    redo: 'Redo',
+    undoStep: 'Undo the last change',
+    redoStep: 'Redo what was undone',
+    front: 'Bring to front',
+    sendBack: 'Send to back',
     /** Copy, Cut, Paste (owner, round 5) and the + mark where Paste goes (Word's cursor). */
     copy: 'Copy',
     cut: 'Cut',

@@ -73,6 +73,8 @@ export const ICONS = {
   copy: copySvg,
   cut: cutSvg,
   paste: pasteSvg,
+  // Redo is Undo turned the other way round (owner, round 6): the flip is in the page's own CSS (.icon-flip).
+  redo: undoSvg,
   zoomOut: zoomOutSvg,
 } as const;
 

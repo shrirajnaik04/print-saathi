@@ -7,7 +7,7 @@ import { ICONS, type IconName } from './icons';
 export function Icon({ name, size = 'md' }: { name: IconName; size?: 'sm' | 'md' | 'lg' }) {
   return (
     <span
-      class={`icon icon-${size}`}
+      class={`icon icon-${size}${name === 'redo' ? ' icon-flip' : ''}`}
       aria-hidden="true"
       // Safe: the markup is one of our own SVG files, bundled at build time from @phosphor-icons/core (never user data).
       dangerouslySetInnerHTML={{ __html: ICONS[name] }}

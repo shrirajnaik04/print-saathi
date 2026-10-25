@@ -402,6 +402,18 @@ AB3 replaces AA6's "a sideways swipe": pages now move with ‹ › only (owner, 
 | AB7 | Ready → **PRINT** → on Android's print screen press the phone's Back (or the X) without printing | Ready shows **PRINT** again at once (no "Opening the print screen…"), and PRINT works the first time you tap it. **On your Brother's print screen and your phone**, check this too: a print that really went must not be offered as "not sent" | ☐ ☐ |
 | AB8 | Home → Recent jobs → **Delete** on one job → Delete; then **Delete all jobs** → Delete all | Each asks once; the job (or every job) disappears from the list and from Home. Old jobs are also deleted by themselves 1 day after they were last used (Settings → Delete customer files after) | ☐ ☐ |
 
+## §AC Undo / Redo, Bring to front / Send to back on Adjust (Phases 37–38) — 10 min
+
+| # | What to do | What to check | Result |
+|---|---|---|---|
+| AC1 | Photos → All on one page → Adjust photos: press and hold a photo, drag it over another; then tap **Undo**, then **Redo** | **Undo** and **Redo** are the 3rd and 4th tools (after Zoom). Undo puts the photo back where it was; Redo puts it where you dropped it. Both are greyed out when there is nothing to undo or redo | ☐ ☐ |
+| AC2 | Do several things (Bigger, Turn, Remove, Copy then Paste, a crop), then tap **Undo** again and again | Each tap takes back one change, newest first, up to 50. After an Undo, any new change clears Redo (as in Word) | ☐ ☐ |
+| AC3 | Make a change on Adjust, tap Done, then on Ready tap **Black & white** (or Change something), then Adjust again | Undo is greyed out: a change made outside Adjust is never taken back | ☐ ☐ |
+| AC4 | Make a change, tap Done, open Adjust again | Undo still works for what you did before (until you change something elsewhere) | ☐ ☐ |
+| AC5 | On a computer keyboard (a tablet with one): Ctrl+Z, Ctrl+Y | Undo and Redo | ☐ ☐ |
+| AC6 | Drag one photo over another. With the top one chosen tap **Send to back**; then with the other tap **Bring to front** | The photo goes under (or over) the one it covers, on screen and in the print. The buttons are greyed out when the chosen photo covers nothing, or is already where the button would put it | ☐ ☐ |
+| AC7 | ID card copy → Real card size → Adjust cards: drag the cards over each other, then **Send to back** / **Bring to front** | The same for the two cards | ☐ ☐ |
+
 ## Decisions only you can make
 
 | Topic | Choice | My recommendation |
