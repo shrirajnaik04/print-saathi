@@ -1,8 +1,8 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
-import { type DocPage, type Job, type JobAction, jobReducer } from '../../core/job/job';
+import { type DocPage, type Job, type JobAction, jobReducer, nextItemIndex } from '../../core/job/job';
 import { isFull, uprightOf } from '../../core/layout/crop';
 import { freezeSizes, MIN_LONG_MM } from '../../core/layout/flow';
-import { overlaps, type Side, sideCrop, sideCropQuad } from '../../core/layout/free';
+import { overlaps, type Side, sideCrop, sideCropQuad, spotsFromPlan, storedPage } from '../../core/layout/free';
 import type { Box } from '../../core/layout/onePerPage';
 import { passportSize } from '../../core/layout/passport';
 import { angleOf, ownBox, shownDegrees, snap } from '../../core/layout/tilt';
@@ -26,6 +26,7 @@ import { useDocs } from '../useDocs';
 import { useJob } from '../useJob';
 import { usePlanPaper } from '../usePlanPaper';
 import { useStraightImages } from '../useStraightImages';
+import { type Clip, clipFor, keepClip } from './clipboard';
 import { cmText, findItem, itemsInPlan, longMm, ownLongMm, pageSize } from './place';
 import { usePlaceByHand } from './usePlaceByHand';
 import { nextZoom, ZOOM_MAX, ZOOM_MIN } from './zoom';
@@ -99,65 +100,17 @@ export function Adjust({ go, params }: ScreenProps) {
     figure.current?.querySelector<HTMLElement>(`.adjust-sheet[data-page="${n}"] figure`) ?? null;
   // The page in the middle of the strip (the one "Page n of N" names), and moving the strip to a page.
   const [shown, setShown] = useState(0);
-  const reduced = useMatches('(prefers-reduced-motion: reduce)');
-  // A move the app makes (‹ ›, a photo chosen on another page) names its page at once, never the pages it slides past,
-  // and never chooses on the way (under load a slide can pause longer than the wait for rest). A finger, the wheel or
-  // a key on the strip takes over from it.
-  const aimAt = useRef<number | null>(null);
-  const settling = useRef<ReturnType<typeof setTimeout>>();
-  const settleNow = useRef(() => {});
-  const nearest = (strip: HTMLElement) => {
-    const mid = strip.scrollLeft + strip.clientWidth / 2;
-    let best = 0;
-    let gap = Number.POSITIVE_INFINITY;
-    for (const el of Array.from(strip.querySelectorAll<HTMLElement>('.adjust-sheet'))) {
-      const d = Math.abs(el.offsetLeft + el.offsetWidth / 2 - mid);
-      if (d < gap) {
-        gap = d;
-        best = Number(el.dataset.page ?? 0);
-      }
-    }
-    return best;
-  };
-  const showPage = (n: number, smooth = true) => {
+  // Only ‹ › move the pages (owner, round 5: "disable finger swipe between pages … as fast as possible"): at once, no
+  // slide; a finger or the wheel never slides the strip (it does not scroll by hand at 100 %).
+  const showPage = (n: number) => {
     const strip = figure.current;
     const sheet = strip?.querySelector<HTMLElement>(`.adjust-sheet[data-page="${n}"]`);
     if (!strip || !sheet) return;
     setShown(n);
-    // Zoomed, only that page shows (and where the strip already is): nothing slides.
+    // Zoomed, only that page shows (and where the strip already is).
     if (zoomNow.current > 1) return;
-    const left = sheet.offsetLeft + sheet.offsetWidth / 2 - strip.clientWidth / 2;
-    if (Math.abs(strip.scrollLeft - left) < 1) return;
-    clearTimeout(settling.current);
-    aimAt.current = left;
-    strip.scrollTo({ left, behavior: smooth && !reduced ? 'smooth' : 'auto' });
+    strip.scrollLeft = sheet.offsetLeft + sheet.offsetWidth / 2 - strip.clientWidth / 2;
   };
-  // Moved by the shopkeeper, the strip at rest (no scroll for 150 ms; a WebView before Chrome 114 has no scrollend)
-  // settles on its page.
-  const onStripScroll = () => {
-    const strip = figure.current;
-    if (!strip || zoomNow.current > 1) return;
-    if (aimAt.current !== null) {
-      if (Math.abs(strip.scrollLeft - aimAt.current) < 1) aimAt.current = null;
-      return;
-    }
-    setShown(nearest(strip));
-    clearTimeout(settling.current);
-    settling.current = setTimeout(() => settleNow.current(), 150);
-  };
-  useEffect(() => () => clearTimeout(settling.current), []);
-  useEffect(() => {
-    const el = figure.current;
-    if (!el) return;
-    const takeOver = () => {
-      aimAt.current = null;
-    };
-    const events = ['touchstart', 'wheel', 'keydown'] as const;
-    for (const ev of events) el.addEventListener(ev, takeOver, { passive: true });
-    return () => {
-      for (const ev of events) el.removeEventListener(ev, takeOver);
-    };
-  }, [figure.current]);
   // A side of the chosen photo being dragged to crop it (Word's crop, owner 2026-10-24), and what it would make.
   const sideDrag = useRef<{
     id: number;
@@ -261,41 +214,49 @@ export function Adjust({ go, params }: ScreenProps) {
     return () => ro?.disconnect();
   }, [!!plan, where?.page, kind]);
   // Press and hold to place a photo anywhere on its page (owner, 2026-10-24); the Move buttons do the same.
+  // ID cards placed by hand (owner, round 5): in the sizes that are one pair on the page.
+  const cardsByHand = kind === 'cards' && !!job?.idCard && ['real', 'big', 'custom'].includes(job.idCard.size);
   const byHand = usePlaceByHand({
-    enabled: kind === 'photos',
+    enabled: kind === 'photos' || cardsByHand,
     plan,
     job,
     figure,
-    edgeMm: job ? paper.photoEdgeMm(job) : 6,
+    edgeMm: kind === 'cards' ? paper.cardEdgeMm() : job ? paper.photoEdgeMm(job) : 6,
     onChoose: (item) => setChosen(item),
     save: (actions) => change({ type: 'all', actions }),
+    // ID cards (owner, round 5): each card by its place in the job's cards; it snaps to the other card.
+    ...(kind === 'cards'
+      ? {
+          boxOf: (key: number) => targets.find((x) => x.key === key)?.placement.box,
+          othersOf: (key: number) => targets.filter((x) => x.key !== key).map((x) => x.placement.box),
+          place: (key: number, _page: number, box: Box) => [
+            { type: 'placeIdCard' as const, at: key, x: (box.x + box.w / 2) / MM, y: (box.y + box.h / 2) / MM },
+          ],
+        }
+      : {}),
   });
   const covering = useMemo(() => (kind === 'photos' && plan ? overlaps(plan) : []), [plan, kind]);
   // The chosen photo's page comes to the middle of the strip when the choice moves to another page.
   const placedOn = where?.page ?? 0;
-  const firstShow = useRef(true);
   useLayoutEffect(() => {
-    if (!plan) return;
-    showPage(placedOn, !firstShow.current);
-    firstShow.current = false;
+    if (plan) showPage(placedOn);
   }, [placedOn, !!plan, plan?.pages.length]);
-  // At rest on a page without the chosen photo (a swipe, ‹ ›), the first photo on it is chosen: the tools never change
-  // a photo out of sight. Copies (passport photos, ID card sets) are changed all at once, so they keep their choice.
+  // The screen changes size (turned, review M1): the page shown stays in the middle (the strip never snaps by itself).
+  const shownNow = useRef(0);
+  shownNow.current = shown;
+  useLayoutEffect(() => {
+    const strip = figure.current;
+    if (!strip || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(() => showPage(shownNow.current));
+    ro.observe(strip);
+    return () => ro.disconnect();
+    // The strip is drawn a moment after the plan: set up again once it is there.
+  }, [!!plan, !!figure.current]);
+  // ‹ › to a page without the chosen photo choose the first photo on it: the tools never change a photo out of sight.
+  // Copies (passport photos, ID card sets) are changed all at once, so they keep their choice.
   const chooseOn = (n: number) => {
     const first = targets.find((x) => x.page === n)?.key;
     if (first !== undefined && where?.page !== n && !byHand.lifted && !drag.current) setChosen(first);
-  };
-  settleNow.current = () => {
-    const strip = figure.current;
-    if (!strip || aimAt.current !== null) return;
-    const n = nearest(strip);
-    setShown(n);
-    chooseOn(n);
-    // The keyboard stays on the page in the middle (the page it was on has slid away).
-    const was = document.activeElement;
-    if (was instanceof HTMLElement && was.matches('.adjust-sheet figure') && strip.contains(was)) {
-      queueMicrotask(() => paperOf(n)?.focus({ preventScroll: true }));
-    }
   };
   // Pages drawn with their pictures: the one in the middle, its neighbours and the chosen one's (a long job never holds
   // every page's pictures at once, PLAN §P). A document's pages ask the engine for theirs (one at a time, never twice).
@@ -355,7 +316,7 @@ export function Adjust({ go, params }: ScreenProps) {
     if (zoom === 1) {
       zoomBase.current = null;
       strip.scrollTop = 0;
-      showPage(shown, false);
+      showPage(shown);
       return;
     }
     const r = paperOf(shown)?.getBoundingClientRect();
@@ -519,18 +480,117 @@ export function Adjust({ go, params }: ScreenProps) {
   const tiltBy = (deg: number) => {
     if (sel !== null) void rotateTo(sel, angleNow(sel) + deg);
   };
-  const removePhoto = async () => {
-    if (!job || sel === null) return;
+  const removePhoto = async (): Promise<boolean> => {
+    if (!job || sel === null) return false;
     const item = job.items.find((i) => i.index === sel);
-    if (!item) return;
+    if (!item) return false;
     const place = job.order.indexOf(sel);
     const pages = job.pages;
     const size = job.sizes?.[sel];
     const spot = job.spots?.[sel];
-    if (!(await change({ type: 'removeItem', index: sel }))) return;
+    if (!(await change({ type: 'removeItem', index: sel }))) return false;
     rememberRemoved(jobId, item, place, pages, size, spot);
     setUndo(removedFor(jobId));
     setChosen(keys[at + 1] ?? keys[at - 1] ?? null);
+    return true;
+  };
+  // Copy, Cut and Paste (owner, round 5: "copy paste, cut paste"), within this job: Copy remembers the chosen photo as
+  // it is now; Cut also takes it off (its Undo stays); Paste puts it on the page shown, at the + mark or the page's
+  // middle, placed by hand and chosen. A copy is the same file printed again; a cut photo comes back once.
+  const [clip, setClip] = useState<Clip | null>(() => clipFor(jobId));
+  const [clipNote, setClipNote] = useState<string | null>(null);
+  const remember = (c: Clip | null) => {
+    keepClip(c);
+    setClip(c);
+  };
+  const outline = () => {
+    if (!where) return { w: 0, h: 0 };
+    const b = withTurn(where.placement).box;
+    return { w: b.w, h: b.h };
+  };
+  const copyPhoto = () => {
+    if (!job || sel === null || !where) return;
+    const item = job.items.find((i) => i.index === sel);
+    if (!item) return;
+    remember({
+      jobId,
+      kind: 'copy',
+      copy: {
+        item,
+        ...(job.turns[sel] ? { turn: job.turns[sel] } : {}),
+        ...(job.tilts?.[sel] !== undefined ? { tilt: job.tilts[sel] } : {}),
+        ...(job.crops?.[sel] ? { crop: job.crops[sel] } : {}),
+        ...(job.quads?.[sel] ? { quad: job.quads[sel] } : {}),
+        size: job.sizes?.[sel] ?? ownLongMm(where.placement),
+      },
+      ...outline(),
+    });
+    setClipNote(fill(t.copied, { n: numberOf(sel) }));
+  };
+  const cutPhoto = async () => {
+    if (!job || sel === null || !where) return;
+    const item = job.items.find((i) => i.index === sel);
+    if (!item) return;
+    const cut: Clip = {
+      jobId,
+      kind: 'cut',
+      item,
+      at: job.order.indexOf(sel),
+      pages: job.pages,
+      size: job.sizes?.[sel] ?? ownLongMm(where.placement),
+      ...outline(),
+    };
+    const n = numberOf(sel);
+    if (!(await removePhoto())) return;
+    remember(cut);
+    setClipNote(fill(t.cutDone, { n }));
+  };
+  // The + mark (Word's cursor): where the next Paste goes, on the page shown; set by a tap on an empty spot.
+  const [mark, setMark] = useState<{ page: number; x: number; y: number } | null>(null);
+  // Another page in the middle: the mark was on the page left behind.
+  useEffect(() => {
+    setMark((m) => (m && m.page !== shown ? null : m));
+  }, [shown]);
+  const pastePhoto = async () => {
+    const c = clipFor(jobId);
+    if (!c || !job || !plan) return;
+    const onPage = mark?.page ?? shown;
+    const sz = pageSize(plan, onPage);
+    const cx = mark ? mark.x : sz.w / 2;
+    const cy = mark ? mark.y : sz.h / 2;
+    const box = byHand.inside(onPage, { x: cx - c.w / 2, y: cy - c.h / 2, w: c.w, h: c.h });
+    const x = (box.x + box.w / 2) / MM;
+    const y = (box.y + box.h / 2) / MM;
+    const fixed = spotsFromPlan(plan, job.spots);
+    const fix: JobAction = { type: 'setSpots', spots: fixed, sizes: { ...freezeSizes(plan), ...(job.sizes ?? {}) } };
+    // The page as stored, not its place on screen (review I2), and above every photo once they are fixed (review I3).
+    const stored = storedPage(plan, fixed, onPage);
+    const z = Math.max(0, ...Object.values(fixed).map((s) => s.z)) + 1;
+    const newIndex = c.kind === 'copy' ? nextItemIndex(job) : c.item.index;
+    const put: JobAction =
+      c.kind === 'copy'
+        ? { type: 'copyItem', copy: c.copy, page: stored, x, y }
+        : {
+            type: 'restoreItem',
+            item: c.item,
+            at: c.at,
+            pages: c.pages,
+            ...(c.size !== undefined ? { size: c.size } : {}),
+            spot: { page: stored, x, y, z },
+          };
+    if (!(await change({ type: 'all', actions: [fix, put] }))) return;
+    setMark(null);
+    if (c.kind === 'cut') {
+      remember(null);
+      // Its own Undo goes; another photo's Remove keeps its Undo (review M3).
+      if (undo?.item.index === c.item.index) {
+        forgetRemoved();
+        setUndo(null);
+      }
+    }
+    setClipNote(null);
+    setChosen(newIndex);
+    retry(); // the pictures were listed without this photo when Adjust opened again (review I1): list them again
   };
   const removePage = async () => {
     if (!where) return;
@@ -716,7 +776,11 @@ export function Adjust({ go, params }: ScreenProps) {
   const page = where && plan ? (plan as PrintPlan).pages[where.page] : undefined;
   // A photo being moved by hand is drawn where the finger has it, on top of the others.
   const lifted = byHand.lifted && where && byHand.lifted.page === where.page ? byHand.lifted : null;
-  const liftedPlacement = lifted ? page?.placements.find((p) => p.itemIndex === lifted.item) : undefined;
+  const liftedPlacement = lifted
+    ? kind === 'cards'
+      ? targets.find((x) => x.key === lifted.item)?.placement
+      : page?.placements.find((p) => p.itemIndex === lifted.item)
+    : undefined;
   // A side being dragged: the photo drawn cut as it would be.
   const withCut = (p: Placement): Placement =>
     cut && p.itemIndex === cut.item
@@ -935,6 +999,20 @@ export function Adjust({ go, params }: ScreenProps) {
           >
             {t.remove}
           </Button>
+          <Button variant="secondary" icon="copy" disabled={busy || sel === null} onClick={copyPhoto}>
+            {t.copy}
+          </Button>
+          <Button
+            variant="secondary"
+            icon="cut"
+            disabled={busy || sel === null || keys.length < 2}
+            onClick={() => void cutPhoto()}
+          >
+            {t.cut}
+          </Button>
+          <Button variant="secondary" icon="paste" disabled={busy || !clip} onClick={() => void pastePhoto()}>
+            {t.paste}
+          </Button>
           <Button
             variant="secondary"
             icon="undo"
@@ -1092,6 +1170,59 @@ export function Adjust({ go, params }: ScreenProps) {
               {t.swapSides}
             </Button>
           )}
+          {/* Placed by hand and side by side (owner, round 5): Move, Automatic, and the arrangement. */}
+          {cardsByHand &&
+            where &&
+            (['up', 'down', 'left', 'right'] as const).map((d) => (
+              <Button
+                key={d}
+                variant="secondary"
+                icon={d}
+                disabled={busy}
+                onClick={() =>
+                  byHand.nudge(
+                    sel,
+                    where.page,
+                    d === 'left' ? -2 : d === 'right' ? 2 : 0,
+                    d === 'up' ? -2 : d === 'down' ? 2 : 0,
+                  )
+                }
+              >
+                {d === 'up' ? t.moveUp : d === 'down' ? t.moveDown : d === 'left' ? t.moveLeft : t.moveRight}
+              </Button>
+            ))}
+          {cardsByHand && (
+            <Button
+              variant="secondary"
+              icon="undo"
+              disabled={busy || !job.idCard.spots}
+              onClick={() => void change({ type: 'clearIdCardSpots' })}
+            >
+              {t.automatic}
+            </Button>
+          )}
+          {cardsByHand && job.idCard.cards.length > 1 && (
+            <>
+              <Button
+                variant="secondary"
+                icon="down"
+                pressed={job.idCard.arrange !== 'row'}
+                disabled={busy}
+                onClick={() => void change({ type: 'setIdCardArrange', arrange: 'stack' })}
+              >
+                {t.stacked}
+              </Button>
+              <Button
+                variant="secondary"
+                icon="right"
+                pressed={job.idCard.arrange === 'row'}
+                disabled={busy}
+                onClick={() => void change({ type: 'setIdCardArrange', arrange: 'row' })}
+              >
+                {t.sideBySide}
+              </Button>
+            </>
+          )}
           {prevNext([t.previousCard, t.nextCard])}
         </>
       )}
@@ -1127,6 +1258,11 @@ export function Adjust({ go, params }: ScreenProps) {
               forgetRemoved();
               setUndo(null);
               setChosen(undo.item.index);
+              // Cut, then Undo (review M2): the photo is back, so Paste has nothing to put back.
+              if (clip?.kind === 'cut' && clip.item.index === undo.item.index) {
+                remember(null);
+                setClipNote(null);
+              }
               retry(); // the thumbnails were listed without this photo: list them again
             },
           }}
@@ -1144,7 +1280,6 @@ export function Adjust({ go, params }: ScreenProps) {
           }}
         />
       )}
-      <p>{kind === 'photos' ? t.hint : t.hintOther}</p>
       {/* Side by side on a wide screen held sideways (tablets, a phone in landscape): the page and its tools together. */}
       <div class="adjust-body">
         {plan && where && page && size && (
@@ -1186,7 +1321,7 @@ export function Adjust({ go, params }: ScreenProps) {
             </div>
             {lifted && (
               <p role="status" class="adjust-moving">
-                {fill(t.moving, { n: numberOf(lifted.item) })}
+                {fill(kind === 'cards' ? t.movingCard : t.moving, { n: numberOf(lifted.item) })}
               </p>
             )}
             {/* Every page side by side (owner, round 4): the chosen photo's page in the middle, the next and previous
@@ -1196,16 +1331,32 @@ export function Adjust({ go, params }: ScreenProps) {
               ref={figure}
               class={`adjust-strip${plan.pages.length > 1 ? '' : ' adjust-strip-one'}${zoom > 1 ? ' adjust-zoomed' : ''}`}
               style={zoom > 1 && zoomBase.current ? { height: `${zoomBase.current.height}px` } : undefined}
-              onScroll={onStripScroll}
             >
               {plan.pages.map((_, n) => {
                 const sz = pageSize(plan, n);
                 const onWhere = n === where.page;
                 return (
+                  // biome-ignore lint/a11y/useKeyWithClickEvents: the + mark is an extra; Paste without it goes to the page's middle
+                  // biome-ignore lint/a11y/noStaticElementInteractions: the same tap, on the page itself
                   <div
                     key={n}
                     class={`adjust-sheet${onWhere ? ' adjust-paper' : ''}${n === shown ? ' adjust-shown' : ''}`}
                     data-page={n}
+                    onClick={(e) => {
+                      // A tap on an empty spot of the page shown sets the + mark (photos; a photo or a handle is not
+                      // empty).
+                      if (kind !== 'photos' || n !== shown || !plan) return;
+                      const target = e.target as HTMLElement;
+                      if (target.closest('.adjust-pick, .adjust-handle, .adjust-side, .adjust-rotate')) return;
+                      const r = paperOf(n)?.getBoundingClientRect();
+                      if (!r || e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom)
+                        return;
+                      setMark({
+                        page: n,
+                        x: ((e.clientX - r.left) / r.width) * sz.w,
+                        y: ((e.clientY - r.top) / r.height) * sz.h,
+                      });
+                    }}
                     style={{
                       '--paper-aspect': `${sz.w / sz.h}`,
                       ...(zoom > 1 && n === shown && zoomBase.current
@@ -1223,7 +1374,6 @@ export function Adjust({ go, params }: ScreenProps) {
                       srcOfPlacement={srcOfPlacement}
                       label={fill(en.ready.pageLabel, { n: n + 1, total: plan.pages.length })}
                       grey={plan.colour === 'bw'}
-                      focusable={plan.pages.length > 1 && n === shown}
                     >
                       {(drawnPage(n) ? touchableOn(n) : []).map((p, i) => {
                         const k = keyOf(p, n);
@@ -1276,7 +1426,9 @@ export function Adjust({ go, params }: ScreenProps) {
                           <span
                             key={kind === 'photos' && k !== null ? `pick-${k}` : `pick-at${i}`}
                             class={`adjust-pick${selected && !own ? ' adjust-selected' : ''}${lifted && lifted.item === k ? ' adjust-lifted' : ''}`}
-                            {...(kind === 'photos' && k !== null ? { 'data-item': k, ...byHand.handlers(k, n) } : {})}
+                            {...((kind === 'photos' || cardsByHand) && k !== null
+                              ? { 'data-item': k, ...byHand.handlers(k, n) }
+                              : {})}
                             style={{
                               left: pct(p.box.x, sz.w),
                               top: pct(p.box.y, sz.h),
@@ -1306,6 +1458,13 @@ export function Adjust({ go, params }: ScreenProps) {
                           </span>
                         );
                       })}
+                      {mark && mark.page === n && (
+                        <span
+                          class="adjust-mark"
+                          aria-hidden="true"
+                          style={{ left: pct(mark.x, sz.w), top: pct(mark.y, sz.h) }}
+                        />
+                      )}
                       {/* The angle while the round handle turns the photo: on its centre, clear of the finger. */}
                       {onWhere && turning && !turning.lifted && (
                         <span
@@ -1340,6 +1499,12 @@ export function Adjust({ go, params }: ScreenProps) {
               })}
             </div>
             <p class="adjust-size">{sizeText}</p>
+            {/* Under the page, so the page never moves when it shows (Copy, Cut, the + mark). */}
+            {!lifted && (mark || clipNote) && (
+              <p role="status" class="adjust-note">
+                {mark ? t.markShown : clipNote}
+              </p>
+            )}
           </div>
         )}
         {/* Office-style tools: icon above its word; as many to a row as the text size allows. */}

@@ -306,3 +306,71 @@ describe('the cards’ size as drawn', () => {
     expect(drawnCardScale(standing('real', 2))).toBeCloseTo(big, 6);
   });
 });
+
+// Owner, round 5: "what if the user wants front and back horizontal? Default must be vertical", and "allow drag so
+// that we can place the image anywhere".
+describe('ID cards side by side, and placed by hand (owner, round 5)', () => {
+  const edge = 6;
+  const boxesOf = (job: Job) => (idCardPlan(job, edge).pages[0]?.placements ?? []).map((p) => p.box);
+  const row = (size: 'real' | 'big') => jobReducer(cardJob(size), { type: 'setIdCardArrange', arrange: 'row' }, 3);
+  const mid = (b: { x: number; y: number; w: number; h: number }) => ({ x: b.x + b.w / 2, y: b.y + b.h / 2 });
+  it('side by side: two lying cards in one row, centred, 10 mm apart, real size', () => {
+    const [a, b] = boxesOf(row('real'));
+    if (!a || !b) throw new Error('two cards');
+    near(a.w / MM, CARD_W_MM);
+    near(b.w / MM, CARD_W_MM);
+    near(mid(a).y, mid(b).y);
+    near((b.x - (a.x + a.w)) / MM, 10);
+    near((a.x + (b.x + b.w)) / 2 / MM, 105);
+  });
+  it('side by side, Big size: as big as fits in the row', () => {
+    const [a, b] = boxesOf(row('big'));
+    if (!a || !b) throw new Error('two cards');
+    near((b.x + b.w - a.x) / MM, 210 - 2 * edge);
+  });
+  it('side by side with a standing card: the row as tall as the taller card, each centred in it', () => {
+    const j = jobReducer(row('real'), { type: 'turnIdCard', at: 1, by: 1 }, 4);
+    const [a, b] = boxesOf(j);
+    if (!a || !b) throw new Error('two cards');
+    near(b.h / MM, CARD_W_MM);
+    near(mid(a).y, mid(b).y);
+  });
+  it('a card placed by hand is drawn centred on its spot, the same size, inside the edges', () => {
+    const j = jobReducer(cardJob('real'), { type: 'placeIdCard', at: 1, x: 60, y: 200 }, 3);
+    const b = idCardPlan(j, edge).pages[0]?.placements.find((p) => p.itemIndex === 2)?.box;
+    if (!b) throw new Error('the back');
+    near(mid(b).x / MM, 60);
+    near(mid(b).y / MM, 200);
+    near(b.w / MM, CARD_W_MM);
+    const out = jobReducer(cardJob('real'), { type: 'placeIdCard', at: 0, x: 1, y: 1 }, 3);
+    const f = idCardPlan(out, edge).pages[0]?.placements.find((p) => p.itemIndex === 1)?.box;
+    if (!f) throw new Error('the front');
+    expect(f.x).toBeGreaterThanOrEqual(edge * MM - 1e-6);
+    expect(f.y).toBeGreaterThanOrEqual(edge * MM - 1e-6);
+  });
+  it('placed, then turned or made Big: still centred on its spot, kept inside (Review Focus 3)', () => {
+    let j = jobReducer(cardJob('real'), { type: 'placeIdCard', at: 0, x: 100, y: 60 }, 3);
+    j = jobReducer(j, { type: 'turnIdCard', at: 0, by: 1 }, 4);
+    let f = idCardPlan(j, edge).pages[0]?.placements.find((p) => p.itemIndex === 1)?.box;
+    if (!f) throw new Error('the front');
+    near(mid(f).x / MM, 100);
+    near(mid(f).y / MM, 60);
+    j = jobReducer(j, { type: 'setIdCardSize', size: 'big' }, 5);
+    f = idCardPlan(j, edge).pages[0]?.placements.find((p) => p.itemIndex === 1)?.box;
+    if (!f) throw new Error('the front');
+    expect(f.y).toBeGreaterThanOrEqual(edge * MM - 1e-6);
+    expect(f.y + f.h).toBeLessThanOrEqual((297 - edge) * MM + 1e-6);
+  });
+  it('the card placed last is drawn last (on top)', () => {
+    let j = jobReducer(cardJob('real'), { type: 'placeIdCard', at: 1, x: 100, y: 100 }, 3);
+    j = jobReducer(j, { type: 'placeIdCard', at: 0, x: 110, y: 110 }, 4);
+    const order = idCardPlan(j, edge).pages[0]?.placements.map((p) => p.itemIndex);
+    expect(order).toEqual([2, 1]);
+  });
+  it('Many copies and the whole page ignore places and the arrangement', () => {
+    const placed = jobReducer(row('real'), { type: 'placeIdCard', at: 0, x: 60, y: 200 }, 4);
+    const sets = jobReducer(placed, { type: 'setIdCardSize', size: 'sets', sets: 2 }, 5);
+    const plain = jobReducer(cardJob('real'), { type: 'setIdCardSize', size: 'sets', sets: 2 }, 5);
+    expect(boxesOf(sets)).toEqual(boxesOf(plain));
+  });
+});

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'preact/hooks';
 import type { Job } from '../core/job/job';
+import { EDGE_MM } from '../core/layout/onePerPage';
 import { buildPlan, type PdfFacts, type PhotoPaper, type PrintPlan, paperOf, photoEdgeMm } from '../core/plan/plan';
 import { PrintEngine } from '../native/printEngine';
 import { useSettings } from './useSettings';
@@ -38,6 +39,8 @@ export function usePlanPaper() {
       const pp = setup.photoPaper ?? undefined;
       return paperOf(job, pp) === 'PHOTO_4x6' && pp ? pp.edgeMm + edge : photoEdgeMm(margins, setup.a4EdgeMm, edge);
     },
+    /** The blank space (mm) at the edges of an ID card page, as [draw] keeps it (cards placed by hand, review I4). */
+    cardEdgeMm: (): number => (setup.a4EdgeMm ?? EDGE_MM) + edge,
     draw: (job: Job, aspects: ReadonlyMap<number, number>, docs?: ReadonlyMap<number, PdfFacts>): PrintPlan =>
       buildPlan(job, aspects, setup.photoPaper ?? undefined, setup.a4EdgeMm, docs, edge, margins),
   };

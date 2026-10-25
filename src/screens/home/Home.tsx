@@ -11,7 +11,7 @@ import { Panel } from '../../ui/Panel';
 import { Tile, type TileTone } from '../../ui/Tile';
 import { usePinWhileSmall } from '../../ui/usePinWhileSmall';
 import { useRevealOnShow } from '../../ui/useRevealOnShow';
-import { jobText } from '../recent/Recent';
+import { jobText } from '../recent/jobText';
 import { push, type ScreenProps } from '../types';
 import { useSettings } from '../useSettings';
 

@@ -112,6 +112,13 @@ sh('am', 'start', '-n', `${SENDER}/.SendActivity`, '--es', 'mode', 'card-photos'
 await until('Received', () => has('ID card copy'));
 await shot('02-received');
 await tap('ID card copy');
+// Owner, round 4: each side from a photo passes its own crop screen first; Done keeps the frame found.
+for (const side of ['Front of the card', 'Back of the card']) {
+  await until(side, () => has(side), 60_000);
+  await sleep(1000);
+  await tap('Done');
+  await sleep(1500);
+}
 await until('cards found', () => has('2 ID cards found') || has('1 ID card found') || has("Couldn't find"));
 result.photosFound = labels().find((l) => /ID cards? found|Couldn't find/.test(l));
 result.photosChecked = labels().filter((l) => l === 'Check the corners').length;

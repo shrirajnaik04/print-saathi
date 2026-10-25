@@ -1,0 +1,8 @@
+{
+  "device": "API 35",
+  "steps": [
+    "release APK installed"
+  ],
+  "error": "timed out waiting for Ready with the real page (screen: Back / Files received / Home / 6 files / What did the customer ask? / All on one page / One on each page / Use more pages / Passport photos / Print as document / The photos / 1 of 6)",
+  "pass": false
+}

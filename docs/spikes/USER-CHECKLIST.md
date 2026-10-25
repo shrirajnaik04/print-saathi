@@ -387,6 +387,21 @@ Please also note: how many of your real card photos were found without Fix corne
 | AA8 | Home | No "Customer sent files on WhatsApp?" card; Help still explains sharing from WhatsApp | ☐ ☐ |
 | AA9 | Change → **Paper type** → Glossy photo paper → print on glossy paper on the Brother | A yellow line says "Put glossy photo paper in the printer."; the button says PAPER LOADED — PRINT. On Android's print screen, choose the glossy paper setting yourself (Android cannot set it) | ☐ ☐ |
 
+## §AB Copy / Cut / Paste and the + mark, pages by ‹ › only, zoom, ID cards placed by hand and side by side, PRINT after Back, deleting jobs (Phases 33–36) — 25 min
+
+AB3 replaces AA6's "a sideways swipe": pages now move with ‹ › only (owner, round 5).
+
+| # | What to do | What to check | Result |
+|---|---|---|---|
+| AB1 | 4 photos → All on one page → Adjust photos | No grey hint line under "Photo 1 of 4" | ☐ ☐ |
+| AB2 | On Adjust: choose a photo → **Copy**; tap an empty spot on the page (a **+** mark appears, "Paste goes to the + mark."); **Paste**. Then **Cut** another photo, go to another page with **›**, **Paste** | The copy appears centred on the + mark, the same picture, size and turn; the cut photo appears on the page you went to. Paste twice makes two copies. Recent jobs still says the number of files the customer sent | ☐ ☐ |
+| AB3 | Adjust on a job with 3 or more pages: slide a finger sideways over the page, then tap **›** and **‹** | Sliding does nothing; ‹ › change the page at once, with no slide | ☐ ☐ |
+| AB4 | Anywhere in the app outside Adjust (Home, Ready, Settings): put two fingers on the screen and spread them | Nothing zooms. **Please tell me where you saw zoom on 1.0.252** (which screen, and how); I could not make it happen | ☐ ☐ |
+| AB5 | ID card copy → Real card size → **Adjust cards**: press and hold the back card, drag it, let go; then **Move left / right / up / down**, then **Automatic** | The card follows your finger and stays where you let go, and prints there; Move moves 2 mm a tap; Automatic puts both cards back | ☐ ☐ |
+| AB6 | On Adjust cards: **Side by side**, print; then **Top and bottom** | Side by side prints front and back next to each other in one row (Big size too); Top and bottom (the default) prints them one under the other | ☐ ☐ |
+| AB7 | Ready → **PRINT** → on Android's print screen press the phone's Back (or the X) without printing | Ready shows **PRINT** again at once (no "Opening the print screen…"), and PRINT works the first time you tap it. **On your Brother's print screen and your phone**, check this too: a print that really went must not be offered as "not sent" | ☐ ☐ |
+| AB8 | Home → Recent jobs → **Delete** on one job → Delete; then **Delete all jobs** → Delete all | Each asks once; the job (or every job) disappears from the list and from Home. Old jobs are also deleted by themselves 1 day after they were last used (Settings → Delete customer files after) | ☐ ☐ |
+
 ## Decisions only you can make
 
 | Topic | Choice | My recommendation |

@@ -22,6 +22,18 @@ class PrintRecordTest {
         assertFalse("no paths in the record", text.contains("/"))
     }
 
+    /** Owner, round 5: whether Android asked for the final file is kept; an older record without it is checked as before. */
+    @Test fun keepsWhetherTheFinalFileWasAskedFor() {
+        val store = PrintRecordStore(tmp.root)
+        store.save(record.copy(finalAsked = false))
+        assertFalse(store.load()!!.finalAsked)
+        store.save(record.copy(finalAsked = true))
+        assertTrue(store.load()!!.finalAsked)
+        val old = tmp.root.resolve("state/print.json")
+        old.writeText(old.readText().replace(Regex(",?\"finalAsked\":(true|false)"), ""))
+        assertTrue("an old record keeps the checking path", store.load()!!.finalAsked)
+    }
+
     @Test fun updatesReplaceTheRecordAtomically() {
         val store = PrintRecordStore(tmp.root)
         store.save(record)

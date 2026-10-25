@@ -49,6 +49,11 @@ class MainActivity : BridgeActivity() {
             // The app scales text itself from the phone's font size (capped at 200 %, PLAN §D6); the WebView must
             // not scale again, or tested layouts would differ from what the shopkeeper sees.
             settings.textZoom = 100
+            // No screen zoom anywhere (owner, round 5: "zoom only in Adjust, just to zoom the printable page"): Adjust's
+            // page zooms itself. Capacitor leaves pinch zoom off; said here too, so no WebView build ever zooms.
+            settings.setSupportZoom(false)
+            settings.builtInZoomControls = false
+            settings.displayZoomControls = false
             // Brand "dark mode for apps" must never invert paper previews.
             if (WebViewFeature.isFeatureSupported(WebViewFeature.ALGORITHMIC_DARKENING)) {
                 WebSettingsCompat.setAlgorithmicDarkeningAllowed(settings, false)

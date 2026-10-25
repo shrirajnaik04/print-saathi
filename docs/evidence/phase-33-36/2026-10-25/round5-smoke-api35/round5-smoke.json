@@ -1,0 +1,84 @@
+{
+  "serial": "emulator-5580",
+  "checks": {
+    "backFromPrintScreenPrintAtOnce": true,
+    "noHintLine": true,
+    "swipeDoesNothingArrowsMove": true,
+    "copyPasteWithTheMark": true,
+    "aCardHeldAndDraggedPrintsThere": true,
+    "sideBySideInThePrintFile": true,
+    "deleteAllEmptiesRecentAndTheJobsFolder": true
+  },
+  "printBack": {
+    "text": "PRINT",
+    "disabled": false,
+    "title": "Ready to print",
+    "ms": 647
+  },
+  "pages": {
+    "afterSwipe": "Page 1 of 6",
+    "arrow": "Page 2 of 6",
+    "msWithAdbReads": 2228
+  },
+  "copy": {
+    "marked": true,
+    "items": 7,
+    "copyOf": 2,
+    "samePath": true,
+    "printPages": 6
+  },
+  "cards": {
+    "auto": [
+      {
+        "x": 62.20001388888888,
+        "y": 19.999995277777778,
+        "w": 85.60001083333333,
+        "h": 54.00001194444444
+      },
+      {
+        "x": 62.20001388888888,
+        "y": 83.99998722222222,
+        "w": 85.60001083333333,
+        "h": 54.00001194444444
+      }
+    ],
+    "dragged": [
+      {
+        "x": 62.20001388888888,
+        "y": 19.999995277777778,
+        "w": 85.60001083333333,
+        "h": 54.00001194444444
+      },
+      {
+        "x": 92.48845555555556,
+        "y": 99.14424333333332,
+        "w": 85.60001083333333,
+        "h": 54.00001194444444
+      }
+    ],
+    "spots": {
+      "1": {
+        "x": 135.28846153846152,
+        "y": 126.14423076923076,
+        "z": 1
+      }
+    },
+    "row": [
+      {
+        "x": 14.400000833333332,
+        "y": 19.999995277777778,
+        "w": 85.60001083333333,
+        "h": 54.00001194444444
+      },
+      {
+        "x": 109.99999166666665,
+        "y": 19.999995277777778,
+        "w": 85.60001083333333,
+        "h": 54.00001194444444
+      }
+    ]
+  },
+  "deleteAll": {
+    "jobsLeft": ""
+  }
+}

@@ -1,5 +1,5 @@
 import { Capacitor } from '@capacitor/core';
-import { useEffect, useRef, useState } from 'preact/hooks';
+import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { isStorageFull } from '../../core/intake/messages';
 import { type Job, type JobAction, type JobLayout, normalizeJob } from '../../core/job/job';
 import { saveChange } from '../../core/job/save';
@@ -13,6 +13,7 @@ import { Tile } from '../../ui/Tile';
 import { TopBar } from '../../ui/TopBar';
 import { AutoTurnNote } from '../AutoTurnNote';
 import { findBlackEdges, prepareBlackEdges } from '../blackEdges';
+import { withCopies } from '../copies';
 import { Duplicates } from '../Duplicates';
 import { JobGone } from '../JobGone';
 import { noteJob } from '../printedJobs';
@@ -50,7 +51,9 @@ export function Received({ go, params }: ScreenProps) {
   const jobId = String(params?.jobId ?? '');
   const [job, setJob] = useState<Job | null>(null);
   const [gone, setGone] = useState(false);
-  const [thumbs, setThumbs] = useState<Map<number, ThumbResult> | null>(null);
+  const [rawThumbs, setThumbs] = useState<Map<number, ThumbResult> | null>(null);
+  // A copy made on Adjust shows with its original's picture until it has its own (owner, round 5).
+  const thumbs = useMemo(() => withCopies(rawThumbs, job), [rawThumbs, job]);
   const [loadFailed, setLoadFailed] = useState(false);
   // Chosen on Home for passport photos (PLAN §J0): go on to the passport photo by itself once the photos are ready.
   // Once per job: Back from the frame lands here and stays (review I1).

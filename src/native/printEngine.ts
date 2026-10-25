@@ -118,7 +118,9 @@ export type PrintState =
   | 'wrongPaper'
   | 'interrupted'
   | 'failed'
-  | 'unknown';
+  | 'unknown'
+  /** Owner, round 5: Android's print screen closed before the print button was pressed: nothing was sent. */
+  | 'notSent';
 
 /** [upsideDown]: the face on it reads only with the card turned over: it prints with a half turn (spec Part 2). */
 export type FoundCard = { quad: number[]; confidence: number; face: boolean; upsideDown?: boolean };

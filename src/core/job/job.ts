@@ -6,7 +6,25 @@ import { passportSize } from '../layout/passport';
 import { partsOf } from '../layout/tilt';
 import { CUSTOM_MAX_MM, CUSTOM_MIN_MM, MAX_PASSPORT_COUNT, PASSPORT_BORDERS } from '../settings/settings';
 
-export type JobItem = { index: number; path: string; type: SniffedType; bytes: number; sha256: string };
+/** A photo as it was when Copy was tapped on Adjust (owner, round 5). */
+export type CopiedPhoto = {
+  item: JobItem;
+  turn?: 0 | 1 | 2 | 3;
+  tilt?: number;
+  crop?: CropBox;
+  quad?: number[];
+  size?: number;
+};
+
+/** [copyOf]: a copy made on Adjust (owner, round 5): the same file printed again, as a photo of its own. */
+export type JobItem = {
+  index: number;
+  path: string;
+  type: SniffedType;
+  bytes: number;
+  sha256: string;
+  copyOf?: number;
+};
 
 /** What the customer asked for (PLAN §I-2). Phase 2 ships onePerPage; the others arrive with the layout engine. */
 export type JobLayout = 'onePerPage' | 'allOnOne' | 'morePages' | 'passport' | 'document' | 'idCard';
@@ -139,7 +157,19 @@ export type IdCardSide = {
 const quarterTurns = (t: unknown): 0 | 1 | 2 | 3 => (t === 1 || t === 2 || t === 3 ? t : 0);
 
 /** [scale]: the cards' own size on Adjust (size 'custom'), 0.7–2 times the real card. */
-export type IdCardChoice = { size: IdCardSize; sets: number; cards: IdCardSide[]; scale?: number };
+/**
+ * [spots]: cards placed by hand (owner, round 5), by card: the card's centre in mm on the page, and [z], the order they
+ * were placed (the last on top). [arrange]: 'row' puts front and back side by side; none, one under another.
+ */
+export type IdCardChoice = {
+  size: IdCardSize;
+  sets: number;
+  cards: IdCardSide[];
+  scale?: number;
+  spots?: Record<number, CardSpot>;
+  arrange?: 'row';
+};
+export type CardSpot = { x: number; y: number; z: number };
 
 /** Many copies: at most this many sets (front and back) on one sheet. */
 export const MAX_CARD_SETS = 10;
@@ -290,6 +320,11 @@ export type JobAction =
   | { type: 'setCopies'; copies: number }
   | { type: 'removeItem'; index: number }
   /** Undo of a removal: the item back at position [at] of the print order. */
+  /**
+   * Paste of a copy (owner, round 5): the photo as it was copied ([copy]: the item and its crop, turn, angle and size
+   * then) as a new photo, its centre at [x], [y] mm on [page], on top. The original may be gone since (Remove).
+   */
+  | { type: 'copyItem'; copy: CopiedPhoto; page: number; x: number; y: number }
   | { type: 'restoreItem'; item: JobItem; at: number; pages?: 'best' | number; size?: number; spot?: Spot }
   /** The first photo moved by hand: every photo is fixed where it is now, at its size (owner, 2026-10-24). */
   | { type: 'setSpots'; spots: Record<number, Spot>; sizes: Record<number, number> }
@@ -343,6 +378,12 @@ export type JobAction =
   | { type: 'setIdCards'; cards: IdCardSide[]; size?: IdCardSize }
   | { type: 'setIdCardSize'; size: IdCardSize; sets?: number }
   | { type: 'swapIdCards' }
+  /** Owner, round 5: a card placed by hand, its centre at [x], [y] mm, on top. */
+  | { type: 'placeIdCard'; at: number; x: number; y: number }
+  /** One under another (default) or side by side; places set by hand go (it is the automatic arrangement). */
+  | { type: 'setIdCardArrange'; arrange: 'stack' | 'row' }
+  /** Automatic: the cards back in their places. */
+  | { type: 'clearIdCardSpots' }
   | { type: 'setIdCardQuad'; at: number; quad: number[] }
   /** [by] quarter turns clockwise: 1 Turn right, 3 Turn left, 2 (or none) upside down. */
   | { type: 'turnIdCard'; at: number; by?: 1 | 2 | 3 }
@@ -372,7 +413,9 @@ const MAX_COPIES = 99;
 
 function duplicateGroups(items: JobItem[]): number[][] {
   const byHash = new Map<string, number[]>();
-  for (const it of items) byHash.set(it.sha256, [...(byHash.get(it.sha256) ?? []), it.index]);
+  // A copy made on Adjust is meant to print twice: never "the same photo sent twice".
+  for (const it of items.filter((i) => i.copyOf === undefined))
+    byHash.set(it.sha256, [...(byHash.get(it.sha256) ?? []), it.index]);
   return [...byHash.values()].filter((g) => g.length > 1);
 }
 
@@ -420,15 +463,39 @@ function clampPages(pages: 'best' | number, items: number): 'best' | number {
  * A stored job as this version reads it: jobs saved before Phase 3 get Best, received order and no turns; anything
  * that is not a job gives null.
  */
+/** Every photo number the job still mentions (a removed photo's turn and crop are kept for its Undo). */
+function usedIndexes(job: Job): number[] {
+  return [
+    ...job.items.map((i) => i.index),
+    ...job.order,
+    ...[job.turns, job.crops ?? {}, job.suggested ?? {}, job.quads ?? {}, job.spots ?? {}, job.tilts ?? {}].flatMap(
+      (r) => Object.keys(r).map(Number),
+    ),
+    ...(job.passport ? [job.passport.item] : []),
+    ...Object.keys(job.docTurns ?? {}).map((k) => Number(k.split(':')[0])),
+  ].filter(Number.isFinite);
+}
+
+/** The number a new photo gets: after every number the job still mentions. */
+export function nextItemIndex(job: Job): number {
+  return Math.max(0, ...usedIndexes(job)) + 1;
+}
+
 export function normalizeJob(o: unknown): Job | null {
   if (!o || typeof o !== 'object') return null;
   const j = o as Partial<Job>;
   if (typeof j.id !== 'string' || !Array.isArray(j.items)) return null;
   // Corrupt entries are dropped and odd values read as defaults, so a damaged file never breaks a screen.
-  const items = j.items.filter(
+  const kept = j.items.filter(
     (i): i is JobItem => !!i && typeof i === 'object' && Number.isInteger((i as JobItem).index),
   );
-  const indexes = items.map((i) => i.index);
+  const indexes = kept.map((i) => i.index);
+  // A copy's note: a photo number (its original may have been removed since).
+  const items = kept.map((i) => {
+    if (i.copyOf === undefined || (Number.isInteger(i.copyOf) && i.copyOf > 0 && i.copyOf !== i.index)) return i;
+    const { copyOf: _, ...rest } = i;
+    return rest;
+  });
   const stored = Array.isArray(j.order) ? j.order.map(Number) : [];
   const order =
     stored.every(Number.isInteger) && [...stored].sort().join() === [...indexes].sort().join() ? stored : indexes;
@@ -496,11 +563,30 @@ export function normalizeJob(o: unknown): Job | null {
     typeof ic?.scale === 'number' && Number.isFinite(ic.scale) && ic.scale >= 0.7 && ic.scale <= 2
       ? ic.scale
       : undefined;
+  const cardSpots: Record<number, CardSpot> = {};
+  for (const [k, v] of Object.entries(ic?.spots ?? {}))
+    if (
+      Number(k) >= 0 &&
+      Number(k) < cards.length &&
+      v &&
+      [v.x, v.y, v.z].every((n) => typeof n === 'number' && Number.isFinite(n))
+    )
+      cardSpots[Number(k)] = { x: v.x, y: v.y, z: v.z };
+  const placedCards = {
+    ...(Object.keys(cardSpots).length ? { spots: cardSpots } : {}),
+    ...(ic?.arrange === 'row' ? { arrange: 'row' as const } : {}),
+  };
   const idCard =
     ic && ['real', 'big', 'sets', 'page', 'custom'].includes(ic.size) && cards.length > 0
       ? ic.size === 'custom' && cardScale === undefined
-        ? { size: 'real' as const, sets: clampSets(ic.sets), cards }
-        : { size: ic.size, sets: clampSets(ic.sets), cards, ...(ic.size === 'custom' ? { scale: cardScale } : {}) }
+        ? { size: 'real' as const, sets: clampSets(ic.sets), cards, ...placedCards }
+        : {
+            size: ic.size,
+            sets: clampSets(ic.sets),
+            cards,
+            ...(ic.size === 'custom' ? { scale: cardScale } : {}),
+            ...placedCards,
+          }
       : undefined;
   const docScale: Record<string, number> = {};
   for (const [k, v] of Object.entries(j.docScale ?? {}))
@@ -692,10 +778,31 @@ export function jobReducer(job: Job, action: JobAction, nowMs: number): Job {
           size: action.size ?? job.idCard?.size ?? 'real',
           sets: job.idCard?.sets ?? 1,
           cards,
-          // The cards' own size stays (Print front only and its Undo, review 2026-10-24).
+          // The cards' own size stays (Print front only and its Undo, review 2026-10-24), and how they are arranged;
+          // places set by hand were for the cards before.
           ...(job.idCard?.scale !== undefined ? { scale: job.idCard.scale } : {}),
+          ...(job.idCard?.arrange ? { arrange: job.idCard.arrange } : {}),
         },
       };
+      break;
+    }
+    case 'placeIdCard': {
+      const ic = job.idCard;
+      if (!ic || !ic.cards[action.at] || !Number.isFinite(action.x) || !Number.isFinite(action.y)) break;
+      const z = Math.max(0, ...Object.values(ic.spots ?? {}).map((sp) => sp.z)) + 1;
+      next = { idCard: { ...ic, spots: { ...(ic.spots ?? {}), [action.at]: { x: action.x, y: action.y, z } } } };
+      break;
+    }
+    case 'setIdCardArrange': {
+      if (!job.idCard) break;
+      const { spots: _s, arrange: _a, ...rest } = job.idCard;
+      next = { idCard: action.arrange === 'row' ? { ...rest, arrange: 'row' } : rest };
+      break;
+    }
+    case 'clearIdCardSpots': {
+      if (!job.idCard?.spots) break;
+      const { spots: _s, ...rest } = job.idCard;
+      next = { idCard: rest };
       break;
     }
     case 'setIdCardSize':
@@ -908,19 +1015,40 @@ export function jobReducer(job: Job, action: JobAction, nowMs: number): Job {
       next = { spots: { ...(job.spots ?? {}), [action.item]: spot }, sizes };
       break;
     }
+    case 'copyItem': {
+      const c = action.copy;
+      const z = Math.max(0, ...Object.values(job.spots ?? {}).map((sp) => sp.z)) + 1;
+      const spot = { page: action.page, x: action.x, y: action.y, z };
+      if (!c?.item || !Number.isInteger(c.item.index) || !validSpot(spot)) break;
+      const n = nextItemIndex(job);
+      const items = [...job.items, { ...c.item, index: n, copyOf: c.item.copyOf ?? c.item.index }];
+      const order = [...job.order];
+      const after = order.indexOf(c.item.index);
+      order.splice(after >= 0 ? after + 1 : order.length, 0, n);
+      next = {
+        items,
+        order,
+        duplicates: duplicateGroups(items),
+        ...(c.turn ? { turns: { ...job.turns, [n]: c.turn } } : {}),
+        ...(c.tilt !== undefined ? { tilts: { ...(job.tilts ?? {}), [n]: c.tilt } } : {}),
+        ...(c.crop ? { crops: { ...(job.crops ?? {}), [n]: { ...c.crop } } } : {}),
+        ...(c.quad ? { quads: { ...(job.quads ?? {}), [n]: [...c.quad] } } : {}),
+        ...(c.size !== undefined
+          ? {
+              sizes: validSizes(
+                { ...(job.sizes ?? {}), [n]: c.size },
+                items.map((i) => i.index),
+              ),
+            }
+          : {}),
+        spots: { ...(job.spots ?? {}), [n]: spot },
+      };
+      break;
+    }
     case 'addItems': {
       if (action.items.length === 0) break;
-      // Never a number the job still mentions (a removed photo's turn and crop are kept for its Undo).
-      const used = [
-        ...job.items.map((i) => i.index),
-        ...job.order,
-        ...[job.turns, job.crops ?? {}, job.suggested ?? {}, job.quads ?? {}, job.spots ?? {}, job.tilts ?? {}].flatMap(
-          (r) => Object.keys(r).map(Number),
-        ),
-        ...(job.passport ? [job.passport.item] : []),
-        ...Object.keys(job.docTurns ?? {}).map((k) => Number(k.split(':')[0])),
-      ].filter(Number.isFinite);
-      const first = Math.max(0, ...used) + 1;
+      const first = nextItemIndex(job);
+      const used = usedIndexes(job);
       // The numbers the files were given (their file names) when all are free; else new ones after every number.
       const taken = new Set(used);
       const free = action.items.every(

@@ -12,7 +12,27 @@ class PrintResultTest {
         savedAsPdf: Boolean = false,
         adapterAlive: Boolean = true,
         sinceClosedMs: Long = 60_000,
-    ) = PrintObservation(finished, wrongPaper, state, savedAsPdf, adapterAlive, sinceClosedMs)
+        finalAsked: Boolean = true,
+    ) = PrintObservation(finished, wrongPaper, state, savedAsPdf, adapterAlive, sinceClosedMs, finalAsked)
+
+    /**
+     * Owner, round 5: back from Android's print screen, PRINT must work again at once. The screen closed before Android
+     * asked for the final file: nothing was sent, known at once (no waiting while "checking").
+     */
+    @Test fun closedBeforeTheFinalFileWasAskedForIsNotSentAtOnce() {
+        assertEquals(PrintResult.NOT_SENT, classify(obs(null, finalAsked = false, sinceClosedMs = 100)))
+        assertEquals(PrintResult.NOT_SENT, classify(obs(JobState.CREATED, finalAsked = false, sinceClosedMs = 100)))
+        assertEquals(PrintResult.NOT_SENT, classify(obs(JobState.CANCELLED, finalAsked = false, sinceClosedMs = 100)))
+        // Still open: still in the print screen.
+        assertEquals(PrintResult.IN_DIALOG, classify(obs(JobState.CREATED, finished = false, finalAsked = false)))
+    }
+
+    /** Review Focus 4: the final file was asked for, then no job yet: checked as before, never "not sent". */
+    @Test fun aFinalFileAskedForIsCheckedAsBefore() {
+        assertEquals(PrintResult.CHECKING, classify(obs(null, finalAsked = true, sinceClosedMs = 1_000)))
+        assertEquals(PrintResult.NOTHING_PRINTED, classify(obs(JobState.CREATED, finalAsked = true, sinceClosedMs = CHECK_MS + 1)))
+        assertEquals(PrintResult.PRINTING, classify(obs(JobState.QUEUED, finalAsked = true)))
+    }
 
     @Test fun theDialogIsStillOpenWhileTheAdapterHasNotFinished() {
         assertEquals(PrintResult.IN_DIALOG, classify(obs(JobState.CREATED, finished = false)))
@@ -77,7 +97,7 @@ class PrintResultTest {
         assertEquals(
             listOf(
                 "inDialog", "checking", "sent", "printing", "blocked", "savedAsFile", "nothingPrinted", "wrongPaper",
-                "interrupted", "failed", "unknown",
+                "interrupted", "failed", "unknown", "notSent",
             ),
             PrintResult.entries.map { it.wireName },
         )

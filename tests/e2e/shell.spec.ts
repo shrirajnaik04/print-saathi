@@ -150,10 +150,11 @@ async function layoutProblems(page: Page) {
       problems.push(`horizontal scroll: ${doc.scrollWidth} > ${doc.clientWidth}`);
     // A row that slides sideways on its own (Adjust's tools, owner round 3): what is in it is reached by sliding, so it
     // may sit past or at the screen's side; the row itself must still fit the screen (checked like everything else).
+    // Adjust's strip of pages (owner, round 5) moves only with ‹ ›: the pages beyond the next are off screen by design.
     const inSlidingRow = (el: Element) => {
       for (let e = el.parentElement; e && e !== document.body; e = e.parentElement) {
         const x = getComputedStyle(e).overflowX;
-        if (x === 'auto' || x === 'scroll') return true;
+        if (x === 'auto' || x === 'scroll' || e.classList.contains('adjust-strip')) return true;
       }
       return false;
     };
@@ -164,7 +165,11 @@ async function layoutProblems(page: Page) {
         problems.push(
           `outside screen: <${el.tagName.toLowerCase()} class="${el.className}"> ${Math.round(r.left)}..${Math.round(r.right)}`,
         );
-      if (el.scrollWidth > el.clientWidth + 1 && getComputedStyle(el).overflowX === 'hidden')
+      if (
+        el.scrollWidth > el.clientWidth + 1 &&
+        getComputedStyle(el).overflowX === 'hidden' &&
+        !el.classList.contains('adjust-strip')
+      )
         problems.push(`clipped text: ${el.textContent?.slice(0, 30)}`);
     }
     // A word split across lines (e.g. "Sh|op") is unreadable even when nothing overflows: each word's boxes must
@@ -516,7 +521,7 @@ test('an unprinted job is offered on Home as Continue and listed in Recent jobs'
   await page.getByRole('button', { name: 'Home' }).click();
   await leave(page);
   await page.getByRole('button', { name: 'Recent jobs' }).click();
-  await expect(page.getByRole('button', { name: /2 files.*Not printed yet/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: /^2 files.*Not printed yet/ })).toBeVisible();
 });
 
 // Release cold starts (2026-10-24): Home came 1.4 s later than in 1.0.176 because the splash waited for its animation
@@ -620,7 +625,7 @@ test('a printed job is no longer offered as Continue', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'Recent jobs' })).toBeVisible();
   await expect(page.getByRole('button', { name: /Continue the last job/ })).toHaveCount(0);
   await page.getByRole('button', { name: 'Recent jobs' }).click();
-  await expect(page.getByRole('button', { name: /Printed ✓/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: /^[0-9]+ files? .*Printed ✓/ })).toBeVisible();
 });
 
 test('after two crashes the app opens safely: an explanation, and new files do not open by themselves', async ({
@@ -2241,8 +2246,8 @@ test('Add them to this job: every file is on Received, the new job is gone from 
   await page.getByRole('button', { name: 'Home' }).click();
   await leave(page);
   await page.getByRole('button', { name: 'Recent jobs' }).click();
-  await expect(page.getByRole('button', { name: /5 files/ })).toHaveCount(1);
-  await expect(page.getByRole('button', { name: /3 files/ })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /^5 files/ })).toHaveCount(1);
+  await expect(page.getByRole('button', { name: /^3 files/ })).toHaveCount(0);
 });
 
 test('Keep working returns to the open job; the new files wait in Recent jobs', async ({ page }) => {
@@ -2255,8 +2260,8 @@ test('Keep working returns to the open job; the new files wait in Recent jobs', 
   await page.getByRole('button', { name: 'Home' }).click();
   await leave(page);
   await page.getByRole('button', { name: 'Recent jobs' }).click();
-  await expect(page.getByRole('button', { name: /3 files.*Not printed yet/ })).toBeVisible();
-  await expect(page.getByRole('button', { name: /2 files/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: /^3 files.*Not printed yet/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: /^2 files/ })).toBeVisible();
 });
 
 test('a second share while the question is open joins it: Add takes both (review I4)', async ({ page }) => {

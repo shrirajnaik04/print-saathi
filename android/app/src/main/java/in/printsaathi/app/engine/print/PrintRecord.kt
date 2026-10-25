@@ -36,6 +36,8 @@ data class PrintRecord(
     val parts: Int = 1,
     /** The full plan's hash the part was cut from ("" for a job printed in one go), kept across a restart. */
     val partOf: String = "",
+    /** Android asked for the final file (the print button was pressed). An older record, without it, counts as asked. */
+    val finalAsked: Boolean = true,
 )
 
 private val HEX16 = Regex("^[0-9a-f]{16}$")
@@ -51,7 +53,7 @@ class PrintRecordStore(stateRoot: File) {
             .put("jobId", r.jobId).put("planHash", r.planHash).put("label", r.label)
             .put("startedAt", r.startedAt).put("finished", r.finished).put("wrongPaper", r.wrongPaper)
             .put("closedAt", r.closedAt).put("kind", r.kind.wireName)
-            .put("part", r.part).put("parts", r.parts).put("partOf", r.partOf)
+            .put("part", r.part).put("parts", r.parts).put("partOf", r.partOf).put("finalAsked", r.finalAsked)
         val tmp = File(dir, "print.json.tmp")
         tmp.outputStream().use { out ->
             out.write(json.toString().toByteArray())
@@ -69,6 +71,7 @@ class PrintRecordStore(stateRoot: File) {
             j.optInt("part", 0),
             j.optInt("parts", 1),
             j.optString("partOf", "").takeIf { HEX16.matches(it) } ?: "",
+            j.optBoolean("finalAsked", true),
         )
     }.getOrNull()
 

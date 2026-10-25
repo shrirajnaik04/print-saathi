@@ -2,6 +2,7 @@ import { Capacitor } from '@capacitor/core';
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { type Job, type JobAction, normalizeJob } from '../core/job/job';
 import { PrintEngine, type ThumbResult } from '../native/printEngine';
+import { withCopies } from './copies';
 import { noteJob } from './printedJobs';
 import { saveJobChange } from './received/Received';
 
@@ -11,7 +12,9 @@ import { saveJobChange } from './received/Received';
  */
 export function useJob(jobId: string) {
   const [job, setJob] = useState<Job | null>(null);
-  const [thumbs, setThumbs] = useState<Map<number, ThumbResult> | null>(null);
+  const [rawThumbs, setThumbs] = useState<Map<number, ThumbResult> | null>(null);
+  // A copy made on Adjust shows with its original's picture until it has its own (owner, round 5).
+  const thumbs = useMemo(() => withCopies(rawThumbs, job), [rawThumbs, job]);
   const [gone, setGone] = useState(false);
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);

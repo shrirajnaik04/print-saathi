@@ -147,3 +147,40 @@ test('Paper type: Glossy reminds to load it and says so on PRINT and in the line
   await expect(button(page, 'PRINT')).toBeVisible();
   await expect(page.locator('.summary')).not.toContainText('Glossy');
 });
+
+// Owner, round 5: "when we click back from the print screen it still shows Opening the print screen… with a disabled
+// button; it must show PRINT instantly so that we can click print again".
+test.describe('back from the print screen (owner, round 5)', () => {
+  test('PRINT works again at once, still on Ready, nothing else said', async ({ page }) => {
+    await page.goto('/?mockIntake=2&mockPrint=notSent');
+    await button(page, 'One on each page').click();
+    await expect(button(page, 'PRINT')).toBeEnabled();
+    await button(page, 'PRINT').click();
+    await expect(button(page, 'PRINT')).toBeEnabled({ timeout: 1500 });
+    await expect(title(page)).toHaveText('Ready to print');
+    await expect(page.getByText('Opening the print screen…')).toHaveCount(0);
+    // And it prints again.
+    await button(page, 'PRINT').click();
+    await expect(button(page, 'PRINT')).toBeEnabled({ timeout: 1500 });
+  });
+  test('the same for passport photos on 4×6 paper: PAPER LOADED — PRINT comes back as it was', async ({ page }) => {
+    await page.goto('/?mockIntake=1&mockPrint=notSent&mockPhotoPaper=1');
+    await button(page, 'Passport photos').click();
+    await button(page, 'Next').click();
+    await expect(title(page)).toHaveText('Ready to print');
+    const print = page.getByRole('button', { name: /PRINT$/ });
+    await expect(print).toBeEnabled();
+    const words = await print.innerText();
+    await print.click();
+    await expect(print).toBeEnabled({ timeout: 1500 });
+    await expect(print).toHaveText(words);
+  });
+  test('a test page backed out: back to its choices', async ({ page }) => {
+    await page.goto('/?mockPrint=notSent');
+    await page.getByRole('button', { name: /Settings/ }).click();
+    await page.getByRole('button', { name: /^Print a test page/ }).click();
+    await page.getByRole('button', { name: /^A4 paper/ }).click();
+    await expect(page.getByRole('button', { name: /^A4 paper/ })).toBeEnabled({ timeout: 1500 });
+    await expect(page.getByText('Sent to the printer ✓')).toHaveCount(0);
+  });
+});

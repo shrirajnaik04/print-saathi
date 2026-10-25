@@ -61,6 +61,13 @@ export function TestPage({ go, params }: ScreenProps) {
         for (;;) {
           const s = await PrintEngine.printStatus();
           if (!onScreen || s.state === 'inDialog') return;
+          // Back from Android's print screen without printing (owner, round 5): the choices again, at once.
+          if (s.state === 'notSent') {
+            waiting.current = null;
+            void PrintEngine.clearPrint();
+            setView({ step: 'choose' });
+            return;
+          }
           if (s.state !== 'checking') {
             waiting.current = null;
             const state = s.state === 'none' ? 'unknown' : s.state;

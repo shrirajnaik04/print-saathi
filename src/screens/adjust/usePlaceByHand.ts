@@ -46,6 +46,13 @@ export function usePlaceByHand(o: {
   edgeMm: number;
   onChoose: (item: number) => void;
   save: (actions: JobAction[]) => Promise<unknown>;
+  /**
+   * What is placed (owner, round 5: ID cards too): by default photos, by item number. Otherwise [key]'s box on page
+   * [page], the boxes it snaps to, and the change that places it at [box].
+   */
+  boxOf?: (key: number, page: number) => Box | undefined;
+  othersOf?: (key: number, page: number) => Box[];
+  place?: (key: number, page: number, box: Box) => JobAction[];
 }) {
   const hold = useRef<Hold | null>(null);
   const [lifted, setLifted] = useState<Lifted | null>(null);
@@ -81,7 +88,8 @@ export function usePlaceByHand(o: {
     };
   }, []);
 
-  const boxOf = (item: number, page: number) => o.plan?.pages[page]?.placements.find((p) => p.itemIndex === item)?.box;
+  const boxOf = (item: number, page: number) =>
+    o.boxOf ? o.boxOf(item, page) : o.plan?.pages[page]?.placements.find((p) => p.itemIndex === item)?.box;
   const end = () => {
     if (hold.current) clearTimeout(hold.current.timer);
     hold.current = null;
@@ -110,7 +118,9 @@ export function usePlaceByHand(o: {
       return { ...b, x: c.x - b.w / 2, y: c.y - b.h / 2 };
     };
     if (!snap) return { box: inside(box), guides: [] };
-    const others = (o.plan.pages[page]?.placements ?? []).filter((p) => p.itemIndex !== item).map((p) => p.box);
+    const others = o.othersOf
+      ? o.othersOf(item, page)
+      : (o.plan.pages[page]?.placements ?? []).filter((p) => p.itemIndex !== item).map((p) => p.box);
     const snapped = snapBox(inside(box), others, { w: size.w, h: size.h, e: o.edgeMm * MM }, SNAP_MM * MM);
     return { box: inside(snapped.box), guides: snapped.guides };
   };
@@ -171,7 +181,7 @@ export function usePlaceByHand(o: {
       end();
       // Held but not moved: nothing changes (the job is not placed by hand by a look).
       const moved = !!l && !!from && (Math.abs(l.box.x - from.x) > 0.01 || Math.abs(l.box.y - from.y) > 0.01);
-      if (h.lifted && l && moved) void o.save(placeActions(l.item, l.box));
+      if (h.lifted && l && moved) void o.save(placeOf(l.item, l.page, l.box));
     },
     // The system took the touch (a scroll, a second finger, the app paused): nothing is dropped.
     onPointerCancel: (e: PointerEvent) => {
@@ -189,9 +199,13 @@ export function usePlaceByHand(o: {
     if (!box) return;
     // Exactly 2 mm a tap: no snapping (it could pull the photo straight back).
     const s = settle(page, item, { ...box, x: box.x + dxMm * MM, y: box.y + dyMm * MM }, false);
-    void o.save(placeActions(item, { ...s.box }));
+    void o.save(placeOf(item, page, { ...s.box }));
   };
 
   // A second finger (a pinch to zoom) ends a hold that has not lifted the photo yet.
-  return { lifted, handlers, nudge, placeActions, cancel: end };
+  /** The change that puts [key] at [box]: a photo placed by hand, or what the caller says (ID cards). */
+  const placeOf = (key: number, page: number, box: Box) => (o.place ? o.place(key, page, box) : placeActions(key, box));
+  /** [box] kept inside the margins of page [page], not snapped (a paste, owner round 5). */
+  const inside = (page: number, box: Box) => settle(page, -1, box, false).box;
+  return { lifted, handlers, nudge, placeActions, cancel: end, inside };
 }

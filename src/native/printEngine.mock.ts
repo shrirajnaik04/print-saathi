@@ -204,6 +204,7 @@ export class PrintEngineMock extends WebPlugin implements PrintEnginePlugin {
 
   deleteJob({ id }: { id: string }): Promise<void> {
     return this.inLine(async () => {
+      if (deleteFails()) throw new Error('not deleted');
       this.jobs.delete(id);
     });
   }
@@ -611,6 +612,7 @@ export class PrintEngineMock extends WebPlugin implements PrintEnginePlugin {
   private roomMade = false;
 
   async deleteAllJobs(o?: { keepOpen?: boolean }): Promise<{ deleted: number; kept: number }> {
+    if (deleteFails()) throw new Error('not deleted');
     (globalThis as { __deleteKeepOpen?: boolean }).__deleteKeepOpen = o?.keepOpen === true;
     this.roomMade = true;
     const keep = o?.keepOpen ? new Set(this.active) : new Set<string>();
@@ -781,3 +783,6 @@ export class PrintEngineMock extends WebPlugin implements PrintEnginePlugin {
     return { secure: false };
   }
 }
+
+/** Tests only: `__mockDeleteFails` makes deleting a job fail (Recent jobs says so). */
+const deleteFails = () => (globalThis as { __mockDeleteFails?: boolean }).__mockDeleteFails === true;

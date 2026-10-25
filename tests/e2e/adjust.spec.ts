@@ -276,7 +276,6 @@ test('ID cards: dragging the round corner out makes the cards bigger, in the ste
   await button(page, /^Real card size/).click();
   await button(page, 'Adjust cards').click();
   await expect(title(page)).toHaveText('Card 1 of 2');
-  await expect(page.getByText('Drag the round corner or use the buttons below.')).toBeVisible();
   await expect(page.locator('.adjust-size')).toContainText('100 %');
   await dragCorner(page, 80, 50);
   await expect(page.locator('.adjust-size')).toHaveText(/^(1[1-9]0|200) % · /);
@@ -431,42 +430,54 @@ test.describe('pages side by side (owner, round 4)', () => {
     const sheet = await page.locator(`.adjust-sheet[data-page="${n}"]`).boundingBox();
     return Math.abs((sheet?.x ?? 0) + (sheet?.width ?? 0) / 2 - ((strip?.x ?? 0) + (strip?.width ?? 0) / 2));
   };
-  test('Show next page and sliding sideways over the photo each bring page 2 to the middle, its photo chosen', async ({
+  test('Show next page brings page 2 to the middle and chooses its photo; Show previous page goes back', async ({
     page,
   }) => {
     await twoPages(page);
     await button(page, 'Show next page').click();
     await expect(label(page)).toHaveText(/^Page 2 of 2/);
-    // Said aloud (TalkBack) when ‹ › or a swipe moves the pages.
+    // Said aloud (TalkBack) when ‹ › move the pages.
     await expect(label(page)).toHaveAttribute('aria-live', 'polite');
-    // The tools never change a photo out of sight: at rest on page 2, its photo is the chosen one.
+    // The tools never change a photo out of sight: on page 2, its photo is the chosen one.
     await expect(title(page)).toHaveText('Photo 2 of 2');
     await button(page, 'Show previous page').click();
     await expect(label(page)).toHaveText(/^Page 1 of 2/);
     await expect(title(page)).toHaveText('Photo 1 of 2');
-    // Sideways over the photo itself (a finger's swipe is proven on the phone: headless Chromium does not scroll for a
-    // synthesized touch, device smoke round 4).
+  });
+  test('page 2 stays in the middle when the screen changes size (turned, review M1)', async ({ page }) => {
+    await twoPages(page);
+    await button(page, 'Show next page').click();
+    await expect(label(page)).toHaveText(/^Page 2 of 2/);
+    const v = page.viewportSize() ?? { width: 412, height: 915 };
+    await page.setViewportSize({ width: v.width + 120, height: v.height });
+    await expect.poll(() => centred(page, 1)).toBeLessThan(2);
+  });
+  // Owner, round 5: "disable finger swipe between pages, keep only previous and next, as fast as possible".
+  test('sliding sideways over the page never changes the page (‹ › only)', async ({ page }) => {
+    await twoPages(page);
     const photo = await page.locator('.adjust-sheet[data-page="0"] .adjust-pick').boundingBox();
     if (!photo) throw new Error('no photo on page 1');
+    const left = () => page.locator('.adjust-strip').evaluate((e) => e.scrollLeft);
+    const before = await left();
     await page.mouse.move(photo.x + photo.width / 2, photo.y + photo.height / 2);
-    await page.mouse.wheel(300, 0);
-    await expect(label(page)).toHaveText(/^Page 2 of 2/);
-    await expect(title(page)).toHaveText('Photo 2 of 2');
-    await expect.poll(() => centred(page, 1)).toBeLessThan(3);
+    await page.mouse.wheel(600, 0);
+    await page.waitForTimeout(400);
+    expect(await left()).toBe(before);
+    await expect(label(page)).toHaveText(/^Page 1 of 2/);
+    await expect(title(page)).toHaveText('Photo 1 of 2');
   });
-  // Device finding (round-4 smoke, API 35): one quick flick slid from page 1 to page 4. A page at a time.
-  test('a big fling moves one page, never past it', async ({ page }) => {
-    await page.goto('/?mockIntake=6');
-    await button(page, 'One on each page').click();
-    await button(page, 'Adjust photos').click();
-    await expect(title(page)).toHaveText('Photo 1 of 6');
-    // A slide aimed four pages on (as a fling is; headless Chromium's wheel does not keep to snap stops, the phone's
-    // finger does: round-4 smoke).
-    await page.locator('.adjust-strip').evaluate((e) => e.scrollBy({ left: 4 * e.clientWidth }));
-    await expect(label(page)).toHaveText(/^Page 2 of 6/);
-    await expect(title(page)).toHaveText('Photo 2 of 6');
-    await page.waitForTimeout(600);
-    await expect(label(page)).toHaveText(/^Page 2 of 6/);
+  test('‹ › move the page at once, never sliding (motion allowed)', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
+    await twoPages(page);
+    const at = await page.evaluate(async () => {
+      const b = document.querySelector<HTMLButtonElement>('button[aria-label="Show next page"]');
+      b?.click();
+      await new Promise((r) => requestAnimationFrame(() => r(null)));
+      const strip = document.querySelector('.adjust-strip')?.getBoundingClientRect();
+      const sheet = document.querySelector('.adjust-sheet[data-page="1"]')?.getBoundingClientRect();
+      return strip && sheet ? Math.abs(sheet.x + sheet.width / 2 - (strip.x + strip.width / 2)) : 999;
+    });
+    expect(at).toBeLessThan(3);
   });
   test('a tap on another photo on page 2 chooses it; Next photo brings its page to the middle', async ({ page }) => {
     await page.goto('/?mockIntake=4');
@@ -745,5 +756,339 @@ test.describe('zoom (owner, round 4)', () => {
       await expect.poll(async () => (await paperW(page)) / w).toBeGreaterThan(1.9);
       await expect(page.locator('.adjust-lifted')).toHaveCount(0);
     });
+  });
+});
+
+// Owner, round 5: "remove the highlighted section under Photo 4 of 5" (the hint line on Adjust).
+test.describe('no hint line (owner, round 5)', () => {
+  for (const [kind, open] of Object.entries(kinds))
+    test(`${kind}: no hint line under the title`, async ({ page }) => {
+      await open(page);
+      await expect(page.locator('.adjust-paper figure')).toBeVisible();
+      await expect(page.getByText(/^(Tap a photo to choose it|Drag the round corner)/)).toHaveCount(0);
+    });
+});
+
+// Owner, round 5: "Copy paste, cut paste, options needed", and a "+" mark (Word's cursor) for where Paste goes.
+test.describe('copy, cut and paste (owner, round 5)', () => {
+  test.use({ viewport: { width: 412, height: 915 } });
+  type P = { pages: { placements: { itemIndex: number; turns: number; crop?: unknown; box: Box4 }[] }[] };
+  type Box4 = { x: number; y: number; w: number; h: number };
+  const plan = (page: Page) => page.evaluate(() => (globalThis as { __lastPlan?: P }).__lastPlan);
+  const all = async (page: Page) => (await plan(page))?.pages.flatMap((p) => p.placements) ?? [];
+  const status = (page: Page) => page.getByRole('status');
+  const done = async (page: Page) => {
+    await button(page, 'Done').click();
+    await expect(title(page)).toHaveText('Ready to print');
+  };
+  test('Copy then Paste adds a copy of the chosen photo, chosen and placed by hand; Paste waits for a Copy', async ({
+    page,
+  }) => {
+    await openAdjust(page);
+    await expect(button(page, 'Paste')).toBeDisabled();
+    await button(page, 'Copy').click();
+    await expect(status(page).filter({ hasText: 'Photo 1 copied.' })).toBeVisible();
+    await button(page, 'Paste').click();
+    await expect(title(page)).toHaveText(/ of 5$/);
+    await done(page);
+    await expect.poll(async () => (await all(page)).length).toBe(5);
+    const ps = await all(page);
+    const original = ps.find((p) => p.itemIndex === 1);
+    const copy = ps.find((p) => p.itemIndex > 4);
+    expect(copy?.turns).toBe(original?.turns);
+    expect(copy?.crop).toEqual(original?.crop);
+    expect(Math.round(copy?.box.w ?? 0)).toBe(Math.round(original?.box.w ?? -1));
+    await expect(page.getByText('These photos are the same:')).toHaveCount(0);
+  });
+  test('Paste goes to the + mark: tap an empty spot, Paste, the copy is centred there', async ({ page }) => {
+    await openAdjust(page);
+    await button(page, 'Copy').click();
+    const paper = await page.locator('.adjust-paper figure').boundingBox();
+    if (!paper) throw new Error('no page');
+    // An empty spot: under the lowest photo (they flow from the top) and above the tool row pinned at the bottom.
+    const lowest = Math.max(
+      ...(await page
+        .locator('.adjust-sheet[data-page="0"] .adjust-pick')
+        .evaluateAll((els) => els.map((e) => e.getBoundingClientRect().bottom))),
+    );
+    const barTop = (await page.locator('.actionbar').boundingBox())?.y ?? paper.y + paper.height;
+    const clickY = (lowest + Math.min(paper.y + paper.height, barTop)) / 2;
+    expect(clickY - lowest).toBeGreaterThan(20);
+    await page.mouse.click(paper.x + paper.width * 0.5, clickY);
+    await expect(page.locator('.adjust-mark')).toBeVisible();
+    await expect(page.getByText('Paste goes to the + mark.')).toBeVisible();
+    const s = paper.width / 595.2756;
+    await button(page, 'Paste').click();
+    await expect(page.locator('.adjust-mark')).toHaveCount(0);
+    await done(page);
+    await expect.poll(async () => (await all(page)).length).toBe(5);
+    const copy = (await all(page)).find((p) => p.itemIndex > 4);
+    const cx = (copy?.box.x ?? 0) + (copy?.box.w ?? 0) / 2;
+    const cy = (copy?.box.y ?? 0) + (copy?.box.h ?? 0) / 2;
+    expect(Math.abs(cx - (paper.width * 0.5) / s)).toBeLessThanOrEqual(2);
+    // Kept inside the margins: its centre at the mark, or as near as the photo's size lets it be.
+    expect(Math.abs(cy - (clickY - paper.y) / s)).toBeLessThanOrEqual((copy?.box.h ?? 0) / 2 + 2);
+  });
+  test('the page stays where it is when Copy says so (the note is under the page)', async ({ page }) => {
+    await openAdjust(page);
+    // Where the page is in the screen's content (clicking a tool may scroll the window; that is not the page moving).
+    const top = () =>
+      page.locator('.adjust-paper figure').evaluate((e) => e.getBoundingClientRect().top + window.scrollY);
+    const before = await top();
+    await button(page, 'Copy').click();
+    await expect(page.getByText('Photo 1 copied.')).toBeVisible();
+    expect(Math.abs((await top()) - before)).toBeLessThan(1);
+  });
+  test('the note never covers ‹ ›', async ({ page }) => {
+    await openAdjust(page, 'One on each page', 2);
+    await button(page, 'Copy').click();
+    await expect(page.getByText('Photo 1 copied.')).toBeVisible();
+    const b = await button(page, 'Show next page').boundingBox();
+    if (!b) throw new Error('no ‹ ›');
+    const hit = await page.evaluate(
+      ([x, y]) => document.elementFromPoint(x, y)?.closest('button')?.getAttribute('aria-label') ?? '',
+      [b.x + b.width / 2, b.y + 4],
+    );
+    expect(hit).toBe('Show next page');
+  });
+  test('Cut takes the photo off; Paste puts it back once', async ({ page }) => {
+    await openAdjust(page);
+    await button(page, 'Cut').click();
+    await expect(title(page)).toHaveText(/ of 3$/);
+    await expect(status(page).filter({ hasText: 'Photo 1 cut. Paste puts it back.' })).toBeVisible();
+    await button(page, 'Paste').click();
+    await expect(title(page)).toHaveText(/ of 4$/);
+    await expect(button(page, 'Paste')).toBeDisabled();
+  });
+  test('Cut on page 1, ‹ › to page 2, Paste: the photo is on page 2', async ({ page }) => {
+    await openAdjust(page, 'One on each page', 3);
+    await button(page, 'Cut').click();
+    await expect(page.locator('.adjust-page')).toHaveText(/^Page 1 of 2/);
+    await button(page, 'Show next page').click();
+    await expect(page.locator('.adjust-page')).toHaveText(/^Page 2 of 2/);
+    await button(page, 'Paste').click();
+    await done(page);
+    await expect
+      .poll(async () => (await plan(page))?.pages[1]?.placements.some((p) => p.itemIndex === 1) ?? false)
+      .toBe(true);
+  });
+  test('Paste twice after one Copy makes two copies', async ({ page }) => {
+    await openAdjust(page);
+    await button(page, 'Copy').click();
+    await button(page, 'Paste').click();
+    await expect(title(page)).toHaveText(/ of 5$/);
+    await button(page, 'Paste').click();
+    await expect(title(page)).toHaveText(/ of 6$/);
+  });
+  test('Copy, Remove the original, Paste still makes the copy (Review Focus 2)', async ({ page }) => {
+    await openAdjust(page);
+    await button(page, 'Copy').click();
+    await button(page, 'Remove').click();
+    await expect(title(page)).toHaveText(/ of 3$/);
+    await button(page, 'Paste').click();
+    await expect(title(page)).toHaveText(/ of 4$/);
+  });
+  test('what was copied is forgotten when the job is left (Review Focus 1)', async ({ page }) => {
+    await openAdjust(page);
+    await button(page, 'Copy').click();
+    await button(page, 'Home').click();
+    await button(page, 'Leave').click();
+    await page.getByRole('button', { name: /^Continue the last job/ }).click();
+    await expect(title(page)).toHaveText('Files received');
+    await button(page, 'All on one page').click();
+    await expect(title(page)).toHaveText('Ready to print');
+    await button(page, 'Adjust photos').click();
+    await expect(title(page)).toHaveText('Photo 1 of 4');
+    await expect(button(page, 'Paste')).toBeDisabled();
+  });
+  // Review I1: Adjust opened again lists the job's pictures without the one copied or cut; the pasted photo must
+  // still be drawn (and one Paste makes one photo, never hidden extras).
+  const drawn = (page: Page) => page.locator('.adjust-sheet .adjust-pick');
+  test('Copy, Remove, leave Adjust and come back, Paste: the copy is drawn on the page (review I1)', async ({
+    page,
+  }) => {
+    await openAdjust(page);
+    await button(page, 'Copy').click();
+    await button(page, 'Remove').click();
+    await expect(title(page)).toHaveText(/ of 3$/);
+    await done(page);
+    await button(page, 'Adjust photos').click();
+    await expect(title(page)).toHaveText('Photo 1 of 3');
+    await button(page, 'Paste').click();
+    await expect(title(page)).toHaveText(/ of 4$/);
+    await expect(drawn(page)).toHaveCount(4);
+  });
+  test('Cut, leave Adjust and come back, Paste: the photo is drawn again (review I1)', async ({ page }) => {
+    await openAdjust(page);
+    await button(page, 'Cut').click();
+    await expect(title(page)).toHaveText(/ of 3$/);
+    await done(page);
+    await button(page, 'Adjust photos').click();
+    await button(page, 'Paste').click();
+    await expect(title(page)).toHaveText(/ of 4$/);
+    await expect(drawn(page)).toHaveCount(4);
+  });
+  test('Cut the only photo of a middle page, Paste on the last page: no new page (review I2)', async ({ page }) => {
+    await openAdjust(page, 'One on each page', 3);
+    await button(page, 'Move right').click(); // placed by hand: every photo keeps its page from now on
+    await button(page, 'Show next page').click();
+    await expect(page.locator('.adjust-page')).toHaveText(/^Page 2 of 3/);
+    await button(page, 'Cut').click();
+    await expect(page.locator('.adjust-page')).toHaveText(/ of 2/);
+    if (!/^Page 2/.test(await page.locator('.adjust-page').innerText())) await button(page, 'Show next page').click();
+    await expect(page.locator('.adjust-page')).toHaveText(/^Page 2 of 2/);
+    await button(page, 'Paste').click();
+    await expect(page.locator('.adjust-page')).toHaveText(/ of 2/);
+    await done(page);
+    await expect.poll(async () => (await plan(page))?.pages.length).toBe(2);
+    expect((await plan(page))?.pages[1]?.placements.map((p) => p.itemIndex).sort()).toEqual([2, 3]);
+  });
+  test('a cut photo pasted back is drawn above the others (review I3)', async ({ page }) => {
+    await openAdjust(page);
+    await button(page, 'Cut').click();
+    await expect(title(page)).toHaveText(/ of 3$/);
+    await button(page, 'Paste').click();
+    await expect(title(page)).toHaveText(/ of 4$/);
+    await done(page);
+    // Drawn in order: the last one is on top.
+    await expect.poll(async () => (await plan(page))?.pages[0]?.placements.at(-1)?.itemIndex).toBe(1);
+  });
+  test('Cut, then Undo: Paste has nothing to put back (review M2)', async ({ page }) => {
+    await openAdjust(page);
+    await button(page, 'Cut').click();
+    await expect(title(page)).toHaveText(/ of 3$/);
+    await button(page, 'Undo').click();
+    await expect(title(page)).toHaveText(/ of 4$/);
+    await expect(button(page, 'Paste')).toBeDisabled();
+  });
+  test("Cut one photo, Remove another, Paste: the other's Undo stays (review M3)", async ({ page }) => {
+    await openAdjust(page);
+    await button(page, 'Cut').click();
+    await expect(title(page)).toHaveText(/ of 3$/);
+    await button(page, 'Remove').click();
+    await expect(title(page)).toHaveText(/ of 2$/);
+    await button(page, 'Paste').click();
+    await expect(title(page)).toHaveText(/ of 3$/);
+    await button(page, 'Undo').click();
+    await expect(title(page)).toHaveText(/ of 4$/);
+  });
+  test('documents, passport sheets and ID cards have no Copy, Cut or Paste', async ({ page }) => {
+    for (const kind of ['pages', 'passport', 'cards']) {
+      await kinds[kind]?.(page);
+      await expect(page.locator('.adjust-paper figure')).toBeVisible();
+      for (const name of ['Copy', 'Cut', 'Paste']) await expect(button(page, name)).toHaveCount(0);
+    }
+  });
+});
+
+// Owner, round 5: "for ID cards allow drag so that we can place the image anywhere we want", and "what if the user
+// wants horizontal front and back on the page? But default must be vertical".
+test.describe('ID cards placed by hand (owner, round 5)', () => {
+  test.use({ viewport: { width: 412, height: 915 } });
+  type Bx = { x: number; y: number; w: number; h: number };
+  type P = { pages: { placements: { itemIndex: number; box: Bx }[] }[] };
+  const boxes = async (page: Page) => {
+    const p = await page.evaluate(() => (globalThis as { __lastPlan?: P }).__lastPlan);
+    return Object.fromEntries((p?.pages[0]?.placements ?? []).map((x) => [x.itemIndex, x.box])) as Record<number, Bx>;
+  };
+  const MM = 72 / 25.4;
+  const toReady = async (page: Page) => {
+    await button(page, 'Done').click();
+    await expect(title(page)).toHaveText('Ready to print');
+    await page.waitForTimeout(300);
+  };
+  const openCards = async (page: Page) => {
+    await kinds.cards?.(page);
+    await expect(title(page)).toHaveText('Card 1 of 2');
+  };
+  test('press and hold a card, drag it: it prints where it was dropped', async ({ page }) => {
+    await openCards(page);
+    const paper = await page.locator('.adjust-paper figure').boundingBox();
+    if (!paper) throw new Error('no page');
+    const perPt = paper.width / 595.2756;
+    await toReady(page);
+    const before = (await boxes(page))[2];
+    await button(page, 'Adjust cards').click();
+    const back = page.locator('.adjust-sheet[data-page="0"] .adjust-pick').nth(1);
+    const b = await back.boundingBox();
+    if (!b || !before) throw new Error('no back card');
+    await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2);
+    await page.mouse.down();
+    await page.waitForTimeout(600);
+    await page.mouse.move(b.x + b.width / 2 + 40, b.y + b.height / 2 + 30, { steps: 10 });
+    // Said as a card, not a photo (review M4).
+    await expect(page.locator('.adjust-moving')).toHaveText(/^Moving card 2\./);
+    await page.mouse.up();
+    await toReady(page);
+    const after = (await boxes(page))[2];
+    if (!after) throw new Error('no back card printed');
+    // 40 px right, 30 px down, give or take the 2 mm snap.
+    expect(Math.abs(after.x - before.x - 40 / perPt)).toBeLessThanOrEqual(2 * MM + 0.5);
+    expect(Math.abs(after.y - before.y - 30 / perPt)).toBeLessThanOrEqual(2 * MM + 0.5);
+  });
+  test('Move right moves the chosen card 2 mm; Automatic puts both back', async ({ page }) => {
+    await openCards(page);
+    await toReady(page);
+    const before = (await boxes(page))[1];
+    await button(page, 'Adjust cards').click();
+    await expect(button(page, 'Automatic')).toBeDisabled();
+    await button(page, 'Move right').click();
+    await toReady(page);
+    expect(((await boxes(page))[1]?.x ?? 0) - (before?.x ?? 0)).toBeCloseTo(2 * MM, 1);
+    await button(page, 'Adjust cards').click();
+    await button(page, 'Automatic').click();
+    await toReady(page);
+    expect((await boxes(page))[1]?.x).toBeCloseTo(before?.x ?? -1, 1);
+  });
+  test('Side by side puts front and back in one row; Top and bottom puts them back', async ({ page }) => {
+    await openCards(page);
+    await expect(button(page, 'Top and bottom')).toHaveAttribute('aria-pressed', 'true');
+    await button(page, 'Side by side').click();
+    await expect(button(page, 'Side by side')).toHaveAttribute('aria-pressed', 'true');
+    await toReady(page);
+    let b = await boxes(page);
+    const mid = (x?: Bx) => ({ x: (x?.x ?? 0) + (x?.w ?? 0) / 2, y: (x?.y ?? 0) + (x?.h ?? 0) / 2 });
+    expect(Math.abs(mid(b[1]).y - mid(b[2]).y)).toBeLessThan(0.5);
+    await button(page, 'Adjust cards').click();
+    await button(page, 'Top and bottom').click();
+    await toReady(page);
+    b = await boxes(page);
+    expect(Math.abs(mid(b[1]).x - mid(b[2]).x)).toBeLessThan(0.5);
+  });
+  // Review I4: cards keep the printer's edge (about 6 mm), not the photo pages' margin; Move left moves left.
+  test('Big size side by side: Move right moves the left card 2 mm, Move left puts it back (review I4)', async ({
+    page,
+  }) => {
+    await page.goto('/?mockIntake=2');
+    await button(page, 'ID card copy').click();
+    await button(page, 'Done').click();
+    await button(page, 'Done').click();
+    await button(page, 'Card copy').click();
+    await button(page, /^Big size/).click();
+    await button(page, 'Adjust cards').click();
+    await button(page, 'Side by side').click();
+    await toReady(page);
+    const before = await boxes(page);
+    const left = Number(Object.entries(before).sort((a, b) => a[1].x - b[1].x)[0]?.[0]);
+    await button(page, 'Adjust cards').click();
+    if (left === 2) await button(page, 'Next card').click();
+    await button(page, 'Move right').click();
+    await toReady(page);
+    expect(((await boxes(page))[left]?.x ?? 0) - (before[left]?.x ?? 0)).toBeCloseTo(2 * MM, 1);
+    await button(page, 'Adjust cards').click();
+    if (left === 2) await button(page, 'Next card').click();
+    await button(page, 'Move left').click();
+    await toReady(page);
+    expect((await boxes(page))[left]?.x).toBeCloseTo(before[left]?.x ?? -1, 1);
+  });
+  test('Many copies has no Move, no Automatic, no arrangement', async ({ page }) => {
+    await page.goto('/?mockIntake=2');
+    await button(page, 'ID card copy').click();
+    await button(page, 'Done').click();
+    await button(page, 'Done').click();
+    await button(page, 'Card copy').click();
+    await button(page, /^Many copies/).click();
+    await expect(title(page)).toHaveText('Ready to print');
+    await expect(button(page, 'Adjust cards')).toHaveCount(0);
   });
 });

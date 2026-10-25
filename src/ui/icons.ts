@@ -10,7 +10,9 @@ import nextSvg from '@phosphor-icons/core/assets/bold/arrow-right-bold.svg?raw';
 import earlierSvg from '@phosphor-icons/core/assets/bold/arrow-up-bold.svg?raw';
 import backSvg from '@phosphor-icons/core/assets/bold/caret-left-bold.svg?raw';
 import checkSvg from '@phosphor-icons/core/assets/bold/check-bold.svg?raw';
+import pasteSvg from '@phosphor-icons/core/assets/bold/clipboard-text-bold.svg?raw';
 import recentSvg from '@phosphor-icons/core/assets/bold/clock-counter-clockwise-bold.svg?raw';
+import copySvg from '@phosphor-icons/core/assets/bold/copy-bold.svg?raw';
 import wholeSvg from '@phosphor-icons/core/assets/bold/corners-out-bold.svg?raw';
 import cardSvg from '@phosphor-icons/core/assets/bold/credit-card-bold.svg?raw';
 import cropSvg from '@phosphor-icons/core/assets/bold/crop-bold.svg?raw';
@@ -27,6 +29,7 @@ import minusSvg from '@phosphor-icons/core/assets/bold/minus-bold.svg?raw';
 import plusSvg from '@phosphor-icons/core/assets/bold/plus-bold.svg?raw';
 import printSvg from '@phosphor-icons/core/assets/bold/printer-bold.svg?raw';
 import helpSvg from '@phosphor-icons/core/assets/bold/question-bold.svg?raw';
+import cutSvg from '@phosphor-icons/core/assets/bold/scissors-bold.svg?raw';
 import shareSvg from '@phosphor-icons/core/assets/bold/share-network-bold.svg?raw';
 import removeSvg from '@phosphor-icons/core/assets/bold/trash-bold.svg?raw';
 import warningSvg from '@phosphor-icons/core/assets/bold/warning-bold.svg?raw';
@@ -67,6 +70,9 @@ export const ICONS = {
   remove: removeSvg,
   card: cardSvg,
   zoomIn: zoomInSvg,
+  copy: copySvg,
+  cut: cutSvg,
+  paste: pasteSvg,
   zoomOut: zoomOutSvg,
 } as const;
 

@@ -24,7 +24,8 @@ enum class JobState {
  * What is known about the one print in flight. [finished]: Android closed its print screen (adapter onFinish).
  * [wrongPaper]: the last final layout was refused because the paper was wrong. [state]: the print job's state, or
  * null if the job cannot be found. [adapterAlive]: this process still holds the adapter (false after a restart).
- * [sinceClosedMs]: time since the print screen closed.
+ * [sinceClosedMs]: time since the print screen closed. [finalAsked]: Android asked for the final file (the print button
+ * was pressed); false when the screen was closed before (owner, round 5: back on Ready at once).
  */
 data class PrintObservation(
     val finished: Boolean,
@@ -33,13 +34,14 @@ data class PrintObservation(
     val savedAsPdf: Boolean,
     val adapterAlive: Boolean,
     val sinceClosedMs: Long,
+    val finalAsked: Boolean = true,
 )
 
 /** How long after the print screen closes an unsettled job is still being checked (gate review #5). */
 const val CHECK_MS = 8_000L
 
 /** What the Result screen says (PLAN §I-13, §J8). PRINTING counts as sent: the printer has the job. */
-enum class PrintResult { IN_DIALOG, CHECKING, SENT, PRINTING, BLOCKED, SAVED_AS_FILE, NOTHING_PRINTED, WRONG_PAPER, INTERRUPTED, FAILED, UNKNOWN }
+enum class PrintResult { IN_DIALOG, CHECKING, SENT, PRINTING, BLOCKED, SAVED_AS_FILE, NOTHING_PRINTED, WRONG_PAPER, INTERRUPTED, FAILED, UNKNOWN, NOT_SENT }
 
 fun classify(o: PrintObservation): PrintResult {
     val wentThrough = o.state == JobState.QUEUED || o.state == JobState.STARTED || o.state == JobState.COMPLETED
@@ -50,6 +52,8 @@ fun classify(o: PrintObservation): PrintResult {
         wentThrough -> PrintResult.PRINTING
         !o.finished && o.adapterAlive -> PrintResult.IN_DIALOG
         !o.finished -> PrintResult.INTERRUPTED
+        // Closed before Android asked for the final file: the shopkeeper went back; nothing was sent (owner, round 5).
+        !o.finalAsked && (o.state == null || o.state == JobState.CREATED || o.state == JobState.CANCELLED) -> PrintResult.NOT_SENT
         o.state == JobState.BLOCKED -> PrintResult.BLOCKED
         o.state == JobState.FAILED -> PrintResult.FAILED
         (o.state == JobState.CREATED || o.state == null) && o.sinceClosedMs <= CHECK_MS -> PrintResult.CHECKING

@@ -1,7 +1,17 @@
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import type { PrintPlan } from '../plan/plan';
-import { clampCentre, overlaps, pinnedPages, recropSpot, sideCrop, sideCropQuad, snapBox, spotsFromPlan } from './free';
+import {
+  clampCentre,
+  overlaps,
+  pinnedPages,
+  recropSpot,
+  sideCrop,
+  sideCropQuad,
+  snapBox,
+  spotsFromPlan,
+  storedPage,
+} from './free';
 import { A4 } from './onePerPage';
 import { homography } from './quad';
 
@@ -272,5 +282,18 @@ describe('cropped again on its crop screen (review I4, Word-style)', () => {
     expect(r.x).toBe(100);
     expect(r.y).toBe(150);
     expect(r.size).toBeCloseTo(72, 6); // 0.8 of each side
+  });
+});
+
+describe('the stored page of a page shown (review I2)', () => {
+  const at = (item: number) => ({ itemIndex: item, box: { x: 0, y: 0, w: 10, h: 10 } });
+  const plan = { pages: [{ placements: [at(1)] }, { placements: [at(3)] }] } as unknown as PrintPlan;
+  const spots = { 1: { page: 0, x: 5, y: 5, z: 1 }, 3: { page: 2, x: 5, y: 5, z: 2 } };
+  it('is the page its photos are stored on, not its place in the list', () => {
+    expect(storedPage(plan, spots, 0)).toBe(0);
+    expect(storedPage(plan, spots, 1)).toBe(2);
+  });
+  it('a page after the last one: after the last stored page', () => {
+    expect(storedPage(plan, spots, 2)).toBe(3);
   });
 });

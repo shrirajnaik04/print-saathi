@@ -248,6 +248,12 @@ html {
   display: grid;
   gap: var(--space-1);
 }
+/* The chosen one of a choice of buttons: filled, with a tick (never colour alone). */
+.btn.btn-on {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+}
 .btn-danger {
   background: var(--error-text);
   color: #fff;
@@ -1405,9 +1411,8 @@ main h2 {
   padding: 3.5rem 16px 1rem;
   margin-block: -3.5rem -1rem;
   pointer-events: none;
-  overflow-x: auto;
-  overscroll-behavior-x: contain;
-  scroll-snap-type: x mandatory;
+  /* Only ‹ › move the pages (owner, round 5): never a finger or the wheel; ‹ › set its place at once. */
+  overflow-x: hidden;
   scrollbar-width: none;
 }
 .adjust-strip::-webkit-scrollbar {
@@ -1421,9 +1426,6 @@ main h2 {
   flex: 0 0 100%;
   align-items: flex-start;
   justify-content: center;
-  scroll-snap-align: center;
-  /* One page at a time: a quick flick slid three pages on the phone (device finding, round-4 smoke). */
-  scroll-snap-stop: always;
   isolation: isolate;
   pointer-events: auto;
 }
@@ -1445,10 +1447,18 @@ main h2 {
 .adjust-strip.adjust-zoomed .adjust-sheet .paper {
   width: 100%;
 }
-/* The page in the middle, reached by the keyboard: the same thick ring as every control. */
-.adjust-sheet .paper:focus-visible {
-  outline: none;
-  box-shadow: var(--focus);
+/* The + mark (owner, round 5: Word's cursor): where the next Paste goes; drawn only, never in the way of a tap. */
+.adjust-mark {
+  position: absolute;
+  z-index: 4;
+  width: 24px;
+  height: 24px;
+  margin: -12px 0 0 -12px;
+  pointer-events: none;
+  background:
+    linear-gradient(var(--primary), var(--primary)) center / 3px 100% no-repeat,
+    linear-gradient(var(--primary), var(--primary)) center / 100% 3px no-repeat;
+  filter: drop-shadow(0 0 1px #fff) drop-shadow(0 0 1px #fff);
 }
 /* "Page n of N" with ‹ › at its sides, outside the page (nothing covers it); at big text the words wrap between them. */
 .adjust-pagebar {
@@ -1531,6 +1541,12 @@ main h2 {
   z-index: 5;
   margin: 0;
   background: var(--stage);
+  font-weight: 700;
+  text-align: center;
+}
+/* What Copy or Cut did, or where Paste goes (owner, round 5): a line under the page, never over ‹ › or the page. */
+.adjust-note {
+  margin: 0;
   font-weight: 700;
   text-align: center;
 }

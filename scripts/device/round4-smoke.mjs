@@ -350,12 +350,13 @@ try {
   result.checks.theNextPageShowsAtTheSide = result.peek >= 4 && result.peek <= 40;
   const midY = Math.round(oy + (strip.y + strip.h * 0.55) * strip.dpr);
   const xAt = (f) => String(Math.round(ox + (strip.x + strip.w * f) * strip.dpr));
-  sh('input', 'swipe', xAt(0.8), String(midY), xAt(0.15), String(midY), '250');
-  await sleep(2500);
-  const afterSwipe = { label: await pageText('.adjust-page'), title: await title() };
-  result.swipe = afterSwipe;
-  result.checks.aFingerSlidesToTheNextPage = afterSwipe.label === 'Page 2 of 6' && afterSwipe.title === 'Photo 2 of 6';
-  await shot('13-after-finger-swipe');
+  // Owner, round 5: pages move with ‹ › only (a finger slide no longer does; round5-smoke checks that).
+  await tap('Show next page');
+  await sleep(1500);
+  const afterNext = { label: await pageText('.adjust-page'), title: await title() };
+  result.next = afterNext;
+  result.checks.nextPageGoesToPage2 = afterNext.label === 'Page 2 of 6' && afterNext.title === 'Photo 2 of 6';
+  await shot('13-after-next-page');
   const paperW = () =>
     evaluate(`JSON.stringify(document.querySelector('.adjust-paper figure').getBoundingClientRect().width)`);
   const w100 = await paperW();

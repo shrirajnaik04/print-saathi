@@ -97,6 +97,17 @@ export function spotsFromPlan(plan: PrintPlan, spots: Record<number, Spot> | und
   return out;
 }
 
+/**
+ * The page number [page] (its place among the pages shown) is stored under in [spots] (review I2): pages emptied by Cut
+ * or Remove leave gaps in the stored numbers. A page after the last one goes after the last stored page.
+ */
+export function storedPage(plan: PrintPlan, spots: Record<number, Spot>, page: number): number {
+  const on = plan.pages[page]?.placements.find((p) => spots[p.itemIndex])?.itemIndex;
+  if (on !== undefined) return (spots[on] as Spot).page;
+  const inPlan = plan.pages.flatMap((p) => p.placements.map((x) => spots[x.itemIndex]?.page ?? -1));
+  return Math.max(-1, ...inPlan) + 1 + Math.max(0, page - plan.pages.length);
+}
+
 type Line = { x1: number; y1: number; x2: number; y2: number };
 
 /**

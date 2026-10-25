@@ -124,7 +124,7 @@ object PrintFlow {
         val now = System.currentTimeMillis()
         val record = PrintRecord(
             jobId, planHash, "PrintSaathi ${now % 1_000_000}", now, finished = false, wrongPaper = false, kind = kind,
-            part = part, parts = parts, partOf = partOf,
+            part = part, parts = parts, partOf = partOf, finalAsked = false,
         )
         val store = store(ctx)
         store.save(record)
@@ -134,7 +134,8 @@ object PrintFlow {
             File(ctx.noBackupFilesDir, "state/warning.pdf"),
             object : PdfPrintAdapter.Events {
                 override fun onFinalLayout(wrongPaper: Boolean) {
-                    store.load()?.takeIf { it.label == record.label }?.let { store.save(it.copy(wrongPaper = wrongPaper)) }
+                    store.load()?.takeIf { it.label == record.label }
+                        ?.let { store.save(it.copy(wrongPaper = wrongPaper, finalAsked = true)) }
                 }
 
                 override fun onFinalPaper(selectedMils: Pair<Int, Int>, margins: Margins) {
@@ -179,6 +180,7 @@ object PrintFlow {
                 PrintSpike.isSaveAsPdf(info?.printerId?.toString()), adapterAlive,
                 // A clock set backwards must not mean "still checking" for ever (gate re-review N4).
                 if (r.finished) (System.currentTimeMillis() - r.closedAt).let { if (it < 0) Long.MAX_VALUE else it } else 0,
+                r.finalAsked,
             ),
         )
         // The printer took the test page: only now does its paper count as the shop printer's (gate m1).

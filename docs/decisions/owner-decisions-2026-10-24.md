@@ -49,3 +49,20 @@ The owner's requests and their answers to the questions asked, in order. The spe
 | 32 | Paper type | "Where is the paper type selection? Normal, glossy …" Question: Android cannot set it — what should it do? Answer: **reminder only** | Paper type Plain / Glossy on Change; glossy reminder on Ready (32b) |
 | 33 | Pages | "Allow scrolling through all the pages in the edit preview." Answer: Ready already does; on Adjust **show next and previous page sideways**, without disturbing the page | Pages side by side on Adjust, ‹ › beside the page number (30c) |
 | 34 | Building | "Approve, build it all." | Spec and plan in the repository, built to closure; APK, report and a public-repo commit |
+
+## Round 5 (after testing 1.0.252, 2026-10-25)
+
+| # | Topic | The owner's words or choice | Built as |
+|---|---|---|---|
+| 35 | Copy and paste | "Copy paste, cut paste, options needed." Question: how? Answer: **Word-like Copy / Cut / Paste**, within one job | Copy, Cut, Paste on Adjust (spec 2026-10-25 round 5, 33a) |
+| 36 | Where Paste goes | "Check if a cursor is needed on pages, just like Word." Answer (design): a **"+" mark** where an empty spot is tapped | The "+" mark (33b) |
+| 37 | Hint line | "Remove the highlighted section under Photo 4 of 5." | Removed on every Adjust screen (33c) |
+| 38 | Pages | "Disable finger swipe between pages; keep only previous and next, as fast as possible." | ‹ › only, instant (34a) |
+| 39 | Zoom | "Zoom must be allowed only in Adjust, just to zoom the printable page." | The phone's screen zoom off in the app; Adjust's page zoom kept (34b) |
+| 40 | ID card drag | "Allow drag so that we can place the image anywhere." Question: how? Answer: **hold and drag each card** | Cards placed by hand (35a) |
+| 41 | Side by side | "What if the user wants front and back horizontal? Default must be vertical." Question: where? Answer: **a toggle on Adjust** | One under another (default) \| Side by side (35b) |
+| 42 | Back from the print screen | "The button must show PRINT as soon as we press Back on the print screen." Question: what then? Answer: **back on Ready, PRINT ready** | Known at once that nothing was sent (36a) |
+| 43 | Deleting jobs | "Clear or delete all recent jobs … the app must always be lightweight." Question: which? Answer: **Delete all + delete one**; keep the 1-day auto delete | Delete on each row and Delete all jobs on Recent jobs (36b) |
+| 44 | Building | "Go ahead." | Spec and plan in the repository, built to closure; APK, report and a public-repo commit |
+| 45 | A document library for Adjust? | "Do we require any lightweight doc library for the Adjust view, so we are flexible like Word? What do you recommend?" | No library: Adjust edits the job's own plan, so the preview and the print stay one; a canvas editor would add a second copy of the page, hide the photos from TalkBack and weigh on 2 GB phones. The Word-like gaps are added on the existing model instead |
+| 46 | Round 6 scope | "Do whatever is best and recommended." | Round 6 (after round 5 is closed): **Undo / Redo for every change on Adjust**, and **Bring to front / Send to back**. Later options, not built: Align and Distribute, select several photos, a text box (needs the print engine to draw text) |

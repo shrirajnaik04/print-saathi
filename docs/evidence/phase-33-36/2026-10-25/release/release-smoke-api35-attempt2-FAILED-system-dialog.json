@@ -1,0 +1,8 @@
+{
+  "device": "API 35",
+  "steps": [
+    "release APK installed"
+  ],
+  "error": "timed out waiting for Received (screen: Google Play services keeps stopping / App info / Close app)",
+  "pass": false
+}

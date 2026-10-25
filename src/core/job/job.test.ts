@@ -1,6 +1,6 @@
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
-import { type Job, type JobAction, jobFromIntake, jobReducer, normalizeJob } from './job';
+import { type Job, type JobAction, jobFromIntake, jobReducer, nextItemIndex, normalizeJob } from './job';
 
 const intake = {
   intakeId: 'in1',
@@ -686,5 +686,126 @@ describe('ID card quarter turns', () => {
     expect(normalizeJob(bad)?.idCard?.cards[0]?.turns).toBe(0);
     const half = { ...j, idCard: { ...j.idCard, cards: [{ item: 1, quad: q, turns: 2 }] } };
     expect(normalizeJob(half)?.idCard?.cards[0]?.turns).toBe(2);
+  });
+});
+
+// Owner, round 5: Copy and Paste on Adjust. A copy is the same photo file printed again, as a photo of its own.
+describe('copies of a photo (owner, round 5)', () => {
+  const base = jobReducer(
+    jobFromIntake('job1', intake, 1000),
+    {
+      type: 'all',
+      actions: [
+        {
+          type: 'setSpots',
+          spots: { 1: { page: 0, x: 50, y: 60, z: 1 }, 3: { page: 0, x: 120, y: 60, z: 2 } },
+          sizes: { 1: 60, 3: 70 },
+        },
+        { type: 'turnItem', index: 1 },
+        { type: 'setCrop', item: 1, crop: { x: 0.1, y: 0.1, w: 0.5, h: 0.5 } },
+        { type: 'rotateItem', index: 1, angle: 100 },
+      ],
+    },
+    2,
+  );
+  const copyOf1 = {
+    item: base.items.find((i) => i.index === 1) as Job['items'][number],
+    turn: base.turns[1],
+    tilt: base.tilts?.[1],
+    crop: base.crops?.[1],
+    size: base.sizes?.[1],
+  };
+  const copied = jobReducer(base, { type: 'copyItem', copy: copyOf1, page: 1, x: 40, y: 45 }, 3);
+  const n = copied.items[copied.items.length - 1]?.index ?? -1;
+
+  it('copyItem adds the same photo again with its crop, turn, angle and size, placed where asked, on top', () => {
+    expect(copied.items).toHaveLength(base.items.length + 1);
+    const copy = copied.items.find((i) => i.index === n);
+    const from = base.items.find((i) => i.index === 1);
+    expect(copy).toEqual({ ...from, index: n, copyOf: 1 });
+    expect(copied.turns[n]).toBe(base.turns[1]);
+    expect(copied.tilts?.[n]).toBe(base.tilts?.[1]);
+    expect(copied.crops?.[n]).toEqual(base.crops?.[1]);
+    expect(copied.sizes?.[n]).toBe(60);
+    expect(copied.spots?.[n]).toEqual({ page: 1, x: 40, y: 45, z: 3 });
+    expect(copied.order.indexOf(n)).toBe(copied.order.indexOf(1) + 1);
+  });
+  it('a copy is never "the same photo sent twice"', () => {
+    expect(copied.duplicates).toEqual(base.duplicates);
+    expect(copied.duplicates.flat()).not.toContain(n);
+  });
+  it('copyItem still works after the original was removed (Review Focus 2); a bad place changes nothing', () => {
+    const removed = jobReducer(base, { type: 'removeItem', index: 1 }, 3);
+    const j = jobReducer(removed, { type: 'copyItem', copy: copyOf1, page: 0, x: 40, y: 45 }, 4);
+    expect(j.items).toHaveLength(removed.items.length + 1);
+    expect(j.crops?.[nextItemIndex(removed)]).toEqual(base.crops?.[1]);
+    expect(jobReducer(base, { type: 'copyItem', copy: copyOf1, page: -1, x: 1, y: 1 }, 3)).toBe(base);
+  });
+  it('nextItemIndex never reuses a number a removed photo still holds', () => {
+    const removed = jobReducer(base, { type: 'removeItem', index: 3 }, 3);
+    expect(nextItemIndex(removed)).toBeGreaterThan(3);
+    expect(nextItemIndex(base)).toBe(4);
+  });
+  it('normalizeJob keeps copyOf only as a photo number', () => {
+    expect(normalizeJob(copied)?.items.find((i) => i.index === n)?.copyOf).toBe(1);
+    const bad = { ...copied, items: copied.items.map((i) => (i.index === n ? { ...i, copyOf: 'x' } : i)) };
+    expect(normalizeJob(bad)?.items.find((i) => i.index === n)?.copyOf).toBeUndefined();
+  });
+});
+
+describe('ID cards placed by hand, and their arrangement (owner, round 5)', () => {
+  const quad = [0.1, 0.1, 0.6, 0.1, 0.6, 0.4, 0.1, 0.4];
+  const cards = jobReducer(
+    jobFromIntake('job1', intake, 1000),
+    {
+      type: 'setIdCards',
+      cards: [
+        { item: 1, quad, turns: 0 },
+        { item: 3, quad, turns: 0 },
+      ],
+      size: 'real',
+    },
+    2,
+  );
+  const placed = jobReducer(cards, { type: 'placeIdCard', at: 1, x: 50, y: 60 }, 3);
+  it("placeIdCard keeps the card's centre, on top", () => {
+    expect(placed.idCard?.spots).toEqual({ 1: { x: 50, y: 60, z: 1 } });
+    const again = jobReducer(placed, { type: 'placeIdCard', at: 0, x: 70, y: 80 }, 4);
+    expect(again.idCard?.spots?.[0]).toEqual({ x: 70, y: 80, z: 2 });
+    expect(jobReducer(placed, { type: 'placeIdCard', at: 5, x: 1, y: 1 }, 4)).toBe(placed);
+    expect(jobReducer(placed, { type: 'placeIdCard', at: 0, x: Number.NaN, y: 1 }, 4)).toBe(placed);
+  });
+  it('setIdCardArrange chooses the arrangement and clears places; Automatic clears places only', () => {
+    const r = jobReducer(placed, { type: 'setIdCardArrange', arrange: 'row' }, 4);
+    expect(r.idCard?.arrange).toBe('row');
+    expect(r.idCard?.spots).toBeUndefined();
+    expect(jobReducer(r, { type: 'setIdCardArrange', arrange: 'stack' }, 5).idCard?.arrange).toBeUndefined();
+    const auto = jobReducer(
+      jobReducer(r, { type: 'placeIdCard', at: 0, x: 9, y: 9 }, 5),
+      { type: 'clearIdCardSpots' },
+      6,
+    );
+    expect(auto.idCard?.spots).toBeUndefined();
+    expect(auto.idCard?.arrange).toBe('row');
+  });
+  it('new cards clear the places, keep the arrangement', () => {
+    const r = jobReducer(placed, { type: 'setIdCardArrange', arrange: 'row' }, 4);
+    const p2 = jobReducer(r, { type: 'placeIdCard', at: 0, x: 9, y: 9 }, 5);
+    const fresh = jobReducer(p2, { type: 'setIdCards', cards: [{ item: 1, quad, turns: 0 }] }, 6);
+    expect(fresh.idCard?.spots).toBeUndefined();
+    expect(fresh.idCard?.arrange).toBe('row');
+  });
+  it('normalizeJob drops bad places and arrangements', () => {
+    const bad = {
+      ...placed,
+      idCard: {
+        ...placed.idCard,
+        arrange: 'diagonal',
+        spots: { 0: { x: 'a', y: 1, z: 1 }, 1: { x: 5, y: 6, z: 2 }, 9: { x: 1, y: 1, z: 1 } },
+      },
+    };
+    const n = normalizeJob(bad);
+    expect(n?.idCard?.arrange).toBeUndefined();
+    expect(n?.idCard?.spots).toEqual({ 1: { x: 5, y: 6, z: 2 } });
   });
 });

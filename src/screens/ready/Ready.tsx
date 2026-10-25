@@ -22,6 +22,7 @@ import { TopBar } from '../../ui/TopBar';
 import { usePinWhileSmall } from '../../ui/usePinWhileSmall';
 import { AutoTurnNote } from '../AutoTurnNote';
 import { pickAt, toPagePoints } from '../adjust/place';
+import { withCopies } from '../copies';
 import { Duplicates } from '../Duplicates';
 import { JobGone } from '../JobGone';
 import { noteJob } from '../printedJobs';
@@ -50,7 +51,9 @@ export function Ready({ go, params }: ScreenProps) {
   const jobId = String(params?.jobId ?? '');
   const [job, setJob] = useState<Job | null>(null);
   const [gone, setGone] = useState(false);
-  const [thumbs, setThumbs] = useState<Map<number, ThumbResult> | null>(null);
+  const [rawThumbs, setThumbs] = useState<Map<number, ThumbResult> | null>(null);
+  // A copy made on Adjust shows with its original's picture until it has its own (owner, round 5).
+  const thumbs = useMemo(() => withCopies(rawThumbs, job), [rawThumbs, job]);
   const [view, setView] = useState<View>({ state: 'preparing', done: 0, total: 0 });
   const [attempt, setAttempt] = useState(0);
   const [opening, setOpening] = useState(false);
@@ -302,6 +305,14 @@ export function Ready({ go, params }: ScreenProps) {
           const s = await PrintEngine.printStatus();
           // Ready was left meanwhile (Home, a new share): never replace another screen (gate re-review N5).
           if (!onScreen || s.state === 'inDialog') return;
+          // Back from Android's print screen without printing (owner, round 5): PRINT again at once, nothing said.
+          if (s.state === 'notSent') {
+            printing.current = false;
+            openingNow.current = false;
+            setOpening(false);
+            void PrintEngine.clearPrint();
+            return;
+          }
           if (s.state !== 'checking') {
             printing.current = false;
             go({

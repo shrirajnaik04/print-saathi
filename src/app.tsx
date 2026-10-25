@@ -14,6 +14,7 @@ import { initialStack, type NavAction, navigate } from './core/nav/stack';
 import { en } from './i18n/en';
 import { passwords } from './native/passwords';
 import { PrintEngine } from './native/printEngine';
+import { forgetClipsExcept } from './screens/adjust/clipboard';
 import { Help } from './screens/help/Help';
 import { Welcome } from './screens/help/Welcome';
 import { Home } from './screens/home/Home';
@@ -24,7 +25,6 @@ import { Problem } from './screens/problem/Problem';
 import { Ready } from './screens/ready/Ready';
 import { Received } from './screens/received/Received';
 import { Receiving } from './screens/received/Receiving';
-import { Recent } from './screens/recent/Recent';
 import { Result } from './screens/result/Result';
 import type { ScreenProps } from './screens/types';
 import { loadSettings } from './screens/useSettings';
@@ -55,6 +55,8 @@ const PassportCustom = lazyScreen(() => groups().then((m) => m.PassportCustom));
 const CropPhoto = lazyScreen(() => import('./screens/photos/CropPhoto').then((m) => m.CropPhoto));
 const AddSource = lazyScreen(() => import('./screens/add/AddSource').then((m) => m.AddSource));
 const Adjust = lazyScreen(() => import('./screens/adjust/Adjust').then((m) => m.Adjust));
+// Recent jobs loads when first opened (round 5: its Delete buttons pushed startup JS to its budget).
+const Recent = lazyScreen(() => import('./screens/recent/Recent').then((m) => m.Recent));
 const PaperType = lazyScreen(() => import('./screens/change/PaperType').then((m) => m.PaperType));
 // Change and its one-question screens follow Ready: loaded when first opened (startup JS budget, PLAN §C).
 const choices = () => import('./screens/change/Choices');
@@ -453,8 +455,10 @@ export function App() {
         } else {
           // A print that was in flight when the app was closed: say what happened to it first (PLAN §D4).
           const s = await PrintEngine.printStatus();
+          // A print screen closed without printing (owner, round 5): nothing to tell.
+          if (s.state === 'notSent') void PrintEngine.clearPrint();
           // A test page goes back to its own screen: it is never shown as a customer job.
-          if (s.state !== 'none' && s.state !== 'inDialog' && s.kind && s.kind !== 'job')
+          else if (s.state !== 'none' && s.state !== 'inDialog' && s.kind && s.kind !== 'job')
             goNow({ type: 'push', screen: { name: 'testpage', params: { kind: s.kind, state: s.state } } });
           else if (s.state !== 'none' && s.state !== 'inDialog' && s.jobId)
             goNow({
@@ -532,6 +536,8 @@ export function App() {
     ];
     // Leaving a job forgets its PDF passwords here and its decrypted data natively (PLAN §G5, review I5).
     passwords.keepOnly(jobIds);
+    // What Copy or Cut remembered belongs to its job: forgotten when the job is left (owner, round 5).
+    forgetClipsExcept(jobIds);
     void PrintEngine.setActiveJobs({ jobIds });
   }, [stack]);
 
