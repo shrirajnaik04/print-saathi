@@ -1,8 +1,8 @@
 import { Icon } from './Icon';
 import type { IconName } from './icons';
 
-/** The four jobs on Home have their own badge colour (Office look); other tiles use the neutral one. */
-export type TileTone = 'photos' | 'passport' | 'cards' | 'documents';
+/** The jobs on Home have their own badge colour (Office look); other tiles use the neutral one. */
+export type TileTone = 'photos' | 'passport' | 'cards' | 'documents' | 'text' | 'scan';
 
 /** A big choice: icon in a badge + title + optional helper line; the whole tile is one button (≥ 88 dp). */
 export function Tile({

@@ -54,6 +54,28 @@ object CardDetect {
     /** A step: on one side, its gradient falls under half at each of these distances (px). */
     private val SHARP_D = doubleArrayOf(4.0, 7.0)
 
+    /**
+     * What a find must look like: its true shape (long side ÷ short side) in [minAspect]..[maxAspect], its share of the
+     * photo in [minArea]..[maxArea]. The first look lets shapes [slack] beyond the shape range through (they are
+     * measured again once snapped). [aspectFit]: how well a true shape suits (1 best), part of the confidence.
+     * [eitherWay]: the shape counts whichever pair of sides is the longer (a page seen at a slant may look wider than
+     * long); a card's is measured along its long sides only.
+     */
+    class Limits(
+        val minAspect: Double,
+        val maxAspect: Double,
+        val minArea: Double,
+        val maxArea: Double,
+        val slack: Double,
+        val eitherWay: Boolean = false,
+        val aspectFit: (Double) -> Double,
+    )
+
+    /** ID cards: 1.585 within 9 %; 6–95 % of the photo; the nearer 1.585, the surer. */
+    val CARD = Limits(ASPECT * (1 - ASPECT_TOL), ASPECT * (1 + ASPECT_TOL), MIN_AREA, MAX_AREA, ASPECT * ASPECT_TOL) { a ->
+        1 - 0.3 * (abs(ln(a / ASPECT)) / ln(1 + ASPECT_TOL)).let { it * it }
+    }
+
     internal class Line(val nx: Double, val ny: Double, val c: Double) {
         val theta: Double get() = atan2(ny, nx).let { if (it < 0) it + PI else it }.let { if (it >= PI) it - PI else it }
     }
@@ -95,20 +117,28 @@ object CardDetect {
      * A four-sided shape's measurements (working-copy pixels; corners TL first, clockwise). [inPhoto]: its corners in
      * the photo, snapped to the photo's own edges when that worked.
      */
-    internal class Shape(val corners: DoubleArray, val inPhoto: DoubleArray, val frac: Double, val aspect: Double, val sides: DoubleArray, val beyond: Double) {
+    internal class Shape(
+        val corners: DoubleArray,
+        val inPhoto: DoubleArray,
+        val frac: Double,
+        val aspect: Double,
+        val sides: DoubleArray,
+        val beyond: Double,
+        val limits: Limits = CARD,
+    ) {
         val avg: Double get() = sides.average()
         val minSide: Double get() = sides.min()
-        val aspectFit: Double get() = 1 - 0.3 * (abs(ln(aspect / ASPECT)) / ln(1 + ASPECT_TOL)).let { it * it }
-        val confidence: Double get() = ((0.7 * avg + 0.3 * minSide) * aspectFit).coerceIn(0.0, 1.0)
-        val isCard: Boolean
-            get() = frac in MIN_AREA..MAX_AREA && aspect in ASPECT * (1 - ASPECT_TOL)..ASPECT * (1 + ASPECT_TOL) &&
+        val confidence: Double get() = ((0.7 * avg + 0.3 * minSide) * limits.aspectFit(aspect)).coerceIn(0.0, 1.0)
+        /** Within [limits] (a card, or a page), its outline backed by edges, its sides stopping at its corners. */
+        val fits: Boolean
+            get() = frac in limits.minArea..limits.maxArea && aspect in limits.minAspect..limits.maxAspect &&
                 minSide >= 0.35 && beyond < 0.5 && confidence >= 0.5
     }
 
     /** Each stage's output, for tests that check a stage on its own. [scale]: photo pixels per working pixel. */
     internal class Stages(val scale: Int, val edges: Edges, val lines: List<Line>, val shapes: List<Shape>)
 
-    internal fun stages(grey: ByteArray, w: Int, h: Int): Stages? {
+    internal fun stages(grey: ByteArray, w: Int, h: Int, limits: Limits = CARD): Stages? {
         if (w < 32 || h < 32 || grey.size != w * h) return null
         val k = max(1, ceil(max(w, h).toDouble() / WORK_SIZE).toInt())
         val sw = w / k
@@ -122,7 +152,7 @@ object CardDetect {
         sobel(g, sw, sh, gx, gy, mag)
         val edges = Edges(sw, sh, canny(mag, gx, gy, sw, sh), gx, gy)
         val lines = lines(edges)
-        return Stages(k, edges, lines, if (lines.size < 4) emptyList() else shapes(lines, edges, Photo(grey, w, h, k)))
+        return Stages(k, edges, lines, if (lines.size < 4) emptyList() else shapes(lines, edges, Photo(grey, w, h, k), limits))
     }
 
     fun find(grey: ByteArray, w: Int, h: Int, maxCards: Int = 2): List<CardQuad> {
@@ -351,7 +381,7 @@ object CardDetect {
 
     // ---- 3. four-sided shapes ----
 
-    private fun shapes(lines: List<Line>, e: Edges, photo: Photo): List<Shape> {
+    private fun shapes(lines: List<Line>, e: Edges, photo: Photo, limits: Limits): List<Shape> {
         val w = e.w
         val h = e.h
         val minSep = 0.08 * min(w, h)
@@ -381,8 +411,8 @@ object CardDetect {
             val c3 = cross(a2, b1) ?: continue
             val quad = doubleArrayOf(c0.first, c0.second, c1.first, c1.second, c2.first, c2.second, c3.first, c3.second)
             if (!inside(quad, w, h)) continue
-            val s = measure(quad, e, photo) ?: continue
-            if (s.isCard) out += s
+            val s = measure(quad, e, photo, limits) ?: continue
+            if (s.fits) out += s
         }
         return out.sortedByDescending { it.confidence * sqrt(it.frac) }
     }
@@ -393,16 +423,17 @@ object CardDetect {
      * whose outline is backed by edges has its sides snapped to the photo's edges and its true shape judged from those;
      * a side that won't snap (no single straight edge there) makes it no card.
      */
-    internal fun measure(corners: DoubleArray, e: Edges, photo: Photo? = null): Shape? {
+    internal fun measure(corners: DoubleArray, e: Edges, photo: Photo? = null, limits: Limits = CARD): Shape? {
         var quad = corners
         val area = signedArea(quad)
         if (area < 0) quad = doubleArrayOf(quad[0], quad[1], quad[6], quad[7], quad[4], quad[5], quad[2], quad[3])
         if (!convex(quad)) return null
         val frac = abs(area) / (e.w.toDouble() * e.h)
-        if (frac < MIN_AREA || frac > MAX_AREA) return null
+        if (frac < limits.minArea || frac > limits.maxArea) return null
         val oriented = orient(quad)
-        val aspect = trueAspect(oriented, e.w, e.h)
-        if (aspect < ASPECT * (1 - 2 * ASPECT_TOL) || aspect > ASPECT * (1 + 2 * ASPECT_TOL)) return null
+        fun shapeOf(q: DoubleArray, w: Int, h: Int) = trueAspect(q, w, h).let { if (limits.eitherWay && it > 0 && it < 1) 1 / it else it }
+        val aspect = shapeOf(oriented, e.w, e.h)
+        if (aspect < limits.minAspect - limits.slack || aspect > limits.maxAspect + limits.slack) return null
         val sides = DoubleArray(4)
         var beyond = 0.0
         for (s in 0 until 4) {
@@ -438,10 +469,10 @@ object CardDetect {
                 beyond = max(beyond, (past[0] - max(past[1], past[2])).toDouble() / END_SAMPLES)
             }
         }
-        val loose = Shape(oriented, photo?.toPhoto(oriented) ?: oriented, frac, aspect, sides, beyond)
+        val loose = Shape(oriented, photo?.toPhoto(oriented) ?: oriented, frac, aspect, sides, beyond, limits)
         if (photo == null || !(loose.minSide >= 0.35 && loose.beyond < 0.5)) return loose
-        val snapped = snap(photo, photo.toPhoto(oriented)) ?: return Shape(oriented, photo.toPhoto(oriented), frac, 0.0, sides, beyond)
-        return Shape(photo.toWork(snapped), snapped, frac, trueAspect(snapped, photo.w, photo.h), sides, beyond)
+        val snapped = snap(photo, photo.toPhoto(oriented)) ?: return Shape(oriented, photo.toPhoto(oriented), frac, 0.0, sides, beyond, limits)
+        return Shape(photo.toWork(snapped), snapped, frac, shapeOf(snapped, photo.w, photo.h), sides, beyond, limits)
     }
 
     /** The four sides snapped to the photo's edges, crossed again; null when a side has no single straight edge. */

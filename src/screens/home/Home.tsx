@@ -17,11 +17,15 @@ import { useSettings } from '../useSettings';
 
 const t = en.home;
 type PickKind = 'photos' | 'passport' | 'documents' | 'cards';
-const JOBS: { key: PickKind; icon: IconName; title: string; tone: TileTone }[] = [
+const JOBS: { key: PickKind | 'scan' | 'text'; icon: IconName; title: string; tone: TileTone; helper?: string }[] = [
   { key: 'photos', icon: 'photos', title: t.photos, tone: 'photos' },
   { key: 'passport', icon: 'passport', title: t.passport, tone: 'passport' },
   { key: 'documents', icon: 'document', title: t.documents, tone: 'documents' },
   { key: 'cards', icon: 'card', title: t.cards, tone: 'cards' },
+  // Owner, round 8: paper pages photographed (as the DocScanner app); a customer's WhatsApp text message (rare, "but
+  // option should be there").
+  { key: 'scan', icon: 'scan', title: t.scan, tone: 'scan', helper: t.scanHelper },
+  { key: 'text', icon: 'message', title: t.text, tone: 'text', helper: t.textHelper },
 ];
 
 /** Home (PLAN §H3): the big jobs, Recent jobs, then owner tools at the bottom (owner, round 4: no WhatsApp card). */
@@ -71,19 +75,36 @@ export function Home({ go }: ScreenProps) {
   const note = (key: string) =>
     failed === key && (
       <div ref={noteRef}>
-        <Panel kind="error" title={t.pickFailed} />
+        <Panel
+          kind="error"
+          title={
+            key === 'noCamera'
+              ? t.noCamera
+              : key === 'cameraEmpty'
+                ? t.cameraEmpty
+                : key === 'scan'
+                  ? t.cameraFailed
+                  : t.pickFailed
+          }
+        />
       </div>
     );
   // One picker at a time: a second quick tap must not open a second one (review M4).
   const picking = useRef(false);
-  const choose = async (kind: PickKind) => {
+  const choose = async (kind: PickKind | 'scan' | 'text') => {
+    if (kind === 'text') return go(push('textmessage'));
     // ID cards: first "Where is the card?" (gallery or file manager, owner 2026-10-23).
     if (kind === 'cards') return go(push('cardsource'));
     if (picking.current) return;
     picking.current = true;
     setFailed(null);
     try {
-      await PrintEngine.pickFiles({ kind });
+      // The phone's own camera (owner, round 8): its photo opens on the page's corners (app.tsx, scan/arrive).
+      if (kind !== 'scan') await PrintEngine.pickFiles({ kind });
+      else {
+        const r = await PrintEngine.scanPhoto({});
+        if (r.noCamera || r.empty) setFailed(r.noCamera ? 'noCamera' : 'cameraEmpty');
+      }
     } catch {
       setFailed(kind);
     } finally {
@@ -104,7 +125,7 @@ export function Home({ go }: ScreenProps) {
             icon={j.icon}
             tone={j.tone}
             title={j.title}
-            helper={t.chooseFromPhone}
+            helper={j.helper ?? t.chooseFromPhone}
             onClick={() => void choose(j.key)}
           />
         ))}

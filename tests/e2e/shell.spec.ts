@@ -1812,7 +1812,8 @@ test('a turned first photo shows its examples turned, like the print', async ({ 
   await page.getByRole('button', { name: 'Done' }).click();
   await page.getByRole('button', { name: 'Done' }).click();
   await page.getByRole('button', { name: /^Print style/ }).click();
-  await expect(page.locator('img.style-sample.turn-1')).toHaveCount(6);
+  // Six styles, and Clean colour (owner, round 8: offered for every job).
+  await expect(page.locator('img.style-sample.turn-1')).toHaveCount(7);
 });
 
 // ---- Phase 9: smart auto-crop (PLAN §F5, §I-3, §J6) ----

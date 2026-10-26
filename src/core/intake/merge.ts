@@ -53,7 +53,8 @@ async function merge(
       if (!i || !to) return [];
       // Numbered like the file it now is (0007.jpg → 7): higher than any file the open job ever had, so nothing
       // kept under a removed item's number (unlocked copy, page images, password) is mistaken for it.
-      const n = Number(/(\d+)\.[^./]+$/.exec(to)?.[1]);
+      // A text message's PDF made again at another size is 0007-18-….pdf: its number is the name's first part.
+      const n = Number(/(?:^|[\\/])(\d+)(?:-\d+)*\.[^./\\]+$/.exec(to)?.[1]);
       return [{ ...i, path: to, index: Number.isInteger(n) && n > 0 ? n : i.index }];
     });
   // Every file must have its place before the new job is deleted (review M8).

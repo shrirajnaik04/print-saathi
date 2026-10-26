@@ -2,6 +2,7 @@ import { useRef, useState } from 'preact/hooks';
 import { forgetAddInto, MAX_JOB_FILES, rememberAddInto } from '../../core/intake/addInto';
 import { normalizeJob } from '../../core/job/job';
 import { en } from '../../i18n/en';
+import { scanWords } from '../../i18n/scan';
 import { PrintEngine } from '../../native/printEngine';
 import { Panel } from '../../ui/Panel';
 import { Tile } from '../../ui/Tile';
@@ -44,6 +45,22 @@ export function AddSource({ go, params }: ScreenProps) {
       picking.current = false;
     }
   };
+  const scan = async () => {
+    if (picking.current) return;
+    picking.current = true;
+    setNote(null);
+    try {
+      const job = normalizeJob((await PrintEngine.loadJob({ id: jobId })).job);
+      if ((job?.items.length ?? 0) >= MAX_JOB_FILES) return setNote(t.full);
+      // Taken: the page opens on its corners in place of this screen (app.tsx, scan/arrive).
+      const r = await PrintEngine.scanPhoto({ into: jobId });
+      if (r.noCamera || r.empty) setNote(r.noCamera ? en.home.noCamera : en.home.cameraEmpty);
+    } catch {
+      setNote(en.home.cameraFailed);
+    } finally {
+      picking.current = false;
+    }
+  };
   return (
     <main class="screen">
       <TopBar
@@ -66,6 +83,16 @@ export function AddSource({ go, params }: ScreenProps) {
           helper={docs ? t.fileManagerFiles : t.fileManagerPhotos}
           onClick={() => void pick('files')}
         />
+        {/* Owner, round 8: a paper page photographed with the phone's own camera, straight into this document. */}
+        {docs && (
+          <Tile
+            icon="scan"
+            tone="scan"
+            title={scanWords.withCamera}
+            helper={scanWords.withCameraHelp}
+            onClick={() => void scan()}
+          />
+        )}
       </div>
       {note && <Panel kind={note === t.full ? 'warn' : 'error'} title={note} />}
     </main>

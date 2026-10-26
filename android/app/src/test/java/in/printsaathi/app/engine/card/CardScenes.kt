@@ -82,6 +82,43 @@ object CardScenes {
         return Scene(toBytes(img), emptyList(), pages)
     }
 
+    /**
+     * Owner, round 8 (scan pages): one document page photographed on a table (wood, cloth or dark), text lines on it,
+     * seen at a slant. [areaFrac]: its share of the photo; [wMm]×[hMm]: the page (A4 by default, upright or sideways);
+     * [maxTilt]: how far it leans away from the camera (radians). Corners in [Scene.pages].
+     */
+    fun page(seed: Int, areaFrac: Double? = null, wMm: Double = 210.0, hMm: Double = 297.0, maxTilt: Double = 0.45): Scene {
+        val r = rng(seed)
+        val img = background(r, listOf(Bg.WOOD, Bg.CLOTH, Bg.DARK)[seed % 3])
+        var q = DoubleArray(8)
+        var tries = 0
+        while (tries++ < 4000) {
+            val frac = areaFrac ?: r.nextDouble(0.20, 0.60)
+            val sideways = areaFrac == null && r.nextBoolean()
+            val aspect = wMm / hMm
+            // Width on the photo for that area (before the slant): area = w × w / aspect.
+            val pw = sqrt(frac * W * H * aspect)
+            val tilt = between(r, 0.0, maxTilt)
+            val towards = r.nextDouble(0.0, 2 * PI)
+            q = project(
+                wMm, hMm, pw, W / 2.0 + r.nextDouble(-0.08, 0.08) * W * (1 - frac), H / 2.0 + r.nextDouble(-0.08, 0.08) * H * (1 - frac),
+                r.nextDouble(-0.25, 0.25) * (1 - frac) + if (sideways) PI / 2 else 0.0, tilt * cos(towards), tilt * sin(towards), focal(r),
+            )
+            if (q.indices.none { (it % 2 == 0 && (q[it] < 3 || q[it] > W - 3)) || (it % 2 == 1 && (q[it] < 3 || q[it] > H - 3)) }) break
+        }
+        fillQuad(img, q) { u, v -> if (v > 0.08 && v < 0.92 && u > 0.1 && u < 0.9 && ((v * 40).toInt() % 2 == 0) && r.nextDouble() < 0.9) 70.0 else 238.0 }
+        finish(img, r)
+        return Scene(toBytes(img), emptyList(), listOf(q))
+    }
+
+    /** A photo with no page in it: a bare table, cloth, paper, a dark surface or things lying about. */
+    fun noPage(seed: Int): Scene {
+        val r = rng(seed)
+        val img = background(r, Bg.entries[seed % Bg.entries.size])
+        finish(img, r)
+        return Scene(toBytes(img), emptyList())
+    }
+
     /** A chat list as a phone shows it, straight (no camera): a top bar, rows with a round picture, name and message
      * lines, thin dividers. */
     private fun screenshot(r: Random): Scene {

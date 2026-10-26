@@ -10,6 +10,7 @@ import type {
   PrintKind,
   PrintState,
   RenderResult,
+  TextSize,
   ThumbResult,
 } from './printEngine';
 
@@ -82,6 +83,34 @@ function sampleIntake(
   return whole;
 }
 
+/** Owner, round 8: a text message as the engine's intake (TextIntake.make): one PDF made of it, or its problem. */
+function textIntake(intakeId: string, text: string): Intake {
+  const problem = !text.trim() ? 'emptyText' : text.length > 100_000 ? 'textTooLong' : null;
+  return {
+    intakeId,
+    state: 'done',
+    pick: 'text',
+    rejected: problem ? 1 : 0,
+    refusedByPolicy: 0,
+    problems: problem ? [{ index: 1, reason: problem }] : [],
+    files: problem
+      ? []
+      : [
+          {
+            index: 1,
+            path: samplePhoto(1, 595, 842),
+            sniffedType: 'pdf',
+            bytes: text.length + 900,
+            sha256: `t-${intakeId}`,
+            text: { size: 12 },
+          },
+        ],
+  };
+}
+
+/** Pages a text message prints on, about as the engine's A4 layout does (tests: 'word '×700 → 2 normal, 5 extra large). */
+const textPages = (chars: number, size: number) => Math.max(1, Math.ceil((chars * (size / 12) ** 2) / 1800));
+
 export class PrintEngineMock extends WebPlugin implements PrintEnginePlugin {
   async getDeviceFacts(): Promise<DeviceFacts> {
     return {
@@ -114,6 +143,8 @@ export class PrintEngineMock extends WebPlugin implements PrintEnginePlugin {
 
   /** Shares made later by `__mockShare(n)` (tests only: a WhatsApp share while a job is open). */
   private later: Intake[] = [];
+  /** Owner, round 8: each text job's message ("jobId:index" → text), as the engine keeps NNNN.txt. */
+  private texts = new Map<string, string>();
 
   async listIntakes(): Promise<{ intakes: Intake[] }> {
     const g = globalThis as { __mockShare?: (n: number) => void };
@@ -148,6 +179,12 @@ export class PrintEngineMock extends WebPlugin implements PrintEnginePlugin {
     };
     const fresh = this.later.filter((x) => !this.acked.has(x.intakeId));
     if (fresh.length) return { intakes: fresh };
+    // Tests only: `?mockText=<text>`: a text message shared from WhatsApp (owner, round 8).
+    const shared = new URLSearchParams(globalThis.location?.search ?? '').get('mockText');
+    if (shared !== null && !this.acked.has('mock-text')) {
+      this.texts.set('mock-text:1', shared);
+      return { intakes: [textIntake('mock-text', shared)] };
+    }
     const i = sampleIntake();
     // Tests only: `?mockRepeat=1` shares the same files again a moment later (PLAN §D2b repeat within 60 s).
     if (i && !this.repeatSent && new URLSearchParams(globalThis.location?.search ?? '').has('mockRepeat')) {
@@ -323,10 +360,12 @@ export class PrintEngineMock extends WebPlugin implements PrintEnginePlugin {
   async documentFacts({ jobId, passwords }: { jobId: string; passwords?: Record<number, string> }) {
     const q = new URLSearchParams(globalThis.location?.search ?? '');
     const job = this.jobs.get(jobId) as { items?: { index: number; type: string }[] } | undefined;
-    const pages = Number(q.get('mockPdfPages') ?? 3);
     const items: DocFactsItem[] = (job?.items ?? [])
       .filter((i) => i.type === 'pdf')
       .map((i) => {
+        const said = this.texts.get(`${jobId}:${i.index}`);
+        const size = (i as { text?: { size: number } }).text?.size;
+        const pages = said !== undefined && size ? textPages(said.length, size) : Number(q.get('mockPdfPages') ?? 3);
         if (q.has('mockPdfDamaged')) return { index: i.index, state: 'damaged' as const };
         if (q.has('mockPdfLocked') && passwords?.[i.index] !== 'RAMA1965' && !this.unlocked.has(i.index))
           return { index: i.index, state: 'password' as const };
@@ -353,6 +392,7 @@ export class PrintEngineMock extends WebPlugin implements PrintEnginePlugin {
       bw: '#888',
       sharp: '#333',
       ocv: '#000',
+      clean: '#e66',
     };
     return {
       samples: (Object.keys(fills) as StyleId[]).map((style) => ({
@@ -631,6 +671,89 @@ export class PrintEngineMock extends WebPlugin implements PrintEnginePlugin {
 
   async shareText({ text }: { text: string }): Promise<void> {
     (globalThis as { __sharedText?: string }).__sharedText = text; // tests: what went to the share sheet
+  }
+
+  async textJob({ text }: { text: string }): Promise<void> {
+    const intake = textIntake(`mock-text-${this.later.length + 2}`, text);
+    this.texts.set(`${intake.intakeId}:1`, text);
+    this.later.push(intake);
+    setTimeout(() => this.notifyListeners('intakeReady', { intakeId: intake.intakeId, repeat: false }), 50);
+  }
+
+  async textToPdf({ jobId, index, size, text }: { jobId: string; index: number; size: TextSize; text?: string }) {
+    const key = `${jobId}:${index}`;
+    if (text !== undefined) {
+      if (!text.trim() || text.length > 100_000) throw new Error('empty or too long');
+      this.texts.set(key, text);
+    }
+    const kept = this.texts.get(key);
+    if (kept === undefined) throw new Error('no text');
+    const now = Date.now();
+    return {
+      path: samplePhoto(index, 595, 842),
+      bytes: kept.length + 900,
+      sha256: `t-${now}`,
+      pages: textPages(kept.length, size),
+    };
+  }
+
+  async readText({ jobId, index }: { jobId: string; index: number }) {
+    const kept = this.texts.get(`${jobId}:${index}`);
+    if (kept === undefined) throw new Error('no text');
+    return { text: kept };
+  }
+
+  /**
+   * Owner, round 8 (scan pages). Tests only: `?mockCamera=none` (no camera app), `cancel` (closed without a photo),
+   * `fail` (it could not open); else a photographed page arrives as a "scan" intake.
+   */
+  async scanPhoto({ into, retake }: { into?: string; retake?: number }) {
+    const g = globalThis as { __scanCalls?: number };
+    g.__scanCalls = (g.__scanCalls ?? 0) + 1; // tests: how many times the camera was opened
+    const q = new URLSearchParams(globalThis.location?.search ?? '').get('mockCamera');
+    if (q === 'empty') return { taken: 0 as const, empty: true };
+    // Tests only: `?mockCameraSlow=<ms>`: the camera is open that long (a real one takes a while).
+    const open = Number(new URLSearchParams(globalThis.location?.search ?? '').get('mockCameraSlow') ?? 0);
+    if (open > 0) await new Promise((r) => setTimeout(r, open));
+    if (q === 'fail') throw new Error('camera');
+    if (q === 'none') return { taken: 0 as const, noCamera: true };
+    if (q === 'cancel') return { taken: 0 as const };
+    const n = this.later.length + 2;
+    const intake: Intake = {
+      intakeId: `mock-scan-${n}`,
+      state: 'done',
+      pick: 'scan',
+      rejected: 0,
+      refusedByPolicy: 0,
+      problems: [],
+      files: [{ index: 1, path: samplePhoto(n, 1200, 1600), sniffedType: 'jpeg', bytes: 2000, sha256: `scan-${n}` }],
+      ...(into ? { scan: { into, ...(retake ? { retake } : {}) } } : {}),
+    };
+    this.later.push(intake);
+    setTimeout(() => this.notifyListeners('intakeReady', { intakeId: intake.intakeId, repeat: false }), 50);
+    return { taken: 1 as const };
+  }
+
+  /**
+   * Tests only: `?mockPage=none`: no page is seen; else a page a little in from the photo's edges; `?mockPageSlow=<ms>`:
+   * the answer takes that long.
+   */
+  async findPage(_: { jobId: string; index: number }) {
+    const slow = Number(new URLSearchParams(globalThis.location?.search ?? '').get('mockPageSlow') ?? 0);
+    if (slow > 0) await new Promise((r) => setTimeout(r, slow));
+    if (new URLSearchParams(globalThis.location?.search ?? '').get('mockPage') === 'none')
+      return { state: 'ok' as const, found: false };
+    return {
+      state: 'ok' as const,
+      found: true,
+      corners: [0.1, 0.08, 0.9, 0.1, 0.88, 0.92, 0.12, 0.9],
+      confidence: 0.9,
+    };
+  }
+
+  /** Tests only: `?mockClipboard=<text>` is what was copied; none: nothing is copied. */
+  async readClipboard() {
+    return { text: new URLSearchParams(globalThis.location?.search ?? '').get('mockClipboard') ?? '' };
   }
 
   /** Tests: `?mockPick=0` closes the picker without files, `?mockPick=fail` cannot open it; else 4 photos, 1 photo

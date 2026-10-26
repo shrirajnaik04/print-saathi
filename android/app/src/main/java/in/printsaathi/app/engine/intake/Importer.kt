@@ -145,6 +145,35 @@ class Importer(private val context: Context) {
         }
     }
 
+    /**
+     * Owner, round 8: a text message (shared or pasted) as an intake whose one file is the PDF the engine made of it
+     * ([toPdf]), journalled like every intake so it survives process death and reaches the app the same way.
+     */
+    fun importText(text: String, intakeId: String, toPdf: (File, File, Int) -> Result<Int>): JSONObject {
+        journal.begin(intakeId, 1, System.currentTimeMillis())
+        val json = TextIntake.make(root, intakeId, text, toPdf)
+        journal.finish(intakeId, json)
+        writeAtomically(pendingFile, json.toString())
+        Log.i(TAG, "text intake done: ${json.getJSONArray("files").length()} files") // never the text
+        return json
+    }
+
+    /**
+     * Owner, round 8 (scan pages): the camera's photo, claimed from [store], as a "scan" intake (journalled like every
+     * intake); null when the camera gave nothing (its folder is gone).
+     */
+    fun importCaptured(store: CaptureStore, p: CaptureStore.Pending): JSONObject? {
+        journal.begin(p.intakeId, 1, System.currentTimeMillis())
+        val json = store.toIntake(p)
+        if (json == null) {
+            journal.ack(p.intakeId)
+            return null
+        }
+        journal.finish(p.intakeId, json)
+        Log.i(TAG, "camera intake done: ${json.getJSONArray("files").length()} files")
+        return json
+    }
+
     /** Unacknowledged intakes, oldest first (done or interrupted). */
     fun listPending(): List<JSONObject> = journal.pending()
 

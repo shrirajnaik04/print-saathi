@@ -1,0 +1,150 @@
+{
+  "serial": "emulator-5580",
+  "checks": {
+    "narrowMarginFromTheTopLeft": true,
+    "heldPhotoGoesWhereItIsDropped": true,
+    "theOthersStay": true,
+    "movedPhotoPrintsOnTop": true,
+    "topBarCropsFromTheTop": true,
+    "sideCropKeepsTheOtherSidesAndCutsThatSide": true,
+    "addedFromTheFileManagerJoinsTheJob": true,
+    "roundCornerResizesPassportPhotos": true
+  },
+  "margins": {
+    "firstBoxMm": [
+      12.7,
+      12.7,
+      87.3,
+      65.5
+    ]
+  },
+  "place": {
+    "before": [
+      [
+        12.7,
+        12.7,
+        87.3,
+        65.5
+      ],
+      [
+        110,
+        12.7,
+        87.3,
+        65.5
+      ],
+      [
+        12.7,
+        106.6,
+        87.3,
+        65.5
+      ],
+      [
+        110,
+        106.6,
+        87.3,
+        65.5
+      ],
+      [
+        12.7,
+        200.4,
+        87.3,
+        65.5
+      ],
+      [
+        110,
+        200.4,
+        87.3,
+        65.5
+      ]
+    ],
+    "after": [
+      [
+        12.7,
+        12.7,
+        87.3,
+        65.5
+      ],
+      [
+        12.7,
+        106.6,
+        87.3,
+        65.5
+      ],
+      [
+        110,
+        106.6,
+        87.3,
+        65.5
+      ],
+      [
+        12.7,
+        200.4,
+        87.3,
+        65.5
+      ],
+      [
+        110,
+        200.4,
+        87.3,
+        65.5
+      ],
+      [
+        110,
+        52.6,
+        87.3,
+        65.5
+      ]
+    ],
+    "photo2Now": [
+      110,
+      52.6,
+      87.3,
+      65.5
+    ]
+  },
+  "crop": {
+    "crop": {
+      "x": 0,
+      "y": 0.16304693968537035,
+      "w": 1,
+      "h": 0.8369530603146297
+    },
+    "quads": null
+  },
+  "side": {
+    "before": [
+      12.7,
+      106.6,
+      87.3,
+      65.5
+    ],
+    "after": [
+      12.7,
+      106.6,
+      67.4,
+      65.5
+    ]
+  },
+  "add": {
+    "picked": true,
+    "filesBefore": 6,
+    "filesAfter": 7,
+    "jobsBefore": 1,
+    "jobsAfter": 1
+  },
+  "passportCorner": {
+    "before": [
+      13.5,
+      8.5,
+      35,
+      45
+    ],
+    "shown": "4 × 5.15 cm · Normal (1½ pt)",
+    "after": [
+      22,
+      15.7,
+      40,
+      51.5
+    ]
+  }
+}

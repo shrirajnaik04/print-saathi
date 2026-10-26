@@ -196,6 +196,23 @@ class EngineClient(context: Context, private val service: Class<out EngineServic
         r
     }
 
+    /** Owner, round 8 (scan pages): the paper page in photo [src], or null when none is seen. */
+    fun detectPage(src: File, maxLongSidePx: Int = Cards.DETECT_PX): Result<FoundCard?> = call { e ->
+        ParcelFileDescriptor.open(src, ParcelFileDescriptor.MODE_READ_ONLY).use { e.detectPage(it, maxLongSidePx) }
+    }.mapCatching { FoundCard.parse(it).firstOrNull() }
+
+    /** Owner, round 8: the text in [txt] as an A4 PDF in [pdf] at [sizeTenthsPt]; the number of pages. */
+    fun textToPdf(txt: File, pdf: File, sizeTenthsPt: Int): Result<Int> = call { e ->
+        ParcelFileDescriptor.open(txt, ParcelFileDescriptor.MODE_READ_ONLY).use { t ->
+            ParcelFileDescriptor.open(pdf, ParcelFileDescriptor.MODE_WRITE_ONLY or ParcelFileDescriptor.MODE_CREATE or ParcelFileDescriptor.MODE_TRUNCATE).use { d ->
+                e.textToPdf(t, d, sizeTenthsPt)
+            }
+        }
+    }.mapCatching { r ->
+        if (r.size != 1 || r[0] <= 0) throw EngineFileException(if (r.size == 1 && r[0] < 0) -r[0] else EngineErrors.FILE_UNREADABLE)
+        r[0]
+    }
+
     /** Phase 15: faces in a photo; -code on failure. */
     fun faceCount(src: File, maxLongSidePx: Int): Result<Int> = call { e ->
         ParcelFileDescriptor.open(src, ParcelFileDescriptor.MODE_READ_ONLY).use { e.faceCount(it, maxLongSidePx) }

@@ -316,6 +316,14 @@ html {
   background: var(--badge-documents-bg);
   color: var(--badge-documents-fg);
 }
+.badge-scan {
+  background: var(--badge-scan-bg);
+  color: var(--badge-scan-fg);
+}
+.badge-text {
+  background: var(--badge-text-bg);
+  color: var(--badge-text-fg);
+}
 .badge-neutral {
   background: var(--badge-neutral-bg);
   color: var(--badge-neutral-fg);
@@ -846,6 +854,39 @@ main h2 {
   border-radius: 0.5rem;
   background: var(--surface);
   color: var(--text);
+}
+/* Text message (owner, round 8): a big box for the customer's message, in the shop's reading size. */
+.field .text-box {
+  min-height: 10rem;
+  padding: var(--space-2);
+  font: inherit;
+  font-size: 1.25rem;
+  line-height: 1.4;
+  border: 0.125rem solid var(--border);
+  border-radius: 0.5rem;
+  background: var(--surface);
+  color: var(--text);
+  resize: vertical;
+}
+/* Text size: the letters on a little white sheet, at each size. */
+.text-sample {
+  padding: 0.25rem 0.5rem;
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 700;
+  line-height: 1.2;
+}
+.text-sample-10 {
+  font-size: 1rem;
+}
+.text-sample-12 {
+  font-size: 1.25rem;
+}
+.text-sample-14 {
+  font-size: 1.5rem;
+}
+.text-sample-18 {
+  font-size: 2rem;
 }
 .password-shown {
   font-size: 1.75rem;
@@ -1896,6 +1937,25 @@ main h2 {
   outline: 0.1875rem solid var(--primary);
   border-radius: 0.5rem;
 }
+/* Scanned pages only (owner, round 8): a round handle at each corner, drawn 24 px (in px: it must fit its 56 px touch
+   area at any text size), the chosen one filled. */
+.scan-corner::after {
+  content: "";
+  position: absolute;
+  inset: 16px;
+  border-radius: 50%;
+  background: rgb(0 0 0 / 35%);
+  box-shadow:
+    0 0 0 0.1875rem #fff,
+    0 0 0 0.3125rem var(--brand-cobalt);
+}
+.scan-corner-on::after {
+  background: var(--brand-cobalt);
+}
+.scan-corner:focus-visible {
+  outline: 0.1875rem solid var(--primary);
+  border-radius: 50%;
+}
 /* The magnifier: what is under the finger, 2.5 × larger, with a + on the exact point. */
 .scan-loupe {
   position: absolute;
@@ -1970,4 +2030,17 @@ main h2 {
   margin: 0 auto var(--space-2);
   background: var(--stage);
   box-shadow: var(--ring);
+}
+/* Scanned pages (owner, round 8): the page as it will print, as big as fits; its tools two to a row. */
+.scan-shot {
+  width: min(100%, max(calc(46vh * var(--a, 0.75)), 12rem), 26rem);
+}
+.scan-tools {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 9rem), 1fr));
+  gap: var(--space-1);
+  margin-bottom: var(--space-2);
+}
+.scan-tools > .btn:first-child {
+  grid-column: 1 / -1;
 }

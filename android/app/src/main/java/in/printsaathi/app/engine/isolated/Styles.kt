@@ -17,9 +17,11 @@ object Styles {
     const val BW = 3
     const val SHARP = 4
     const val OCV = 5
+    /** Owner, round 8: for photographed paper pages (scan pages). */
+    const val CLEAN = 6
 
-    /** Black & White, Sharp Black and OCV Black print grey data only. */
-    fun isGrey(style: Int) = style >= BW
+    /** Black & White, Sharp Black and OCV Black print grey data only; Clean colour keeps colour. */
+    fun isGrey(style: Int) = style in BW..OCV
 
     private fun clamp(x: Double) = min(255.0, max(0.0, floor(x + 0.5))).toInt()
 
@@ -147,6 +149,91 @@ object Styles {
         }
         return out
     }
+
+    /**
+     * Clean colour (owner, round 8: a photographed paper page): the paper white and even, the writing darker, colours
+     * kept. Two passes over the page's rows: [add] each row in turn (the paper's brightness: the brightest grey of each
+     * cell), then [clean] any row in place: each channel divided by the paper's brightness there (a shadow evens out,
+     * the hue stays), then a curve that makes 90 % of the paper's brightness and above white and darkens the rest
+     * (output = 255 × (t / 0.9)^1.4, t = value ÷ paper). Cells are 1/48 of the shorter side (at least 8 px), widened by
+     * 2 cells (a heading or a stamp bigger than a cell is not paper) and smoothed; never under half the page's usual
+     * paper, so a dark photo on the page is lightened, not washed out.
+     */
+    class CleanPaper(private val w: Int, private val h: Int) {
+        private val c = max(8, min(w, h) / 48)
+        private val sw = max(1, (w + c - 1) / c)
+        private val sh = max(1, (h + c - 1) / c)
+        private val maxOf = IntArray(sw * sh)
+        private var rows = 0
+        private var cells: DoubleArray? = null
+
+        /** The next row of the page (rows in order, top first). */
+        fun add(row: IntArray) {
+            if (rows >= h) return
+            val base = (rows / c) * sw
+            for (x in 0 until min(w, row.size)) {
+                val v = Grey.luma(row[x])
+                val i = base + x / c
+                if (v > maxOf[i]) maxOf[i] = v
+            }
+            rows++
+        }
+
+        private fun ready(): DoubleArray = cells ?: run {
+            val wide = DoubleArray(sw * sh)
+            for (cy in 0 until sh) for (cx in 0 until sw) {
+                var m = 0
+                for (dy in -2..2) for (dx in -2..2) m = max(m, maxOf[(cy + dy).coerceIn(0, sh - 1) * sw + (cx + dx).coerceIn(0, sw - 1)])
+                wide[cy * sw + cx] = m.toDouble()
+            }
+            // The page's usual paper: the 90th percentile of the cells.
+            val usual = wide.sorted()[((wide.size - 1) * 9) / 10]
+            val floor = max(1.0, 0.5 * usual)
+            var b = DoubleArray(wide.size) { max(wide[it], floor) }
+            repeat(2) { b = blur(b) }
+            b
+        }.also { cells = it }
+
+        private fun blur(src: DoubleArray): DoubleArray {
+            val tmp = DoubleArray(src.size)
+            for (cy in 0 until sh) for (cx in 0 until sw) {
+                var s = 0.0
+                for (d in -2..2) s += src[cy * sw + (cx + d).coerceIn(0, sw - 1)]
+                tmp[cy * sw + cx] = s / 5
+            }
+            val out = DoubleArray(src.size)
+            for (cy in 0 until sh) for (cx in 0 until sw) {
+                var s = 0.0
+                for (d in -2..2) s += tmp[(cy + d).coerceIn(0, sh - 1) * sw + cx]
+                out[cy * sw + cx] = s / 5
+            }
+            return out
+        }
+
+        private fun at(b: DoubleArray, cx: Int, cy: Int) = b[cy.coerceIn(0, sh - 1) * sw + cx.coerceIn(0, sw - 1)]
+
+        /** Row [y] of the page, cleaned in place ([n] pixels). */
+        fun clean(y: Int, row: IntArray, n: Int) {
+            val b = ready()
+            val fy = (y + 0.5) / c - 0.5
+            val cy = floor(fy).toInt()
+            val ty = fy - cy
+            for (x in 0 until min(n, row.size)) {
+                val fx = (x + 0.5) / c - 0.5
+                val cx = floor(fx).toInt()
+                val tx = fx - cx
+                val paper = (at(b, cx, cy) * (1 - tx) + at(b, cx + 1, cy) * tx) * (1 - ty) +
+                    (at(b, cx, cy + 1) * (1 - tx) + at(b, cx + 1, cy + 1) * tx) * ty
+                val p = row[x]
+                row[x] = (0xFF shl 24) or (curve(((p shr 16) and 0xFF) / paper) shl 16) or
+                    (curve(((p shr 8) and 0xFF) / paper) shl 8) or curve((p and 0xFF) / paper)
+            }
+        }
+
+        private fun curve(t: Double): Int = CLEAN_LUT[(min(1.0, t / 0.9) * (CLEAN_LUT.size - 1)).toInt().coerceAtLeast(0)]
+    }
+
+    private val CLEAN_LUT = IntArray(1024) { clamp(255 * (it / 1023.0).pow(1.4)) }
 
     /** The paper's brightness at 1/8 scale, smoothed; [flatten] divides one page row by it. */
     private class Background(private val grey: ByteArray, private val w: Int, private val h: Int) {

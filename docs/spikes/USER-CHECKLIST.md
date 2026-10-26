@@ -426,6 +426,21 @@ AD1 replaces AC1's "Undo and Redo are the 3rd and 4th tools" for photos.
 | AD4 | ID card copy → Real card size → print; measure with a ruler | Front at the top, back **6 cm** below the front's bottom edge; cards 8.56 × 5.4 cm. Side by side unchanged | ☐ ☐ |
 | AD5 | Print a job → Home → Recent jobs → tap that job | It opens on its pages (Page 1 of N, ‹ ›) with PRINT; **Choose again** goes back to "What did the customer ask?" (for passport photos or an ID card from the same file) | ☐ ☐ |
 
+## §AE Photos 1 cm apart, text messages, scanning paper pages (Phases 41–43) — 15 min
+
+| # | What to do | What to check | Result |
+|---|---|---|---|
+| AE1 | Share 4–6 photos from WhatsApp → **All on one page** → PRINT; measure with a ruler | At least **1 cm** between any two photos (as in your sample) | ☐ ☐ |
+| AE2 | In WhatsApp, select a customer's long text message → ⋮ → **Share** → PrintSaathi | Ready shows **Text message · N pages**; Marathi / Hindi letters print correctly; *bold* words print bold, and the * marks do not print | ☐ ☐ |
+| AE3 | Copy a text message in WhatsApp → PrintSaathi Home → **Text message** → **Paste** → Done | The box fills with the message; Ready as in AE2. With nothing copied, Paste says "Nothing is copied yet." | ☐ ☐ |
+| AE4 | On Ready of a text job: **Edit text**, change a word, Done; then Change → **Text size** → Large | The print follows the edit; Large makes more pages | ☐ ☐ |
+| AE5 | Home → **Scan pages**: the phone's own camera opens; photograph a paper page lying on a dark table, tick | **Page 1** shows the page with a frame: round circles on its corners and bars on its sides, on the page's real corners (or "Couldn't find the page's edges" and the whole photo) | ☐ ☐ |
+| AE6 | On Page 1: drag a corner circle; then tap **Next point** and the arrows | A corner moves on its own; a side moves straight in or out; Done | ☐ ☐ |
+| AE7 | Scanned pages: **Scan another page**, **Turn**, **Move earlier**, **Delete** then **Undo**, a different **look** (e.g. Black & White), **Fix edges** → **Retake** | Each does what it says; Retake keeps the page in its place | ☐ ☐ |
+| AE8 | **Finish** → PRINT | The page prints straight (no table around it), the paper white and the writing dark in Clean colour, a coloured stamp still in colour | ☐ ☐ |
+| AE9 | Scan pages, then press Back in the camera without taking a photo | Nothing changes | ☐ ☐ |
+| AE10 | A PDF job → Change → Page order → **Add files** → **Scan with camera** | The photographed page joins that job | ☐ ☐ |
+
 ## Decisions only you can make
 
 | Topic | Choice | My recommendation |

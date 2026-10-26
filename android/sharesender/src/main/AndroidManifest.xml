@@ -11,6 +11,13 @@
             android:grantUriPermissions="true">
             <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/paths" />
         </provider>
+        <!-- Owner, round 8 (Scan pages): a stand-in camera app that writes a synthetic photographed page. -->
+        <activity android:name=".FakeCameraActivity" android:exported="true" android:theme="@android:style/Theme.Translucent.NoTitleBar">
+            <intent-filter>
+                <action android:name="android.media.action.IMAGE_CAPTURE" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
         <!-- Misbehaving streams for the hostile-provider suite (lying length, stall, endless, …). -->
         <provider
             android:name=".HostileProvider"

@@ -17,13 +17,24 @@ function colourWords(plan: PrintPlan): string[] {
   return style && style !== 'original' && style !== 'bw' ? [...words, en.style.names[style]] : words;
 }
 
-export function documentLine(plan: PrintPlan, pdfItems: ReadonlySet<number>): string {
+/**
+ * [textItems]: PDFs made of a customer's text message (owner, round 8): "Text message", not "1 PDF". [scanned]: a scan
+ * job's photographed pages: "Scanned pages".
+ */
+export function documentLine(
+  plan: PrintPlan,
+  pdfItems: ReadonlySet<number>,
+  textItems: ReadonlySet<number> = new Set(),
+  scanned = false,
+): string {
   const t = en.ready;
   const items = new Set(plan.pages.flatMap((p) => p.placements.map((x) => x.itemIndex)));
-  const pdfs = [...items].filter((i) => pdfItems.has(i)).length;
-  const photos = items.size - pdfs;
+  const texts = [...items].filter((i) => textItems.has(i)).length;
+  const pdfs = [...items].filter((i) => pdfItems.has(i) && !textItems.has(i)).length;
+  const photos = items.size - pdfs - texts;
   return [
-    ...(photos > 0 ? [count(photos, t.photo, t.photos)] : []),
+    ...(scanned ? [en.docs.scanned] : photos > 0 ? [count(photos, t.photo, t.photos)] : []),
+    ...(texts > 0 ? [texts === 1 ? en.docs.text : en.docs.texts.replace('{n}', String(texts))] : []),
     ...(pdfs > 0 ? [pdfs === 1 ? en.docs.pdf : en.docs.pdfs.replace('{n}', String(pdfs))] : []),
     count(plan.pages.length, t.page, t.pages),
     paperWords(plan, t.a4),

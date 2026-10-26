@@ -254,7 +254,8 @@ await shot('07-ready-cropped');
 // 3b. Word's crop: photo 3's right side dragged 20 mm in; placed by hand, its left side, top and height stay, and it
 // prints 20 mm narrower (spec Part 5, sides to crop).
 const sideBefore = boxesMm();
-const third = sideBefore.find((b) => Math.abs(b[0] - 12.7) <= 0.3 && Math.abs(b[1] - 104.2) <= 0.3);
+// Photo 3 starts the second row, at the left edge (where depends on the gap between photos: 10 mm since round 8).
+const third = sideBefore.filter((b) => Math.abs(b[0] - 12.7) <= 0.3).sort((a, b) => a[1] - b[1])[1];
 await tap('Adjust photos');
 await until('Adjust', () => has('Photo'));
 for (let i = 0; i < 6 && !has('Photo 3 of 6'); i++) {
@@ -273,7 +274,7 @@ const beforeSide = newestPrint();
 await tap('Done');
 await waitNewFile(beforeSide);
 const sideAfter = boxesMm();
-const cut = sideAfter.find((b) => Math.abs(b[0] - 12.7) <= 0.3 && Math.abs(b[1] - 104.2) <= 0.3);
+const cut = third && sideAfter.find((b) => Math.abs(b[0] - 12.7) <= 0.3 && Math.abs(b[1] - third[1]) <= 0.3);
 result.side = { before: third ?? null, after: cut ?? null };
 result.checks.sideCropKeepsTheOtherSidesAndCutsThatSide =
   !!third && !!cut && Math.abs(cut[3] - third[3]) <= 0.3 && Math.abs(third[2] - cut[2] - 20) <= 1.5;

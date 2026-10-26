@@ -1,0 +1,43 @@
+/**
+ * Owner, round 8 (scan pages): the words of the scanning screens. They load with those screens, not at start (startup
+ * JS budget, PLAN §C); the jargon and plain-wording checks read them with the rest (jargon.test.ts, wording.test.ts).
+ */
+export const scanWords = {
+  page: 'Page {n}',
+  finding: 'Looking for the page…',
+  notFound: "Couldn't find the page's edges. Move the corners onto them.",
+  found: "Check that the corners sit on the page's corners.",
+  label: 'The photo of the page',
+  point: 'Point {k} of 8: {name}',
+  pointNames: [
+    'top left corner',
+    'top right corner',
+    'bottom right corner',
+    'bottom left corner',
+    'top side',
+    'right side',
+    'bottom side',
+    'left side',
+  ],
+  cornerLabel: 'The {name}',
+  nextPoint: 'Next point',
+  retake: 'Retake',
+  getting: 'Getting the photo…',
+  title: 'Scanned pages',
+  shownLabel: 'Page {n} as it will print',
+  another: 'Scan another page',
+  fix: 'Fix edges',
+  turn: 'Turn',
+  earlier: 'Move earlier',
+  later: 'Move later',
+  delete: 'Delete',
+  deleted: 'Page deleted.',
+  undo: 'Undo',
+  look: 'How every page looks',
+  finishOne: 'Finish (1 page)',
+  finish: 'Finish ({n} pages)',
+  none: 'No pages yet. Tap Scan another page.',
+  withCamera: 'Scan with camera',
+  withCameraHelp: 'Take a photo of a paper page',
+  full: 'This job is full (100 files). Start a new job for more pages.',
+} as const;

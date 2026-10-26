@@ -13,8 +13,18 @@ const itThem = (n: number) => (n === 1 ? 'it' : 'them');
 /** Reasons that all mean "the copy broke; share again" (PLAN §J8: hostile/broken app, expired permission). */
 const RESHARE: IntakeProblemReason[] = ['stalled', 'timedOut', 'failed', 'permission', 'refused'];
 
+/** Owner, round 8: a text message with nothing in it, or too long to print here (shared, or pasted on Home). */
+export const EMPTY_TEXT = 'There is no text to print.';
+export const TEXT_TOO_LONG = 'This message is too long to print here. Ask the customer to send it as a PDF.';
+const TEXT_FAILED = "Couldn't get this message ready to print. Please try again.";
+
 /** Plain-English lines for what went wrong while receiving, each with what to do (PLAN §J8). */
 export function problemMessages(intake: Intake): string[] {
+  const has = (r: IntakeProblemReason) => (intake.problems ?? []).some((p) => p.reason === r);
+  if (has('emptyText')) return [EMPTY_TEXT];
+  if (has('textTooLong')) return [TEXT_TOO_LONG];
+  if (intake.pick === 'text') return has('failed') ? [TEXT_FAILED] : [];
+  if (has('notPhoto')) return ["The camera didn't give a photo. Please try again."];
   // Files chosen on Home are chosen again, not shared again (Phase 10b review M5).
   const picked = !!intake.pick;
   const again = picked ? 'choose' : 'share';

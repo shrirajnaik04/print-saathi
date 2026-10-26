@@ -5,11 +5,13 @@ type Engine = Pick<PrintEnginePlugin, 'listIntakes' | 'saveJob' | 'ackIntake' | 
 
 /** [picks]: for jobs whose files were chosen on Home, what for (PLAN §J0). */
 /** [cancelled]: jobs whose receiving the shopkeeper cancelled (they wait in Recent; nothing opens by itself). */
+/** [scans]: for pages photographed into a scan job (owner, round 8), which job and which page they take the place of. */
 export type TakenIntakes = {
   jobs: Job[];
   empty: Intake[];
   picks: Map<string, NonNullable<Intake['pick']>>;
   cancelled: Set<string>;
+  scans: Map<string, NonNullable<Intake['scan']>>;
 };
 
 /**
@@ -33,6 +35,7 @@ export async function takeNewIntakesDetailed(
   const empty: Intake[] = [];
   const picks: TakenIntakes['picks'] = new Map();
   const cancelled = new Set<string>();
+  const scans: TakenIntakes['scans'] = new Map();
   for (const intake of intakes) {
     if (intake.files.length === 0) {
       empty.push(intake);
@@ -49,6 +52,7 @@ export async function takeNewIntakesDetailed(
     jobs.push(job);
     if (intake.pick) picks.set(job.id, intake.pick);
     if (intake.cancelled) cancelled.add(job.id);
+    if (intake.scan) scans.set(job.id, intake.scan);
   }
-  return { jobs, empty, picks, cancelled };
+  return { jobs, empty, picks, cancelled, scans };
 }

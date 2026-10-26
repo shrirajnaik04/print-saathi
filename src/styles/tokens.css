@@ -32,6 +32,10 @@
   --badge-cards-fg: #9a3412;
   --badge-documents-bg: #dcfce7;
   --badge-documents-fg: #166534;
+  --badge-text-bg: #ccfbf1;
+  --badge-text-fg: #115e59;
+  --badge-scan-bg: #fce7f3;
+  --badge-scan-fg: #9d174d;
   --badge-neutral-bg: #eef2ff;
   --badge-neutral-fg: #3730a3;
   /* The PS printer logo only (brand v3, assets/brand/): never the app's own text, buttons or meanings. */

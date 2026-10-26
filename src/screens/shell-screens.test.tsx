@@ -13,10 +13,10 @@ const count = (html: string, re: RegExp) => (html.match(re) ?? []).length;
 
 describe('Home (PLAN §H3)', () => {
   const html = render(<Home go={go} />);
-  // Phase 14 spec Part 2 adds the fourth job, Aadhaar & ID cards.
-  it('has exactly four big job tiles, each with its words', () => {
-    expect(count(html, /class="tile"/g)).toBe(4);
-    for (const t of [en.home.photos, en.home.passport, en.home.documents, en.home.cards])
+  // Phase 14 spec Part 2 adds the fourth job, Aadhaar & ID cards; owner, round 8: Scan pages and Text message.
+  it('has exactly six big job tiles, each with its words', () => {
+    expect(count(html, /class="tile"/g)).toBe(6);
+    for (const t of [en.home.photos, en.home.passport, en.home.documents, en.home.cards, en.home.scan, en.home.text])
       expect(html).toContain(esc(t));
   });
   // Owner, round 4: "remove section from home page 'Customer sent files on WhatsApp?'" (Help keeps the steps).

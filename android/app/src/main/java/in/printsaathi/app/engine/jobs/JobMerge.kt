@@ -10,7 +10,8 @@ import java.io.File
  */
 class JobMerge(private val jobsDir: File, private val link: (src: File, dst: File) -> Boolean) {
     private val idPattern = Regex("^[A-Za-z0-9-]{1,64}$")
-    private val number = Regex("^(\\d{4,})\\.([a-z0-9]+)$")
+    /** NNNN.ext, or NNNN-a-b.ext (a text message's PDF made again at another size, owner round 8). */
+    private val number = Regex("^(\\d{4,})((?:-\\d+)*)\\.([a-z0-9]+)$")
 
     /** The files of [from] and where they now are in [into], in received order. */
     fun merge(from: String, into: String): List<Pair<File, File>> {
@@ -20,12 +21,17 @@ class JobMerge(private val jobsDir: File, private val link: (src: File, dst: Fil
         require(src.isDirectory && dst.isDirectory) { "no such job" }
         val received = { dir: File ->
             (dir.listFiles() ?: emptyArray())
-                .mapNotNull { f -> number.matchEntire(f.name)?.let { m -> Triple(f, m.groupValues[1].toInt(), m.groupValues[2]) } }
-                .sortedBy { it.second }
+                .mapNotNull { f -> number.matchEntire(f.name)?.let { m -> f to m } }
+                .sortedBy { (_, m) -> m.groupValues[1].toInt() }
         }
-        var next = (received(dst).maxOfOrNull { it.second } ?: 0) + 1
-        val moved = received(src).map { (f, _, ext) ->
-            val target = File(dst, "%04d.%s".format(next++, ext))
+        val first = (received(dst).maxOfOrNull { (_, m) -> m.groupValues[1].toInt() } ?: 0) + 1
+        // Files sharing a number are one item (a text message's PDF, its kept text, the PDF made again at another
+        // size): they get one new number together (review I1, round 8).
+        val renumbered = received(src).map { (_, m) -> m.groupValues[1].toInt() }.distinct()
+            .withIndex().associate { (k, n) -> n to first + k }
+        val moved = received(src).map { (f, m) ->
+            val n = renumbered.getValue(m.groupValues[1].toInt())
+            val target = File(dst, "%04d%s.%s".format(n, m.groupValues[2], m.groupValues[3]))
             place(f, target)
             f to target
         }

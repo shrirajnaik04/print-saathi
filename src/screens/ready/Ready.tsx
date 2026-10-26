@@ -1,7 +1,7 @@
 import { App as NativeApp } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
-import { type Job, normalizeJob } from '../../core/job/job';
+import { type Job, normalizeJob, textItemOf } from '../../core/job/job';
 import { unprintableNotes } from '../../core/job/unprintable';
 import { overlaps } from '../../core/layout/free';
 import { smallestSideMm, WARN_MM } from '../../core/layout/layouts';
@@ -401,6 +401,8 @@ export function Ready({ go, params }: ScreenProps) {
   };
 
   const pdfItems = new Set(job?.items.filter((i) => i.type === 'pdf').map((i) => i.index) ?? []);
+  // Owner, round 8: a customer's text message, printed as a document; Edit text changes it.
+  const textItem = job ? textItemOf(job) : undefined;
   const number = (itemIndex: number) => (job ? job.items.findIndex((i) => i.index === itemIndex) + 1 : 0);
   const srcOf = (itemIndex: number, pdfPage?: number) => {
     if (pdfPage !== undefined) return docs.srcOfPage(itemIndex, pdfPage);
@@ -544,7 +546,7 @@ export function Ready({ go, params }: ScreenProps) {
                   job.layout === 'idCard' && job.idCard
                     ? idCardLine(fullPlan, job.idCard.size, drawnCardScale(fullPlan))
                     : job.layout === 'document'
-                      ? documentLine(fullPlan, pdfItems)
+                      ? documentLine(fullPlan, pdfItems, new Set(textItem ? [textItem.index] : []), job.scan)
                       : summaryLine(fullPlan),
                   glossy,
                 )}
@@ -623,6 +625,21 @@ export function Ready({ go, params }: ScreenProps) {
           <Button variant="secondary" onClick={() => go(push('change', { jobId }))}>
             {en.ui.change}
           </Button>
+          {/* Owner, round 8: a scan job's pages, to fix, add or reorder (also when opened from Recent jobs). */}
+          {job.scan && job.layout === 'document' && (
+            <Button variant="secondary" icon="scan" onClick={() => go(push('scanpages', { jobId }))}>
+              {en.docs.scanned}
+            </Button>
+          )}
+          {textItem && job.layout === 'document' && (
+            <Button
+              variant="secondary"
+              icon="message"
+              onClick={() => go(push('textmessage', { jobId, index: textItem.index }))}
+            >
+              {en.text.edit}
+            </Button>
+          )}
           {/* Adjust on every preview (owner, 2026-10-23); a tap on a photo below opens it with that photo chosen. */}
           {adjustable && (
             <Button variant="secondary" icon="crop" onClick={() => go(push('adjust', { jobId }))}>

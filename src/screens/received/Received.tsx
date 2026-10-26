@@ -89,6 +89,8 @@ export function Received({ go, params }: ScreenProps) {
         if (!live) return;
         if (!loaded) return setGone(true);
         const n = normalizeJob(loaded);
+        // Scanned pages opened again (Continue, Recent jobs): their own screen, never the photo questions (review I2).
+        if (n?.scan) return go({ type: 'replace', screen: { name: 'scanpages', params: { jobId } } });
         // Aadhaar & ID cards from Home with an e-Aadhaar PDF: the cards screen unlocks and finds it (Phase 14).
         if (cardsWaiting.current && n?.items.some((i) => i.type === 'pdf')) {
           cardsWaiting.current = false;
@@ -101,6 +103,7 @@ export function Received({ go, params }: ScreenProps) {
           n &&
           n.items.length === 1 &&
           n.items[0]?.type === 'pdf' &&
+          !n.items[0]?.text &&
           n.layout !== 'document' &&
           n.layout !== 'idCard'
         ) {

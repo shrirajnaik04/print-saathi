@@ -7,6 +7,7 @@ import android.media.FaceDetector
 import android.os.ParcelFileDescriptor
 import `in`.printsaathi.app.engine.card.CardDetect
 import `in`.printsaathi.app.engine.card.CardQuad
+import `in`.printsaathi.app.engine.card.PageDetect
 import `in`.printsaathi.app.engine.card.Panels
 import `in`.printsaathi.app.engine.card.Warp
 import java.io.FileOutputStream
@@ -42,6 +43,21 @@ object Cards {
             val grey = ByteArray(w * h) { Grey.luma(pixels[it]).toByte() }
             val found = CardDetect.find(grey, w, h, 2)
             return encode(found) { q -> faceOn(pixels, w, h, q) }
+        } finally {
+            bmp.recycle()
+        }
+    }
+
+    /** Owner, round 8 (scan pages): the paper page in a photo, as [detect]'s reply (n = 0 or 1; face 0). */
+    fun detectPage(src: ParcelFileDescriptor, maxLongSide: Int): IntArray {
+        val (bmp, _) = Decode.upright(src, maxLongSide.coerceIn(256, DETECT_PX))
+        try {
+            val w = bmp.width
+            val h = bmp.height
+            val pixels = IntArray(w * h)
+            bmp.getPixels(pixels, 0, w, 0, 0, w, h)
+            val grey = ByteArray(w * h) { Grey.luma(pixels[it]).toByte() }
+            return encode(listOfNotNull(PageDetect.find(grey, w, h))) { 0 }
         } finally {
             bmp.recycle()
         }

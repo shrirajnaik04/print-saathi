@@ -111,7 +111,7 @@ object CustomerPdf {
         // The output fits the style: colour styles as colour JPEG, grey styles as grey, OCV Black as 1-bit. Checked
         // before the file is touched: a wrong request is never reported as a damaged PDF (gate M6).
         val fits = when (mode) {
-            MODE_COLOUR_JPEG -> style in Styles.ORIGINAL..Styles.SOFT
+            MODE_COLOUR_JPEG -> style in Styles.ORIGINAL..Styles.SOFT || style == Styles.CLEAN
             MODE_GREY_JPEG, MODE_GREY_RAW -> style == Styles.BW || style == Styles.SHARP
             MODE_ONE_BIT -> style == Styles.OCV
             else -> false

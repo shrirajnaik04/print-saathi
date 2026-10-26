@@ -34,7 +34,12 @@ export interface IntakeFile {
   sniffedType: SniffedType;
   bytes: number;
   sha256: string;
+  /** Owner, round 8: this PDF is a customer's text message the engine printed, at this text size (pt). */
+  text?: { size: TextSize };
 }
+
+/** Owner, round 8: the text sizes a text message prints at (points). */
+export type TextSize = 10 | 12 | 14 | 18;
 
 /** Why one shared item could not be received (journal codes from the native CopyOutcome). */
 export type IntakeProblemReason =
@@ -46,7 +51,12 @@ export type IntakeProblemReason =
   | 'stalled'
   | 'timedOut'
   | 'permission'
-  | 'failed';
+  | 'failed'
+  /** Owner, round 8: a shared or pasted text message with nothing in it, or too long to print here. */
+  | 'emptyText'
+  | 'textTooLong'
+  /** Owner, round 8: the camera gave something that is not a photo. */
+  | 'notPhoto';
 
 export interface Intake {
   intakeId: string;
@@ -58,7 +68,9 @@ export interface Intake {
   /** More than 100 files were shared: nothing was taken (PLAN §F6). */
   tooMany?: boolean;
   /** Chosen on Home with Choose from phone (and what for); absent for a share (PLAN §J0). */
-  pick?: 'photos' | 'passport' | 'documents' | 'cards';
+  pick?: 'photos' | 'passport' | 'documents' | 'cards' | 'text' | 'scan';
+  /** Owner, round 8: a page photographed to join scan job [into], in place of its page [retake]. */
+  scan?: { into?: string; retake?: number };
   /** Receiving was cancelled: [files] are what arrived of [expected] (PLAN §D2). */
   cancelled?: boolean;
   rejected: number;
@@ -312,6 +324,34 @@ export interface PrintEnginePlugin {
   /** Tell the app a screen with customer files is (not) showing; Android 12 and older block screenshots meanwhile. */
   setCustomerContentShown(o: { shown: boolean }): Promise<{ secure: boolean }>;
   shareText(o: { text: string }): Promise<void>;
+  /** Owner, round 8: Home → Text message → Done: the text becomes a new job (intakeReady follows). */
+  textJob(o: { text: string }): Promise<void>;
+  /**
+   * Owner, round 8: Edit text ([text]) or Text size ([size] pt) of a text job's file [index]: a new PDF of it, to save
+   * in the job with setTextPdf.
+   */
+  textToPdf(o: {
+    jobId: string;
+    index: number;
+    size: TextSize;
+    text?: string;
+  }): Promise<{ path: string; bytes: number; sha256: string; pages: number }>;
+  /** Owner, round 8: the text kept for a text job's file (Edit text). */
+  readText(o: { jobId: string; index: number }): Promise<{ text: string }>;
+  /** Owner, round 8: Paste: the text on the phone's clipboard ("" when nothing is copied). */
+  readClipboard(): Promise<{ text: string }>;
+  /**
+   * Owner, round 8 (scan pages): the phone's own camera app takes a page's photo, [into] a scan job, in place of its
+   * page [retake]. {taken: 1}: it arrives like a share (a "scan" intake); {taken: 0}: closed without one; noCamera:
+   * this phone has no camera app; empty: the camera said it took one but gave none (review M5). A second request while
+   * the camera is open is answered {taken: 0} at once (review I4).
+   */
+  scanPhoto(o: { into?: string; retake?: number }): Promise<{ taken: 0 | 1; noCamera?: boolean; empty?: boolean }>;
+  /** Owner, round 8: the paper page in photo [index]: its corners (8 fractions of the upright photo, TL first). */
+  findPage(o: {
+    jobId: string;
+    index: number;
+  }): Promise<{ state: 'ok' | 'damaged'; found?: boolean; corners?: number[]; confidence?: number }>;
   addListener(
     event: 'intakeReady',
     cb: (e: { intakeId: string; repeat: boolean }) => void,

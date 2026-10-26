@@ -1,0 +1,18 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<testsuite name="in.printsaathi.app.engine.PageDetectDeviceTest" tests="10" failures="0" errors="0" skipped="0" time="17.394" timestamp="2026-10-26T19:44:09" hostname="localhost">
+  <properties>
+    <property name="device" value="Medium_Tablet(AVD) - 15" />
+    <property name="flavor" value="" />
+    <property name="project" value=":app" />
+  </properties>
+  <testcase name="aPhotoWithNoPageFindsNone" classname="in.printsaathi.app.engine.PageDetectDeviceTest" time="1.174" />
+  <testcase name="aPagePhotographedAtASlantIsFoundWithinThreePercent" classname="in.printsaathi.app.engine.PageDetectDeviceTest" time="1.413" />
+  <testcase name="aPhotographedPagePrintsStraightenedByItsCorners" classname="in.printsaathi.app.engine.ScanRenderDeviceTest" time="4.637" />
+  <testcase name="cleanColourPrintsThePaperWhiteAndKeepsTheStampRed" classname="in.printsaathi.app.engine.ScanRenderDeviceTest" time="7.053" />
+  <testcase name="theLongestMessageAllowedFinishes" classname="in.printsaathi.app.engine.TextPdfDeviceTest" time="0.621" />
+  <testcase name="biggerTextMakesMorePages" classname="in.printsaathi.app.engine.TextPdfDeviceTest" time="0.419" />
+  <testcase name="aLongMessageFillsSeveralA4Pages" classname="in.printsaathi.app.engine.TextPdfDeviceTest" time="0.488" />
+  <testcase name="marathiAndHindiLettersPrint" classname="in.printsaathi.app.engine.TextPdfDeviceTest" time="0.338" />
+  <testcase name="theMarksThemselvesDoNotPrint" classname="in.printsaathi.app.engine.TextPdfDeviceTest" time="0.333" />
+  <testcase name="emptyTextOrAWrongSizeIsRefused" classname="in.printsaathi.app.engine.TextPdfDeviceTest" time="0.234" />
+</testsuite>

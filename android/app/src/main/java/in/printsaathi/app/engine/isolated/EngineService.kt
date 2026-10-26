@@ -93,7 +93,7 @@ open class EngineService : Service() {
             w: Double,
             h: Double,
         ): IntArray = engineCall {
-            if (style !in Styles.ORIGINAL..Styles.OCV) throw BadRequest("style")
+            if (style !in Styles.ORIGINAL..Styles.CLEAN) throw BadRequest("style")
             // The same area check as decodeCropToJpeg (gate M5): inside the photo, not empty.
             if (!(x >= 0 && y >= 0 && w > 0 && h > 0 && x + w <= 1.0001 && y + h <= 1.0001)) throw BadRequest("area")
             val full = x == 0.0 && y == 0.0 && w == 1.0 && h == 1.0
@@ -123,7 +123,7 @@ open class EngineService : Service() {
             mode: Int,
             style: Int,
         ): IntArray = limitedCall(PDF_LIMIT_MS) {
-            if (mode !in 0..3 || style !in Styles.ORIGINAL..Styles.OCV) throw BadRequest("mode or style")
+            if (mode !in 0..3 || style !in Styles.ORIGINAL..Styles.CLEAN) throw BadRequest("mode or style")
             pdf.use { p -> dst.use { d -> CustomerPdf.renderPage(p, password, page, d, maxLongSidePx, quality.coerceIn(1, 100), mode, style) } }
         }
 
@@ -176,6 +176,12 @@ open class EngineService : Service() {
         override fun detectCardsInPage(pdf: ParcelFileDescriptor, password: String, page: Int): IntArray =
             limitedCall(PDF_LIMIT_MS) { pdf.use { Cards.detectInPage(it, password, page) } }
 
+        override fun textToPdf(txt: ParcelFileDescriptor, dst: ParcelFileDescriptor, sizeTenthsPt: Int): IntArray =
+            limitedCall(PDF_LIMIT_MS) { txt.use { t -> dst.use { d -> TextPdf.write(t, d, sizeTenthsPt) } } }
+
+        override fun detectPage(src: ParcelFileDescriptor, maxLongSidePx: Int): IntArray =
+            engineCall { src.use { Cards.detectPage(it, maxLongSidePx) } }
+
         override fun renderPageWarped(
             pdf: ParcelFileDescriptor,
             password: String,
@@ -216,7 +222,7 @@ open class EngineService : Service() {
     /** A card request the app should never make: refused as such, never as a damaged file (gate M6). */
     private fun checkCard(outW: Int, outH: Int, style: Int, quad: DoubleArray) {
         if (outW !in 16..6000 || outH !in 16..6000) throw BadRequest("size")
-        if (style !in Styles.ORIGINAL..Styles.OCV) throw BadRequest("style")
+        if (style !in Styles.ORIGINAL..Styles.CLEAN) throw BadRequest("style")
         if (!QuadCheck.ok(quad)) throw BadRequest("quad")
     }
 

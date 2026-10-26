@@ -22,6 +22,9 @@ import java.io.File
  * pushed (extra "name": a synthetic test file pushed into this app's cache/out folder; extra "type", default PDF);
  * pushed-many (extra "names": several such files, comma-separated; extra "type", default image/jpeg);
  * hostile streams (HostileProvider): lying-length, unknown-length, stall, midstream-error, zero-bytes, endless.
+ * Owner, round 8: text (a WhatsApp text message: EXTRA_TEXT, English and Devanagari with WhatsApp's marks, 80 lines;
+ * extra "text" sends that instead; text-blank: a message with nothing in it); camera-ok / camera-cancel / camera-hold (FakeCameraActivity takes a photo, closes
+ * without one, or takes it and stays open until Back; nothing is shared).
  * Optional extra "tag" changes file contents so a later re-share can carry different URIs.
  */
 class SendActivity : Activity() {
@@ -30,6 +33,26 @@ class SendActivity : Activity() {
         val mode = intent.getStringExtra("mode") ?: "six-photos"
         val tag = intent.getStringExtra("tag") ?: "a"
         val out = File(cacheDir, "out").apply { mkdirs() }
+        if (mode == "camera-ok" || mode == "camera-cancel" || mode == "camera-hold") {
+            getSharedPreferences("camera", MODE_PRIVATE).edit()
+                .putBoolean("cancel", mode == "camera-cancel").putBoolean("hold", mode == "camera-hold").commit()
+            finish()
+            return
+        }
+        if (mode == "text" || mode == "text-blank") {
+            val text = if (mode == "text-blank") "  \n  " else intent.getStringExtra("text")
+                ?: (1..80).joinToString("\n") { "*Line $it* of the notice: नमस्ते, कृपया यह पत्र पढ़ें। _thank you_ $tag" }
+            startActivity(
+                Intent(Intent.ACTION_SEND).apply {
+                    setPackage("in.printsaathi.app")
+                    type = "text/plain"
+                    putExtra(Intent.EXTRA_TEXT, text)
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                },
+            )
+            finish()
+            return
+        }
 
         fun share(file: File) = FileProvider.getUriForFile(this, "in.printsaathi.sharesender.files", file)
         val (uris, type) = when (mode) {

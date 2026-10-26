@@ -66,7 +66,7 @@ class FuzzTest {
                 val p = RenderPlan.parse(plan)
                 // What is accepted is sane: real pages, positive sizes, styles that exist.
                 assertTrue(p.pages.isNotEmpty() && p.copies in 1..99)
-                assertTrue(p.pages.flatten().all { it.longSidePx > 0 && it.box.w > 0 && it.box.h > 0 && it.style in Styles.ORIGINAL..Styles.OCV })
+                assertTrue(p.pages.flatten().all { it.longSidePx > 0 && it.box.w > 0 && it.box.h > 0 && it.style in Styles.ORIGINAL..Styles.CLEAN })
             } catch (e: PlanInvalid) {
                 refused++
             } catch (e: JSONException) {

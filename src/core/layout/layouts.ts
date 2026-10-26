@@ -2,7 +2,7 @@ import { mmToPt } from '../units';
 import { EDGE_MM, type LayoutPage, onePerPage, type Paper } from './onePerPage';
 
 /** Space between photos (PLAN §G0). */
-export const GAP_MM = 3;
+export const GAP_MM = 10;
 /** "Best" = the fewest pages where every photo's shortest side is at least this (PLAN §G0). */
 export const MIN_BEST_MM = 40;
 /** All on one page warns below this (PLAN §G0, J1). */

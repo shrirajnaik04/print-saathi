@@ -1,4 +1,4 @@
-import type { Intake, SniffedType } from '../../native/printEngine';
+import type { Intake, SniffedType, TextSize } from '../../native/printEngine';
 import { problemMessages } from '../intake/messages';
 import { type CropBox, isFull, validBox } from '../layout/crop';
 import type { Spot } from '../layout/free';
@@ -24,7 +24,15 @@ export type JobItem = {
   bytes: number;
   sha256: string;
   copyOf?: number;
+  /** Owner, round 8: this PDF is a customer's text message printed by the engine, at this text size (pt). */
+  text?: { size: TextSize };
 };
+
+/** Owner, round 8: the text sizes offered (Small, Normal, Large, Extra large). */
+export const TEXT_SIZES: readonly TextSize[] = [10, 12, 14, 18];
+
+/** Owner, round 8: a text message job's one item (the PDF made of the text), if this is one. */
+export const textItemOf = (job: Job): JobItem | undefined => job.items.find((i) => i.text);
 
 /** What the customer asked for (PLAN §I-2). Phase 2 ships onePerPage; the others arrive with the layout engine. */
 export type JobLayout = 'onePerPage' | 'allOnOne' | 'morePages' | 'passport' | 'document' | 'idCard';
@@ -130,6 +138,8 @@ export type Job = {
    * the app (owner, 2026-10-23). Files added to it later by a share keep this.
    */
   picked?: true;
+  /** Owner, round 8: photographed paper pages (Scan pages): Scanned pages lists them, Retake and Look apply. */
+  scan?: true;
   createdAt: number;
   updatedAt: number;
 };
@@ -281,8 +291,9 @@ function validSizes(o: unknown, indexes: readonly number[]): Record<number, numb
 }
 
 /** Print styles (PLAN §F4): three in colour, three in black & white. */
-export type StyleId = 'original' | 'vibrant' | 'soft' | 'bw' | 'sharp' | 'ocv';
-export const COLOUR_STYLES: readonly StyleId[] = ['original', 'vibrant', 'soft'];
+export type StyleId = 'original' | 'vibrant' | 'soft' | 'bw' | 'sharp' | 'ocv' | 'clean';
+/** Owner, round 8: Clean colour, for photographed paper pages (the default for scan jobs). */
+export const COLOUR_STYLES: readonly StyleId[] = ['original', 'vibrant', 'soft', 'clean'];
 export const BW_STYLES: readonly StyleId[] = ['bw', 'sharp', 'ocv'];
 
 /**
@@ -391,6 +402,13 @@ export type JobAction =
    * job's own, printed last. Choices that only covered the old files start again.
    */
   | { type: 'addItems'; items: JobItem[]; intakeId: string; notices: string[] }
+  /** Owner, round 8: Edit text or Text size made a new PDF of text item [index]. */
+  | { type: 'setTextPdf'; index: number; path: string; bytes: number; sha256: string; size: TextSize }
+  /**
+   * Owner, round 8 (scan pages): Retake: photo [new] (just added) takes the place of photo [old]; [pages]: the pages to
+   * print as they were before it joined (joining resets them), kept with the new photo in the old one's place.
+   */
+  | { type: 'retakeItem'; old: number; new: number; pages?: DocPage[] }
   /** Print as a document: every page of every file ([colour] the first time: the owner's, else black & white, §V3). */
   | { type: 'setDocument'; colour?: 'colour' | 'bw' }
   /** Pages to print, in this order. */
@@ -460,6 +478,7 @@ export function jobFromIntake(
     type: f.sniffedType,
     bytes: f.bytes,
     sha256: f.sha256,
+    ...(f.text ? { text: { size: f.text.size } } : {}),
   }));
   return {
     id,
@@ -476,6 +495,16 @@ export function jobFromIntake(
     turns: {},
     notices: problemMessages(intake),
     ...(intake.pick ? { picked: true as const } : {}),
+    // Owner, round 8: photographed paper pages are a document in Clean colour.
+    ...(intake.pick === 'scan'
+      ? {
+          scan: true as const,
+          layout: 'document' as const,
+          colour: 'colour' as const,
+          style: 'clean' as const,
+          docChosen: true,
+        }
+      : {}),
     createdAt: nowMs,
     updatedAt: nowMs,
   };
@@ -518,8 +547,10 @@ export function normalizeJob(o: unknown): Job | null {
   const indexes = kept.map((i) => i.index);
   // A copy's note: a photo number (its original may have been removed since).
   const items = kept.map((i) => {
-    if (i.copyOf === undefined || (Number.isInteger(i.copyOf) && i.copyOf > 0 && i.copyOf !== i.index)) return i;
-    const { copyOf: _, ...rest } = i;
+    // A text size the app never offers is dropped (the item prints as the PDF it is).
+    const t = i.text === undefined || TEXT_SIZES.includes(i.text?.size) ? i : (({ text: _, ...rest }) => rest)(i);
+    if (t.copyOf === undefined || (Number.isInteger(t.copyOf) && t.copyOf > 0 && t.copyOf !== t.index)) return t;
+    const { copyOf: _, ...rest } = t;
     return rest;
   });
   const stored = Array.isArray(j.order) ? j.order.map(Number) : [];
@@ -638,6 +669,7 @@ export function normalizeJob(o: unknown): Job | null {
     quality: j.quality === 'photo' ? 'photo' : undefined,
     paperType: j.paperType === 'glossy' ? 'glossy' : undefined,
     picked: j.picked === true ? true : undefined,
+    scan: j.scan === true ? true : undefined,
     sizes: validSizes(j.sizes, indexes),
     spots: validSpots(j.spots, indexes),
     docScale: emptyToUndefined(docScale),
@@ -703,7 +735,7 @@ export function jobReducer(job: Job, action: JobAction, nowMs: number): Job {
     case 'setColour':
       // The plain style of the chosen colour (review focus 3: never "Vibrant in grey").
       if (action.colour !== job.colour)
-        next = { colour: action.colour, style: action.colour === 'bw' ? 'bw' : 'original' };
+        next = { colour: action.colour, style: action.colour === 'bw' ? 'bw' : job.scan ? 'clean' : 'original' };
       break;
     case 'setSuggestions': {
       if (job.edges !== undefined) break; // answered: a late save never brings back the question's suggestions
@@ -1170,6 +1202,49 @@ export function jobReducer(job: Job, action: JobAction, nowMs: number): Job {
           auto[index] = t;
         }
       next = { autoTurnDone: true, turns, autoTurned: emptyToUndefined(auto) };
+      break;
+    }
+    case 'retakeItem': {
+      const { old, new: taken } = action;
+      if (old === taken || !job.items.some((i) => i.index === old) || !job.items.some((i) => i.index === taken)) break;
+      const items = job.items.filter((i) => i.index !== old);
+      const without = <T>(r: Record<number, T> | undefined) => {
+        if (!r) return r;
+        const { [old]: _, ...rest } = r;
+        return emptyToUndefined(rest);
+      };
+      next = {
+        items,
+        duplicates: duplicateGroups(items),
+        order: job.order.filter((i) => i !== taken).map((i) => (i === old ? taken : i)),
+        turns: without(job.turns) ?? {},
+        quads: without(job.quads),
+        crops: without(job.crops),
+        suggested: without(job.suggested),
+        tilts: without(job.tilts),
+        ...((action.pages ?? job.docPages)
+          ? { docPages: (action.pages ?? job.docPages ?? []).map((p) => (p.item === old ? { ...p, item: taken } : p)) }
+          : {}),
+      };
+      break;
+    }
+    case 'setTextPdf': {
+      // The new PDF may have other pages: the page choices of that file start again.
+      if (!TEXT_SIZES.includes(action.size) || !action.path || !job.items.some((i) => i.index === action.index)) break;
+      const other = (r: Record<string, number> | undefined) =>
+        r && emptyToUndefined(Object.fromEntries(Object.entries(r).filter(([k]) => !k.startsWith(`${action.index}:`))));
+      next = {
+        items: job.items.map((i) =>
+          i.index === action.index
+            ? { ...i, path: action.path, bytes: action.bytes, sha256: action.sha256, text: { size: action.size } }
+            : i,
+        ),
+        docPages: undefined,
+        docTurns: other(job.docTurns) as Job['docTurns'],
+        docScale: other(job.docScale),
+        partsDone: undefined,
+        partPrinting: undefined,
+      };
       break;
     }
     case 'undoAutoTurn': {

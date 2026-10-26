@@ -8,7 +8,10 @@ import android.util.Log
 import android.view.WindowManager
 import `in`.printsaathi.app.MainActivity
 import `in`.printsaathi.app.engine.intake.DedupeWindow
+import `in`.printsaathi.app.engine.intake.CaptureProvider
+import `in`.printsaathi.app.engine.intake.CaptureStore
 import `in`.printsaathi.app.engine.intake.Importer
+import `in`.printsaathi.app.engine.intake.TextIntake
 import `in`.printsaathi.app.engine.intake.guarded
 import `in`.printsaathi.app.engine.print.PrintFlow
 import `in`.printsaathi.app.engine.print.PrintServices
@@ -76,6 +79,8 @@ class PrintEnginePlugin : Plugin() {
         // Recovery runs on the intake thread itself, so it can never mistake a share being received now for one cut off.
         Background.intake.execute {
             guarded({ Log.w(Importer.TAG, "start-up recovery failed: $it") }) { importer.recoverInterrupted() }
+            // Owner, round 8: a page's photo the camera took while Android had stopped the app is kept now, once.
+            guarded({ Log.w(Importer.TAG, "camera recovery failed: $it") }) { captures.claim()?.let { importCaptured(it) } }
         }
         io.execute {
             guarded({ Log.w(Importer.TAG, "start-up recovery failed: $it") }) {
@@ -1328,6 +1333,129 @@ class PrintEnginePlugin : Plugin() {
         }
     }
 
+    private val captures by lazy { CaptureProvider.store(context) }
+    private val cameraGate = `in`.printsaathi.app.engine.intake.CameraGate()
+
+    /**
+     * Owner, round 8 (scan pages): the phone's own camera app takes one page's photo, written straight into a new
+     * intake's private folder; [into] a scan job, [retake] its page n. Resolves {taken: 1} (the photo then arrives
+     * like a share, as a "scan" intake), {taken: 0} (closed without a photo), or {taken: 0, noCamera: true}.
+     */
+    @PluginMethod
+    fun scanPhoto(call: PluginCall) {
+        val into = call.getString("into")
+        val retake = call.getInt("retake")
+        // One camera at a time (review I4): a double tap never replaces the first camera's waiting photo.
+        if (!cameraGate.open(System.currentTimeMillis())) return call.resolve(JSObject().put("taken", 0))
+        Background.intake.execute {
+            guarded({
+                cameraGate.close()
+                call.reject("camera", it)
+            }) {
+                // Never two waiting photos: one left from before (the app was stopped meanwhile) is kept first.
+                captures.claim()?.let { importCaptured(it) }
+                val p = captures.start(into, retake, System.currentTimeMillis())
+                val uri = CaptureProvider.uri(context, p.token)
+                val intent = Intent(MediaStore.ACTION_IMAGE_CAPTURE)
+                    .putExtra(MediaStore.EXTRA_OUTPUT, uri)
+                    .addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION or Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                intent.clipData = android.content.ClipData.newRawUri("", uri)
+                activity.runOnUiThread {
+                    val noCamera = {
+                        Background.intake.execute { captures.claim()?.let { dropCapture(it) } }
+                        cameraGate.close()
+                        call.resolve(JSObject().put("taken", 0).put("noCamera", true))
+                    }
+                    if (intent.resolveActivity(context.packageManager) == null) return@runOnUiThread noCamera()
+                    try {
+                        startActivityForResult(call, intent, "scanResult")
+                    } catch (e: android.content.ActivityNotFoundException) {
+                        noCamera()
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * The camera's answer: a photo taken is kept (once); closed without one, nothing is left. "Taken" with nothing
+     * written (a camera app that ignores where to put it) is said as such (review M5).
+     */
+    @ActivityCallback
+    private fun scanResult(call: PluginCall?, result: ActivityResult) {
+        val ok = result.resultCode == android.app.Activity.RESULT_OK
+        Background.intake.execute {
+            var taken = false
+            guarded({ Log.w(Importer.TAG, "camera photo not kept: $it") }) {
+                val p = captures.claim()
+                if (p != null) {
+                    if (ok) taken = importCaptured(p) else dropCapture(p)
+                }
+            }
+            cameraGate.close()
+            call?.resolve(JSObject().put("taken", if (taken) 1 else 0).apply { if (ok && !taken) put("empty", true) })
+        }
+    }
+
+    /** A claimed photo as a "scan" intake, the app told (intakeReady); false when the camera gave nothing. */
+    private fun importCaptured(p: CaptureStore.Pending): Boolean {
+        Background.intakesInProgress += p.intakeId
+        try {
+            importer.importCaptured(captures, p) ?: return false
+        } finally {
+            Background.intakesInProgress -= p.intakeId
+        }
+        notifyListeners("intakeReady", JSObject().put("intakeId", p.intakeId).put("repeat", false), true)
+        return true
+    }
+
+    /** Closed in the camera without a photo: whatever it wrote goes. */
+    private fun dropCapture(p: CaptureStore.Pending) {
+        File(File(context.noBackupFilesDir, "jobs"), p.intakeId).deleteRecursively()
+    }
+
+    /**
+     * Owner, round 8 (scan pages): the paper page in photo [index] of job [jobId]. Resolves {state: "ok", found,
+     * corners (8 fractions of the upright photo, top left first, clockwise), confidence} or {state: "damaged"}.
+     */
+    @PluginMethod
+    fun findPage(call: PluginCall) {
+        val id = call.getString("jobId") ?: return call.reject("no jobId")
+        val index = call.getInt("index") ?: return call.reject("no item")
+        io.execute {
+            guarded({ call.reject("page failed", it) }) {
+                val job = jobs.load(id) ?: return@guarded call.reject("no such job")
+                val items = job.getJSONArray("items")
+                val item = (0 until items.length()).map { items.getJSONObject(it) }.firstOrNull { it.getInt("index") == index }
+                    ?: return@guarded call.reject("no such item")
+                val sha = item.getString("sha256")
+                val file = jobFile(id, item)
+                if (file == null || poison.isPoisoned(sha) || item.getString("type") !in THUMB_TYPES) {
+                    return@guarded call.resolve(JSObject().put("state", "damaged"))
+                }
+                val client = EngineClient(context)
+                val r = try {
+                    EngineClient.turn {
+                        poison.begin(sha)
+                        val f = client.detectPage(file)
+                        if (f.exceptionOrNull() is EngineDiedException) poison.recordDeath(sha) else poison.end(sha)
+                        f
+                    }
+                } finally {
+                    client.reset()
+                }
+                val page = r.getOrNull()
+                if (r.isFailure) return@guarded call.resolve(JSObject().put("state", "damaged"))
+                val out = JSObject().put("state", "ok").put("found", page != null)
+                if (page != null) {
+                    out.put("corners", com.getcapacitor.JSArray().apply { page.corners.forEach { put(it) } })
+                    out.put("confidence", page.confidence)
+                }
+                call.resolve(out)
+            }
+        }
+    }
+
     @ActivityCallback
     private fun pickResult(call: PluginCall?, result: ActivityResult) {
         if (call == null) return
@@ -1362,7 +1490,110 @@ class PrintEnginePlugin : Plugin() {
         // A hostile sender can put unparcelable extras in the intent; reading them must not crash the activity.
         var uris: List<Uri> = emptyList()
         guarded({ Log.w(Importer.TAG, "share unreadable: $it") }) { uris = collectUris(intent) }
+        // Owner, round 8: a text message shared from WhatsApp (no files; a photo's caption is not printed).
+        if (uris.isEmpty() && intent.action == Intent.ACTION_SEND) {
+            var text: String? = null
+            guarded({ Log.w(Importer.TAG, "text share unreadable: $it") }) {
+                text = intent.getCharSequenceExtra(Intent.EXTRA_TEXT)?.toString()
+            }
+            text?.let { importText(it, share = true) }
+            return
+        }
         importUris(uris)
+    }
+
+    /**
+     * Owner, round 8: a text message as a new job (shared, or pasted on Home): the engine makes its PDF on the intake
+     * queue, then intakeReady as for files. The same text shared twice within the window opens the same job.
+     */
+    private fun importText(text: String, share: Boolean) {
+        val intakeId = UUID.randomUUID().toString()
+        if (share) {
+            val key = "text:" + java.security.MessageDigest.getInstance("SHA-256").digest(text.toByteArray()).joinToString("") { "%02x".format(it) }
+            dedupe.claim(listOf(key), intakeId, System.currentTimeMillis())?.let {
+                notifyListeners("intakeReady", JSObject().put("intakeId", it).put("repeat", true), true)
+                return
+            }
+        }
+        Background.intakesInProgress += intakeId
+        Background.intake.execute {
+            guarded({
+                Log.w(Importer.TAG, "text import failed: $it")
+                // The shopkeeper is asked to try again: sharing it again must not be taken for a repeat (review I5).
+                dedupe.release(intakeId)
+                notifyListeners("intakeFailed", JSObject().put("intakeId", intakeId).put("error", it), true)
+            }) {
+                val client = EngineClient(context)
+                val json = try {
+                    importer.importText(text, intakeId) { t, p, s -> EngineClient.turn { client.textToPdf(t, p, s) } }
+                } finally {
+                    client.reset()
+                }
+                // Nothing to print (empty, too long, or the engine failed): a share again is a new try (review I5).
+                if (json.optJSONArray("files")?.length() == 0) dedupe.release(intakeId)
+                notifyListeners("intakeReady", JSObject().put("intakeId", intakeId).put("repeat", false), true)
+            }
+            Background.intakesInProgress -= intakeId
+        }
+    }
+
+    /** Owner, round 8: Home → Text message → Done: the pasted text as a new job (intakeReady follows). */
+    @PluginMethod
+    fun textJob(call: PluginCall) {
+        val text = call.getString("text") ?: return call.reject("no text")
+        importText(text, share = false)
+        call.resolve()
+    }
+
+    /**
+     * Owner, round 8: Edit text ([text]) or Text size ([size] pt) of job [jobId]'s text file [index]: a new PDF beside
+     * the old one. Reply {path, bytes, sha256, pages, size}; the app saves the new path in the job.
+     */
+    @PluginMethod
+    fun textToPdf(call: PluginCall) {
+        val jobId = call.getString("jobId") ?: return call.reject("no job")
+        val index = call.getInt("index") ?: return call.reject("no item")
+        val size = call.getInt("size") ?: return call.reject("no size")
+        val text = call.getString("text")
+        Background.io.execute {
+            guarded({ call.reject("text not printed", it) }) {
+                val client = EngineClient(context)
+                val r = try {
+                    TextIntake.remake(File(context.noBackupFilesDir, "jobs"), jobId, index, text, size, System.currentTimeMillis()) { t, p, s ->
+                        EngineClient.turn { client.textToPdf(t, p, s) }
+                    }
+                } finally {
+                    client.reset()
+                }
+                call.resolve(JSObject(r.toString()))
+            }
+        }
+    }
+
+    /** Owner, round 8: the kept text of a text job (Edit text). Never logged. */
+    @PluginMethod
+    fun readText(call: PluginCall) {
+        val jobId = call.getString("jobId") ?: return call.reject("no job")
+        val index = call.getInt("index") ?: return call.reject("no item")
+        Background.io.execute {
+            guarded({ call.reject("text not read", it) }) {
+                val t = TextIntake.read(File(context.noBackupFilesDir, "jobs"), jobId, index) ?: return@guarded call.reject("no text")
+                call.resolve(JSObject().put("text", t))
+            }
+        }
+    }
+
+    /** Owner, round 8: Paste on the Text message screen: the text on Android's clipboard ("" when none). */
+    @PluginMethod
+    fun readClipboard(call: PluginCall) {
+        activity.runOnUiThread {
+            guarded({ call.reject("clipboard", it) }) {
+                val cm = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                val clip = cm.primaryClip
+                val text = if (clip != null && clip.itemCount > 0) clip.getItemAt(0).coerceToText(context)?.toString() ?: "" else ""
+                call.resolve(JSObject().put("text", text))
+            }
+        }
     }
 
     /**
@@ -1470,7 +1701,7 @@ class PrintEnginePlugin : Plugin() {
         private const val OCV_SAMPLE_FACTOR = 3
         private val STYLE_SAMPLES = listOf(
             "original" to Styles.ORIGINAL, "vibrant" to Styles.VIBRANT, "soft" to Styles.SOFT,
-            "bw" to Styles.BW, "sharp" to Styles.SHARP, "ocv" to Styles.OCV,
+            "bw" to Styles.BW, "sharp" to Styles.SHARP, "ocv" to Styles.OCV, "clean" to Styles.CLEAN,
         )
         private val THUMB_TYPES = setOf("jpeg", "png", "webp", "gif", "bmp")
 

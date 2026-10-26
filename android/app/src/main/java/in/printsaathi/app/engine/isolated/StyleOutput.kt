@@ -15,6 +15,20 @@ internal object StyleOutput {
         if (style == Styles.ORIGINAL) return
         val w = bmp.width
         val row = IntArray(w)
+        // Clean colour reads the whole page's paper first, then cleans each row (owner, round 8).
+        if (style == Styles.CLEAN) {
+            val paper = Styles.CleanPaper(w, bmp.height)
+            for (y in 0 until bmp.height) {
+                bmp.getPixels(row, 0, w, 0, y, w, 1)
+                paper.add(row)
+            }
+            for (y in 0 until bmp.height) {
+                bmp.getPixels(row, 0, w, 0, y, w, 1)
+                paper.clean(y, row, w)
+                bmp.setPixels(row, 0, w, 0, y, w, 1)
+            }
+            return
+        }
         val levels = if (style == Styles.SHARP) Styles.levels(histogram(bmp)) else null
         for (y in 0 until bmp.height) {
             bmp.getPixels(row, 0, w, 0, y, w, 1)

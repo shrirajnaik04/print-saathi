@@ -110,13 +110,14 @@ describe('flowPages', () => {
     );
   });
 
-  it('three 6 cm photos share a row; growing one pushes the last photo to a new page', () => {
-    const three = [1, 2, 3].map((index) => ({ index, aspect: 1, longMm: 60 }));
+  // Owner, round 8: photos 10 mm apart, so three of 5.5 cm (not 6 cm) share a row inside A4's edges.
+  it('three 5.5 cm photos share a row; growing one pushes the last photo to a new page', () => {
+    const three = [1, 2, 3].map((index) => ({ index, aspect: 1, longMm: 55 }));
     const one = flowPages(three, A4, 'portrait');
     expect(one).toHaveLength(1);
     expect(new Set(one[0]?.placements.map((p) => Math.round(p.box.y))).size).toBe(1);
-    // A page of 4 rows of three 6 cm photos, then one photo grown to fill the width: the rest flows on.
-    const twelve = Array.from({ length: 12 }, (_, i) => ({ index: i + 1, aspect: 1, longMm: 60 }));
+    // A page of 4 rows of three 5.5 cm photos, then one photo grown to fill the width: the rest flows on.
+    const twelve = Array.from({ length: 12 }, (_, i) => ({ index: i + 1, aspect: 1, longMm: 55 }));
     expect(flowPages(twelve, A4, 'portrait')).toHaveLength(1);
     const grown = twelve.map((it) => (it.index === 1 ? { ...it, longMm: 150 } : it));
     const pages = flowPages(grown, A4, 'portrait');

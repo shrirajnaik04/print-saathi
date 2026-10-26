@@ -24,6 +24,22 @@ class JobMergeTest {
 
     private val hardLink: (File, File) -> Boolean = { src, dst -> Files.createLink(dst.toPath(), src.toPath()); true }
 
+    /**
+     * Review I1 (round 8): a text message's PDF, its kept text and a PDF made again at another size share one number;
+     * they get one new number together, so Edit text and Text size still find the text after Add to this job.
+     */
+    @Test fun aTextMessagesFilesStayTogetherUnderOneNewNumber() {
+        val jobs = tmp.newFolder("jobs")
+        job(jobs, "open", "0001.jpg", "0002-12-5.pdf")
+        job(jobs, "new", "0001.pdf", "0001.txt", "0001-18-99.pdf")
+        val moved = JobMerge(jobs, hardLink).merge(from = "new", into = "open")
+        assertEquals(
+            setOf("0001.pdf" to "0003.pdf", "0001.txt" to "0003.txt", "0001-18-99.pdf" to "0003-18-99.pdf"),
+            moved.map { (a, b) -> a.name to b.name }.toSet(),
+        )
+        assertEquals("new/0001.txt", `in`.printsaathi.app.engine.intake.TextIntake.read(jobs, "open", 3))
+    }
+
     @Test fun theNewFilesAreNumberedAfterTheOpenJobsOwnAndKeepTheirKind() {
         val jobs = tmp.newFolder("jobs")
         job(jobs, "open", "0001.jpg", "0002.jpg", "0003.pdf")

@@ -48,6 +48,18 @@ function fakeEngine(saveOk = true) {
 }
 
 describe('New files arrived → Add to this job (PLAN §I-17)', () => {
+  it('a text message made again at another size keeps its number (review I1, round 8)', async () => {
+    const e = fakeEngine();
+    e.mergeJobFiles = async ({ from, into }) => ({
+      files: [1, 2].map((k) => ({
+        from: `/jobs/${from}/src/000${k}.jpg`,
+        to: `/jobs/${into}/src/000${k + 6}-18-1730.jpg`,
+      })),
+    });
+    const r = await addToJob(e, 'open', 'new', 3000);
+    expect(r?.added).toEqual([7, 8]);
+  });
+
   it('the new files join the open job at their new place, then the new job goes', async () => {
     const e = fakeEngine();
     const r = await addToJob(e, 'open', 'new', 3000);

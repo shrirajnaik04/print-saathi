@@ -24,7 +24,8 @@ object Retention {
      */
     fun protectedIds(ctx: Context): Set<String> =
         setOfNotNull(PrintRecordStore(ctx.noBackupFilesDir).load()?.jobId) + Background.activeJobIds +
-            OpenJobs(ctx.noBackupFilesDir).recent(System.currentTimeMillis()) + Background.intakesInProgress
+            OpenJobs(ctx.noBackupFilesDir).recent(System.currentTimeMillis()) + Background.intakesInProgress +
+            setOfNotNull(`in`.printsaathi.app.engine.intake.CaptureProvider.store(ctx).waitingIntakeId())
 
     /** Runs on the shared background thread; [deleted] is told how many jobs went (to clear the WebView cache). */
     fun sweepAsync(ctx: Context, deleted: (Int) -> Unit = {}) {

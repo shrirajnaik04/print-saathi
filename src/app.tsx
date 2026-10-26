@@ -85,6 +85,13 @@ const Report = lazyScreen(() => groups().then((m) => m.Report));
 const Screenshots = lazyScreen(() => groups().then((m) => m.Screenshots));
 const TestPage = lazyScreen(() => import('./screens/testpage/TestPage').then((m) => m.TestPage));
 const Tests = lazyScreen(() => import('./screens/tests/Tests').then((m) => m.Tests));
+// Owner, round 8: a customer's text message (Home → Text message; Ready → Edit text; Change → Text size).
+const text = () => import('./screens/text/Text');
+const TextMessage = lazyScreen(() => text().then((m) => m.TextMessage));
+const TextSize = lazyScreen(() => text().then((m) => m.TextSize));
+// Owner, round 8: scanned paper pages (Page n with its corners; Scanned pages).
+const ScanPage = lazyScreen(() => import('./screens/scan/ScanPage').then((m) => m.ScanPage));
+const ScanPages = lazyScreen(() => import('./screens/scan/ScanPages').then((m) => m.ScanPages));
 const LAZY = [
   CardsFound,
   Photos,
@@ -117,6 +124,10 @@ const LAZY = [
   Screenshots,
   TestPage,
   Tests,
+  TextMessage,
+  TextSize,
+  ScanPage,
+  ScanPages,
 ];
 
 /** After start, when the phone is idle: every lazy screen's code, so none opens empty later (failures retry on open). */
@@ -186,6 +197,10 @@ const SCREENS: Record<string, (p: ScreenProps) => preact.JSX.Element> = {
   fixcorners: FixCorners,
   cardsize: CardSize,
   cardsource: CardSource,
+  textmessage: TextMessage,
+  textsize: TextSize,
+  scanpage: ScanPage,
+  scanpages: ScanPages,
 };
 
 /**
@@ -283,9 +298,11 @@ export function App() {
       after.name === before.name &&
       after.params.jobId === before.params.jobId &&
       // Another share is a new question with its own state (review I2), never the old one updated; the next ID card
-      // side is its own crop screen, never the side before with its frame (review C1, round 4).
+      // side is its own crop screen, never the side before with its frame (review C1, round 4); a retaken page is its
+      // own corners screen, never the old photo's (owner, round 8).
       after.name !== 'newfiles' &&
-      after.name !== 'fixcorners'
+      after.name !== 'fixcorners' &&
+      after.name !== 'scanpage'
     )
       entryIds.set(after, entryId(before));
     // Only a new screen gets an entrance: a screen updated in place keeps its class, so nothing replays (review I1).
@@ -347,14 +364,30 @@ export function App() {
   useEffect(() => {
     const runner = intakeRunner(async (open) => {
       const { defaults } = await loadSettings(); // new photo jobs start on the paper printed last; all in colour
-      const { jobs, empty, picks, cancelled } = await takeNewIntakesDetailed(
-        PrintEngine,
-        Date.now(),
-        defaults.photos.paper,
-      );
+      const {
+        jobs: all,
+        empty,
+        picks,
+        cancelled,
+        scans,
+      } = await takeNewIntakesDetailed(PrintEngine, Date.now(), defaults.photos.paper);
       // Any batch from the phone's picker uses up an "Add photos" wish, even one cancelled, empty or not opened: a later
       // pick must never join an earlier customer's job (review I1).
-      const wish = picks.size > 0 || empty.some((i) => !!i.pick) ? takeAddInto(localStorage, Date.now()) : null;
+      // Owner, round 8: a page from the camera opens on its corners (scan/arrive, loaded when first needed); it joins
+      // the job it was taken for by itself.
+      const scanned = all.filter((j) => picks.get(j.id) === 'scan');
+      if (scanned.length && open)
+        void import('./screens/scan/arrive').then((m) =>
+          m.scanArrived(scanned, scans, () => stackRef.current[stackRef.current.length - 1], goNow),
+        );
+      const jobs = all.filter((j) => picks.get(j.id) !== 'scan');
+      if (scanned.length && !jobs.length && !empty.length) return;
+      // A text message or a scan from Home is a new job of its own: it never takes an Add photos wish (owner, round 8).
+      const picked = (p?: string) => !!p && p !== 'text' && p !== 'scan';
+      const wish =
+        [...picks.values()].some(picked) || empty.some((i) => picked(i.pick))
+          ? takeAddInto(localStorage, Date.now())
+          : null;
       const shown = stackRef.current[stackRef.current.length - 1];
       // After a crash loop new files are still kept as jobs, but nothing opens by itself (PLAN §D5).
       if (!open) {
@@ -370,7 +403,7 @@ export function App() {
       // Add photos / Add files (owner, 2026-10-24): files chosen to add to the job on screen join it at once, without
       // the "New files arrived" question, up to 100 files a job; the shopkeeper stays where Add was pressed. Only files
       // from the picker: a share never joins a job by itself. A job gone meanwhile: the files open as their own job.
-      const into = wish && jobs.length > 0 && jobs.every((j) => picks.has(j.id)) ? wish : null;
+      const into = wish && jobs.length > 0 && jobs.every((j) => picked(picks.get(j.id))) ? wish : null;
       const target = into
         ? normalizeJob((await PrintEngine.loadJob({ id: into }).catch(() => ({ job: null }))).job)
         : null;
@@ -402,9 +435,13 @@ export function App() {
         if (stackRef.current[stackRef.current.length - 1]?.name === 'addsource') goNow({ type: 'back' });
         return;
       }
-      // The receiving screen gives way to what arrived (never stays under it).
-      const step: 'push' | 'replace' = shown?.name === 'receiving' ? 'replace' : 'push';
       const pick = last ? picks.get(last.id) : undefined;
+      // The receiving screen gives way to what arrived (never stays under it); so does Text message once Done made
+      // the message's job (owner, round 8).
+      const step: 'push' | 'replace' =
+        shown?.name === 'receiving' || (pick === 'text' && shown?.name === 'textmessage' && !shown.params.jobId)
+          ? 'replace'
+          : 'push';
       // The job the shopkeeper had open is the screen under Receiving, if Receiving is showing (gate review I1).
       const under = (s: typeof stackRef.current) => s[s.length - (s[s.length - 1]?.name === 'receiving' ? 2 : 1)];
       const before = under(stackRef.current);

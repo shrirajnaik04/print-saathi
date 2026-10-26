@@ -1,5 +1,5 @@
 import type { Job } from '../../core/job/job';
-import { styleOf } from '../../core/job/job';
+import { styleOf, textItemOf } from '../../core/job/job';
 import { allDocPages, paperOf } from '../../core/plan/plan';
 import { en } from '../../i18n/en';
 import { fill } from '../../i18n/fill';
@@ -67,6 +67,14 @@ export function Change({ go, params }: ScreenProps) {
       )}
       {job?.layout === 'document' && (
         <div class="stack">
+          {/* Owner, round 8: a text message's letters, bigger or smaller (it is made again at that size). */}
+          {textItemOf(job) && (
+            <ChangeRow
+              label={en.text.size}
+              value={en.text.sizes[textItemOf(job)?.text?.size ?? 12]}
+              onClick={() => go(push('textsize', { jobId }))}
+            />
+          )}
           {docs.anyLocked ? (
             <Panel kind="warn" title={en.docs.unlockFirst} />
           ) : (

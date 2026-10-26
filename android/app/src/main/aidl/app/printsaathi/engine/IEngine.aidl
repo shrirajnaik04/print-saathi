@@ -80,4 +80,16 @@ interface IEngine {
     int[] faceTurns(in ParcelFileDescriptor src, int maxLongSidePx);
     /** decodeWarped for a card on PDF page [page]: only its box is drawn, at the scale the output needs. */
     int[] renderPageWarped(in ParcelFileDescriptor pdf, String password, int page, in ParcelFileDescriptor dst, int outW, int outH, int quality, int style, in double[] quad);
+    /**
+     * Owner, round 8: a customer's text message (UTF-8 in [txt]) as an A4 PDF in [dst] at [sizeTenthsPt] (100, 120,
+     * 140 or 180), WhatsApp's marks as bold / italic / struck / fixed-width. {pages} or {-code} (5: empty, too long or
+     * a size the app never asks for).
+     */
+    int[] textToPdf(in ParcelFileDescriptor txt, in ParcelFileDescriptor dst, int sizeTenthsPt);
+
+    /**
+     * Owner, round 8 (scan pages): the paper page in a photo, looked for on a copy of at most [maxLongSidePx] (≤ 1024):
+     * detectCards' reply with n = 0 (none seen) or 1 (its corners, top left first, clockwise; face always 0).
+     */
+    int[] detectPage(in ParcelFileDescriptor src, int maxLongSidePx);
 }

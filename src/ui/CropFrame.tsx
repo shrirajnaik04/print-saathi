@@ -1,5 +1,5 @@
 import { useRef, useState } from 'preact/hooks';
-import { moveQuad, moveSideStraight, scaleQuad } from '../core/layout/quad';
+import { moveCorner, moveQuad, moveSideStraight, scaleQuad } from '../core/layout/quad';
 import { fill } from '../i18n/fill';
 import { trackGesture } from './gestures';
 import { turnedStyle } from './PaperPreview';
@@ -9,7 +9,19 @@ const ZOOM = 2.5;
 const LOUPE = 112;
 
 type Side = 0 | 1 | 2 | 3;
-type Drag = { k: Side; id: number; x: number; y: number; from: number[]; el: HTMLElement };
+type Drag = { kind: 'corner' | 'side'; k: Side; id: number; x: number; y: number; from: number[]; el: HTMLElement };
+
+/**
+ * Scanned pages only (owner, round 8): a round handle at each corner too, each moved on its own (a page photographed
+ * at a slant is straightened). [point]: what the arrows move, 0–3 the corners (top left, clockwise), 4–7 the sides.
+ */
+export type Corners = {
+  point: number;
+  onPoint: (p: number) => void;
+  /** "The {name}", and each corner's name ("top left corner"). */
+  label: string;
+  names: readonly string[];
+};
 
 type Props = {
   /** The picture (a file the WebView may show), drawn turned [turns] quarter turns clockwise. */
@@ -27,6 +39,7 @@ type Props = {
   label: string;
   sideLabel: string;
   sideNames: readonly string[];
+  corners?: Corners;
 };
 
 const pct = (v: number) => `${Math.round(v * 10000) / 100}%`;
@@ -38,7 +51,19 @@ const pct = (v: number) => `${Math.round(v * 10000) / 100}%`;
  * slant). One finger elsewhere on the picture moves the frame, two make it bigger or smaller. While a bar is held, a
  * magnifier shows what is under the finger. The screen's arrow buttons do the same (PLAN §H2.4).
  */
-export function CropFrame({ src, turns, aspect, quad, onChange, side, onSide, label, sideLabel, sideNames }: Props) {
+export function CropFrame({
+  src,
+  turns,
+  aspect,
+  quad,
+  onChange,
+  side,
+  onSide,
+  label,
+  sideLabel,
+  sideNames,
+  corners: free,
+}: Props) {
   const stage = useRef<HTMLDivElement>(null);
   const drag = useRef<Drag | null>(null);
   const gesture = useRef(trackGesture());
@@ -50,7 +75,11 @@ export function CropFrame({ src, turns, aspect, quad, onChange, side, onSide, la
     const [bx, by] = pt(q, (s + 1) % 4);
     return [(ax + bx) / 2, (ay + by) / 2] as const;
   };
-  const startHandle = (k: Side) => (e: PointerEvent) => {
+  // With corners, the side the arrows move is a point too (4–7).
+  const sideOn = free ? free.point - 4 : side;
+  const chooseSide = (s: Side) => (free ? free.onPoint(4 + s) : onSide(s));
+  const at = (q: number[], d: Pick<Drag, 'kind' | 'k'>) => (d.kind === 'corner' ? pt(q, d.k) : mid(q, d.k));
+  const startHandle = (kind: Drag['kind'], k: Side) => (e: PointerEvent) => {
     const el = e.currentTarget as HTMLElement;
     // One finger at a time; a drag whose handle was redrawn away never blocks the next one.
     if (drag.current && !drag.current.el.isConnected) drag.current = null;
@@ -58,21 +87,26 @@ export function CropFrame({ src, turns, aspect, quad, onChange, side, onSide, la
     e.preventDefault();
     e.stopPropagation();
     el.setPointerCapture?.(e.pointerId);
-    onSide(k);
-    drag.current = { k, id: e.pointerId, x: e.clientX, y: e.clientY, from: quad, el };
+    if (kind === 'corner') free?.onPoint(k);
+    else chooseSide(k);
+    drag.current = { kind, k, id: e.pointerId, x: e.clientX, y: e.clientY, from: quad, el };
     const r = stage.current?.getBoundingClientRect();
-    const [x, y] = mid(quad, k);
+    const [x, y] = at(quad, { kind, k });
     if (r) setLoupe({ x, y, w: r.width, h: r.height });
   };
   const moveHandle = (e: PointerEvent) => {
     const d = drag.current;
     const r = stage.current?.getBoundingClientRect();
     if (!d || !r || d.id !== e.pointerId) return;
-    // Straight in or out: the top and bottom follow the finger up and down only, the sides sideways only.
-    const along = d.k % 2 === 0 ? (e.clientY - d.y) / r.height : (e.clientX - d.x) / r.width;
-    const next = moveSideStraight(d.from, d.k, along);
+    const dx = (e.clientX - d.x) / r.width;
+    const dy = (e.clientY - d.y) / r.height;
+    // A corner follows the finger anywhere; a side straight in or out (the top and bottom up and down only).
+    const next =
+      d.kind === 'corner'
+        ? moveCorner(d.from, d.k, (d.from[2 * d.k] as number) + dx, (d.from[2 * d.k + 1] as number) + dy)
+        : moveSideStraight(d.from, d.k, d.k % 2 === 0 ? dy : dx);
     onChange(next);
-    const [x, y] = mid(next, d.k);
+    const [x, y] = at(next, d);
     setLoupe({ x, y, w: r.width, h: r.height });
   };
   const endHandle = (e: PointerEvent) => {
@@ -148,12 +182,12 @@ export function CropFrame({ src, turns, aspect, quad, onChange, side, onSide, la
           <button
             key={`side-${s}`}
             type="button"
-            class={s === side ? 'scan-handle scan-side scan-side-on' : 'scan-handle scan-side'}
+            class={s === sideOn ? 'scan-handle scan-side scan-side-on' : 'scan-handle scan-side'}
             style={{ left: pct(x), top: pct(y), '--angle': `${angle}deg` }}
             aria-label={fill(sideLabel, { name: sideNames[s] ?? '' })}
-            aria-pressed={s === side}
-            onClick={() => onSide(s)}
-            onPointerDown={startHandle(s)}
+            aria-pressed={s === sideOn}
+            onClick={() => chooseSide(s)}
+            onPointerDown={startHandle('side', s)}
             onPointerMove={moveHandle}
             onPointerUp={endHandle}
             onPointerCancel={endHandle}
@@ -161,6 +195,27 @@ export function CropFrame({ src, turns, aspect, quad, onChange, side, onSide, la
           />
         );
       })}
+      {/* Scanned pages: the corners, in reading order (top left, top right, bottom left, bottom right). */}
+      {free &&
+        ([0, 1, 3, 2] as const).map((k) => {
+          const [x, y] = pt(quad, k);
+          return (
+            <button
+              key={`corner-${k}`}
+              type="button"
+              class={k === free.point ? 'scan-handle scan-corner scan-corner-on' : 'scan-handle scan-corner'}
+              style={{ left: pct(x), top: pct(y) }}
+              aria-label={fill(free.label, { name: free.names[k] ?? '' })}
+              aria-pressed={k === free.point}
+              onClick={() => free.onPoint(k)}
+              onPointerDown={startHandle('corner', k)}
+              onPointerMove={moveHandle}
+              onPointerUp={endHandle}
+              onPointerCancel={endHandle}
+              onLostPointerCapture={endHandle}
+            />
+          );
+        })}
       {loupe && (
         <div class={right ? 'scan-loupe scan-loupe-right' : 'scan-loupe'} aria-hidden="true">
           <div

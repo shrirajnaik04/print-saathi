@@ -154,7 +154,9 @@ class RenderPlan(
         }
 
         /** Style names of the plan (PLAN §F4); Black & white plans take the grey ones ("original" = Black & White). */
-        private val COLOUR_STYLES = mapOf("original" to Styles.ORIGINAL, "vibrant" to Styles.VIBRANT, "soft" to Styles.SOFT)
+        private val COLOUR_STYLES = mapOf(
+            "original" to Styles.ORIGINAL, "vibrant" to Styles.VIBRANT, "soft" to Styles.SOFT, "clean" to Styles.CLEAN,
+        )
         private val GREY_STYLES = mapOf("original" to Styles.BW, "bw" to Styles.BW, "sharp" to Styles.SHARP, "ocv" to Styles.OCV)
 
         private fun placement(p: JSONObject, sideways: Boolean, pw: Double, ph: Double, sheetH: Double, grey: Boolean): RenderPlacement {
