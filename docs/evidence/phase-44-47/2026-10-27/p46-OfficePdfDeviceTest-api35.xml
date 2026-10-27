@@ -1,0 +1,22 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<testsuite name="in.printsaathi.app.engine.OfficePdfDeviceTest" tests="14" failures="0" errors="0" skipped="0" time="27.806" timestamp="2026-10-27T17:03:55" hostname="localhost">
+  <properties>
+    <property name="device" value="Medium_Tablet(AVD) - 15" />
+    <property name="flavor" value="" />
+    <property name="project" value=":app" />
+  </properties>
+  <testcase name="aHeadingIsTallerThanBodyText" classname="in.printsaathi.app.engine.OfficePdfDeviceTest" time="2.318" />
+  <testcase name="aLandscapeSectionGivesALandscapePage" classname="in.printsaathi.app.engine.OfficePdfDeviceTest" time="0.361" />
+  <testcase name="devanagariHasInk" classname="in.printsaathi.app.engine.OfficePdfDeviceTest" time="2.046" />
+  <testcase name="theBackgroundColourFillsTheSlide" classname="in.printsaathi.app.engine.OfficePdfDeviceTest" time="1.255" />
+  <testcase name="tableBordersAreWhereTheGridPutsThem" classname="in.printsaathi.app.engine.OfficePdfDeviceTest" time="0.414" />
+  <testcase name="anEmptyDocumentGivesOneBlankPageNotAFailure" classname="in.printsaathi.app.engine.OfficePdfDeviceTest" time="2.024" />
+  <testcase name="aDocWithEveryUnsupportedPartStillPrintsItsText" classname="in.printsaathi.app.engine.OfficePdfDeviceTest" time="2.178" />
+  <testcase name="oneLandscapePagePerSlide" classname="in.printsaathi.app.engine.OfficePdfDeviceTest" time="5.604" />
+  <testcase name="aTextBoxIsDrawnAtItsPlace" classname="in.printsaathi.app.engine.OfficePdfDeviceTest" time="1.354" />
+  <testcase name="aHostileDocxIsRefusedNotCrashed" classname="in.printsaathi.app.engine.OfficePdfDeviceTest" time="0.721" />
+  <testcase name="aOnePageLetterIsOneA4Page" classname="in.printsaathi.app.engine.OfficePdfDeviceTest" time="2.127" />
+  <testcase name="aPictureIsDrawnAtItsPlace" classname="in.printsaathi.app.engine.OfficePdfDeviceTest" time="1.114" />
+  <testcase name="aLongDocumentFlowsOverPagesAndStopsAt500" classname="in.printsaathi.app.engine.OfficePdfDeviceTest" time="2.824" />
+  <testcase name="aPictureLandsAtItsParagraph" classname="in.printsaathi.app.engine.OfficePdfDeviceTest" time="2.719" />
+</testsuite>

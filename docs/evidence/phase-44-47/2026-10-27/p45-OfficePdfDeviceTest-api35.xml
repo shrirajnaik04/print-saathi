@@ -1,0 +1,18 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<testsuite name="in.printsaathi.app.engine.OfficePdfDeviceTest" tests="10" failures="0" errors="0" skipped="0" time="17.806" timestamp="2026-10-27T16:35:54" hostname="localhost">
+  <properties>
+    <property name="device" value="Medium_Tablet(AVD) - 15" />
+    <property name="flavor" value="" />
+    <property name="project" value=":app" />
+  </properties>
+  <testcase name="aHeadingIsTallerThanBodyText" classname="in.printsaathi.app.engine.OfficePdfDeviceTest" time="2.268" />
+  <testcase name="aLandscapeSectionGivesALandscapePage" classname="in.printsaathi.app.engine.OfficePdfDeviceTest" time="0.311" />
+  <testcase name="devanagariHasInk" classname="in.printsaathi.app.engine.OfficePdfDeviceTest" time="2.181" />
+  <testcase name="tableBordersAreWhereTheGridPutsThem" classname="in.printsaathi.app.engine.OfficePdfDeviceTest" time="0.464" />
+  <testcase name="anEmptyDocumentGivesOneBlankPageNotAFailure" classname="in.printsaathi.app.engine.OfficePdfDeviceTest" time="2.028" />
+  <testcase name="aDocWithEveryUnsupportedPartStillPrintsItsText" classname="in.printsaathi.app.engine.OfficePdfDeviceTest" time="2.1" />
+  <testcase name="aHostileDocxIsRefusedNotCrashed" classname="in.printsaathi.app.engine.OfficePdfDeviceTest" time="0.617" />
+  <testcase name="aOnePageLetterIsOneA4Page" classname="in.printsaathi.app.engine.OfficePdfDeviceTest" time="2.022" />
+  <testcase name="aLongDocumentFlowsOverPagesAndStopsAt500" classname="in.printsaathi.app.engine.OfficePdfDeviceTest" time="2.487" />
+  <testcase name="aPictureLandsAtItsParagraph" classname="in.printsaathi.app.engine.OfficePdfDeviceTest" time="2.522" />
+</testsuite>

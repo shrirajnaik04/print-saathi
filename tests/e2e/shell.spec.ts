@@ -2673,17 +2673,17 @@ test('a phone with a printing app shows no such warning', async ({ page }) => {
   await expect(page.getByText('No printing app on this phone yet', { exact: false })).toHaveCount(0);
 });
 
+// Round 9 (owner rows 57-61): an Office file is no longer "can't be printed yet"; it is still named, never left out.
 test('a Word file shared with a PDF is named on Ready, never silently left out (PLAN §J8)', async ({ page }) => {
   await page.goto('/?mockIntake=2&mockPdfAt=1&mockOfficeAt=2');
   await expect(page.locator('main h1')).toHaveText('Ready to print');
-  await expect(
-    page.getByText("1 Office file (Word, Excel or PowerPoint) can't be printed yet", { exact: false }),
-  ).toBeVisible();
+  await expect(page.getByText('This Office file prints from WPS Office.', { exact: false })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Print with WPS Office' })).toBeVisible();
 });
 
 test('an Office file among photos says what it is on Received', async ({ page }) => {
   await page.goto('/?mockIntake=3&mockOfficeAt=2');
-  await expect(page.getByText("Office file: can't be printed yet. Ask for a PDF.")).toBeVisible();
+  await expect(page.getByText('This Office file prints from WPS Office.', { exact: false })).toBeVisible();
   await expect(page.getByText('PDFs arrive in a later update', { exact: false })).toHaveCount(0);
 });
 

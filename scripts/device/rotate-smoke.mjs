@@ -18,7 +18,14 @@ const labels = () => {
   } catch {
     // busy: the last dump
   }
-  return [...sh('cat', '/sdcard/ps-rot.xml').matchAll(/(?:text|content-desc)="([^"]+)"/g)].map((m) => m[1]);
+  // Round 9: right after the app starts the first dump can find no window (and no older dump exists): not yet.
+  let xml = '';
+  try {
+    xml = sh('cat', '/sdcard/ps-rot.xml');
+  } catch {
+    // no dump yet
+  }
+  return [...xml.matchAll(/(?:text|content-desc)="([^"]+)"/g)].map((m) => m[1]);
 };
 const has = (t) => labels().some((l) => l.startsWith(t));
 const until = async (what, test, ms = 60_000) => {

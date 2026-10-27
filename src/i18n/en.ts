@@ -147,6 +147,7 @@ export const en = {
     reportValue: 'For help with the app',
   },
   receiving: {
+    making: 'Getting the {kind} ready…',
     title: 'Receiving files',
     progress: 'Receiving files… {done} of {total}',
     almost: 'Receiving files…',
@@ -301,6 +302,8 @@ export const en = {
     text: 'Text message',
     texts: '{n} text messages',
     scanned: 'Scanned pages',
+    /** Round 9: Office files by kind. */
+    office: { word: 'Word file', powerpoint: 'PowerPoint file', excel: 'Excel file', office: 'Office file' },
     pagesToPrint: 'Pages to print',
     pagesValue: '{n} of {total} pages',
     pageOrder: 'Page order',
@@ -761,5 +764,6 @@ export const en = {
     removeExtra: 'Remove extra copy',
     nothing: 'Nothing here can be printed yet.',
     photosHeading: 'The photos',
+    filesHeading: 'The files',
   },
 } as const;

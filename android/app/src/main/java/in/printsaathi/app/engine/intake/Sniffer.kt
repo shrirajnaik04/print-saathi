@@ -36,5 +36,19 @@ fun sniff(head: ByteArray): SniffedType = when {
     head.containsAscii("%PDF-", 1024) -> SniffedType.PDF
     head.startsWith(0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1) -> SniffedType.OFFICE
     head.startsWith(0x50, 0x4B, 0x03, 0x04) && OFFICE_ZIP_MARKERS.any { head.containsAscii(it, 4096) } -> SniffedType.OFFICE
+    // Round 9 review C1: an RTF file is a Word file, not a text message of its code.
+    head.asciiAt(0, "{\\rtf") -> SniffedType.OFFICE
     else -> SniffedType.OTHER
+}
+
+/**
+ * Round 9: which kind an Office file probably is, from the zip names in its first bytes, only to say "Getting the Word
+ * file ready…" while the engine reads it (the engine decides the kind); null when the start does not tell.
+ */
+fun officeHint(head: ByteArray): String? = when {
+    head.asciiAt(0, "{\\rtf") -> "word"
+    head.containsAscii("word/", 4096) -> "word"
+    head.containsAscii("ppt/", 4096) -> "powerpoint"
+    head.containsAscii("xl/", 4096) -> "excel"
+    else -> null
 }

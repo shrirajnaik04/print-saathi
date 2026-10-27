@@ -7,6 +7,14 @@
         <intent>
             <action android:name="android.printservice.PrintService" />
         </intent>
+        <!-- Round 9: Print with WPS Office (its editions), or any app that opens an Office file. -->
+        <package android:name="cn.wps.moffice_eng" />
+        <package android:name="cn.wps.moffice_eng.xiaomi.lite" />
+        <package android:name="com.kingsoft.moffice_pro" />
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:mimeType="application/*" />
+        </intent>
         <!-- Owner, round 8 (scan pages): whether the phone has a camera app to take a page's photo. -->
         <intent>
             <action android:name="android.media.action.IMAGE_CAPTURE" />
@@ -39,7 +47,7 @@
             <!-- Share target (PLAN §D1). Mixed shares arrive as */* and match any filter with types,
                  so */* itself is NOT declared (keeps PrintSaathi out of video share sheets; text/plain is listed for
                  WhatsApp text messages, owner round 8).
-                 Office types are received only to explain "ask the customer for a PDF". -->
+                 Office files print from WPS Office or, once made into pages, from PrintSaathi (round 9). -->
             <intent-filter>
                 <action android:name="android.intent.action.SEND" />
                 <action android:name="android.intent.action.SEND_MULTIPLE" />
@@ -55,6 +63,14 @@
                 <data android:mimeType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" />
                 <data android:mimeType="application/vnd.ms-powerpoint" />
                 <data android:mimeType="application/vnd.openxmlformats-officedocument.presentationml.presentation" />
+                <!-- Round 9: OpenDocument, RTF and CSV files (the engine names their kind; CSV prints as text). -->
+                <data android:mimeType="application/vnd.oasis.opendocument.text" />
+                <data android:mimeType="application/vnd.oasis.opendocument.presentation" />
+                <data android:mimeType="application/vnd.oasis.opendocument.spreadsheet" />
+                <data android:mimeType="application/rtf" />
+                <data android:mimeType="text/rtf" />
+                <data android:mimeType="text/csv" />
+                <data android:mimeType="text/comma-separated-values" />
             </intent-filter>
 
         </activity>
@@ -74,6 +90,13 @@
         <provider
             android:name=".engine.intake.CaptureProvider"
             android:authorities="${applicationId}.capture"
+            android:exported="false"
+            android:grantUriPermissions="true" />
+
+        <!-- Round 9: Print with WPS Office reads the one granted customer file, read-only. Not exported. -->
+        <provider
+            android:name=".engine.intake.OfficeShareProvider"
+            android:authorities="${applicationId}.office"
             android:exported="false"
             android:grantUriPermissions="true" />
 

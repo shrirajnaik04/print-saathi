@@ -6,15 +6,14 @@ import { saveChange } from '../../core/job/save';
 import { unprintableText } from '../../core/job/unprintable';
 import { en } from '../../i18n/en';
 import { fill } from '../../i18n/fill';
-import { PrintEngine, type ThumbResult } from '../../native/printEngine';
+import { PHOTO_TYPES, PrintEngine, type ThumbResult } from '../../native/printEngine';
 import { Button } from '../../ui/Button';
+import { lazyPart } from '../../ui/lazyPart';
 import { Panel } from '../../ui/Panel';
 import { Tile } from '../../ui/Tile';
 import { TopBar } from '../../ui/TopBar';
-import { AutoTurnNote } from '../AutoTurnNote';
 import { findBlackEdges, prepareBlackEdges } from '../blackEdges';
 import { withCopies } from '../copies';
-import { Duplicates } from '../Duplicates';
 import { JobGone } from '../JobGone';
 import { noteJob } from '../printedJobs';
 import { stopTurns, turnsFor } from '../rotate';
@@ -29,6 +28,16 @@ export const saveJobChange = (job: Job, action: JobAction): Promise<Job> =>
     noteJob(saved);
     return saved;
   });
+
+/** Round 9: the Office card, loaded the first time a job holds an Office file (startup JS budget). */
+const OfficeFiles = lazyPart<{ job: Job }>(() => import('../office/OfficeFiles').then((m) => m.OfficeFiles));
+// Rarely shown, so loaded when first needed (startup JS budget, round 9).
+const Duplicates = lazyPart<{ job: Job; onChange: (j: Job) => void }>(() =>
+  import('../Duplicates').then((m) => m.Duplicates),
+);
+const AutoTurnNote = lazyPart<{ job: Job | null; onUndo: () => Promise<boolean>; busy?: boolean }>(() =>
+  import('../AutoTurnNote').then((m) => m.AutoTurnNote),
+);
 
 const STATE_TEXT: Partial<Record<ThumbResult['state'], string>> = {
   damaged: t.damaged,
@@ -301,7 +310,11 @@ export function Received({ go, params }: ScreenProps) {
           </div>
         </>
       ) : thumbs !== null && printable.length === 0 ? (
-        <Panel kind="warn" title={t.nothing} />
+        job.items.some((i) => i.type === 'office') ? (
+          <OfficeFiles job={job} />
+        ) : (
+          <Panel kind="warn" title={t.nothing} />
+        )
       ) : (
         <>
           <h2>{t.ask}</h2>
@@ -318,6 +331,7 @@ export function Received({ go, params }: ScreenProps) {
             {choice('asDocument', t.asDocument, 'document', 'document')}
             {saving && <p role="status">{en.edges.looking}</p>}
           </div>
+          <OfficeFiles job={job} />
         </>
       )}
       <AutoTurnNote
@@ -330,7 +344,7 @@ export function Received({ go, params }: ScreenProps) {
         }}
       />
       <Duplicates job={job} onChange={setJob} />
-      <h2>{t.photosHeading}</h2>
+      <h2>{job.items.every((i) => PHOTO_TYPES.has(i.type)) ? t.photosHeading : t.filesHeading}</h2>
       {thumbs === null ? (
         // Big shares take a while (PLAN §F6, §H2.7): words, a bar and Cancel (the job is kept; Recent has it).
         <div class="stack">
@@ -362,7 +376,7 @@ export function Received({ go, params }: ScreenProps) {
                 ) : (
                   <span class="thumb-note">
                     {th?.state === 'notPhoto'
-                      ? unprintableText(it.type)
+                      ? unprintableText(it.type, it.office?.kind)
                       : (STATE_TEXT[th?.state ?? 'damaged'] ?? t.damaged)}
                   </span>
                 )}

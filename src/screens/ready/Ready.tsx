@@ -16,14 +16,13 @@ import { PrintEngine, type RenderResult, type ThumbResult } from '../../native/p
 import { ActionBar } from '../../ui/ActionBar';
 import { Button } from '../../ui/Button';
 import { ColourSwitch } from '../../ui/ColourSwitch';
+import { lazyPart } from '../../ui/lazyPart';
 import { Panel } from '../../ui/Panel';
 import { FilePage, PaperPreview } from '../../ui/PaperPreview';
 import { TopBar } from '../../ui/TopBar';
 import { usePinWhileSmall } from '../../ui/usePinWhileSmall';
-import { AutoTurnNote } from '../AutoTurnNote';
 import { pickAt, toPagePoints } from '../adjust/place';
 import { withCopies } from '../copies';
-import { Duplicates } from '../Duplicates';
 import { JobGone } from '../JobGone';
 import { noteJob } from '../printedJobs';
 import { saveJobChange } from '../received/Received';
@@ -47,6 +46,16 @@ type View = { state: 'preparing'; done: number; total: number } | RenderResult;
  * Ready to print (PLAN §I-5): every sheet drawn from the plan, the summary line and one PRINT button. The print
  * file is made in the background as soon as the plan is known; a result for a plan no longer shown is ignored.
  */
+/** Round 9: the Office card, loaded the first time a job holds an Office file (startup JS budget). */
+const OfficeFiles = lazyPart<{ job: Job }>(() => import('../office/OfficeFiles').then((m) => m.OfficeFiles));
+// Rarely shown, so loaded when first needed (startup JS budget, round 9).
+const Duplicates = lazyPart<{ job: Job; onChange: (j: Job) => void }>(() =>
+  import('../Duplicates').then((m) => m.Duplicates),
+);
+const AutoTurnNote = lazyPart<{ job: Job | null; onUndo: () => Promise<boolean>; busy?: boolean }>(() =>
+  import('../AutoTurnNote').then((m) => m.AutoTurnNote),
+);
+
 export function Ready({ go, params }: ScreenProps) {
   const jobId = String(params?.jobId ?? '');
   const [job, setJob] = useState<Job | null>(null);
@@ -546,7 +555,15 @@ export function Ready({ go, params }: ScreenProps) {
                   job.layout === 'idCard' && job.idCard
                     ? idCardLine(fullPlan, job.idCard.size, drawnCardScale(fullPlan))
                     : job.layout === 'document'
-                      ? documentLine(fullPlan, pdfItems, new Set(textItem ? [textItem.index] : []), job.scan)
+                      ? documentLine(
+                          fullPlan,
+                          pdfItems,
+                          new Set(textItem ? [textItem.index] : []),
+                          job.scan,
+                          new Map(
+                            job.items.flatMap((i) => (i.office && i.type === 'pdf' ? [[i.index, i.office.kind]] : [])),
+                          ),
+                        )
                       : summaryLine(fullPlan),
                   glossy,
                 )}
@@ -572,6 +589,8 @@ export function Ready({ go, params }: ScreenProps) {
           {job.layout === 'document' && <Duplicates job={job} onChange={setJob} />}
           {/* ...and what went wrong while receiving, which Received shows for photo jobs (review M5). */}
           {job.layout === 'document' && job.notices.map((n) => <Panel key={n} kind="warn" title={n} />)}
+          {/* Round 9: Office files: Print with WPS Office, and the honest note on pages made of one. */}
+          {job.layout !== 'passport' && <OfficeFiles job={job} />}
           {/* Files that cannot be printed are named, never silently left out (PLAN §J8). */}
           {job.layout !== 'passport' &&
             unprintableNotes(job.items).map((note) => <Panel key={note} kind="warn" title={note} />)}

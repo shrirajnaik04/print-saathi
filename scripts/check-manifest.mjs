@@ -15,6 +15,27 @@ const MAIN = `${PKG}.MainActivity`;
 const ENGINE = `${PKG}.engine.isolated.EngineService`;
 // androidx.core adds this signature-level permission for its non-exported dynamic receivers.
 const ALLOWED_PERMISSIONS = new Set([`${PKG}.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION`]);
+// Round 9: every kind of file the engine names (PDF, photos, Word, PowerPoint, Excel, OpenDocument, RTF, CSV, text)
+// must reach PrintSaathi from the share sheet.
+export const SHARE_TYPES = [
+  'image/*',
+  'application/pdf',
+  'application/octet-stream',
+  'text/plain',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/vnd.ms-powerpoint',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  'application/vnd.oasis.opendocument.text',
+  'application/vnd.oasis.opendocument.presentation',
+  'application/vnd.oasis.opendocument.spreadsheet',
+  'application/rtf',
+  'text/rtf',
+  'text/csv',
+  'text/comma-separated-values',
+];
 
 /** Parses `aapt2 dump xmltree` output into {name, attrs, children}; nesting comes from indentation. */
 export function parseXmlTree(dump) {
@@ -82,6 +103,14 @@ export function checkManifest(dump, variant) {
   for (const a of activities) {
     if (isExported(a) && a.attrs.name !== MAIN) v.push(`activity ${a.attrs.name} must not be exported`);
   }
+
+  const main = activities.find((a) => a.attrs.name === MAIN);
+  const shared = new Set(
+    (main ? all(main, 'intent-filter') : [])
+      .filter((f) => all(f, 'action').some((a) => a.attrs.name === 'android.intent.action.SEND'))
+      .flatMap((f) => all(f, 'data').map((d) => d.attrs.mimeType)),
+  );
+  for (const t of SHARE_TYPES) if (!shared.has(t)) v.push(`the share sheet does not offer PrintSaathi for ${t}`);
 
   const services = all(app, 'service');
   const engine = services.find((s) => s.attrs.name === ENGINE);

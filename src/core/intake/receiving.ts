@@ -1,5 +1,6 @@
 /** A share being copied right now (PLAN §D2, §H2.7): "Receiving files… 12 of 60". One at a time is enough to show. */
-export type Receiving = { intakeId: string; done: number; total: number };
+/** [making]: round 9, an Office file being made into pages ("word", "powerpoint", "excel", "office"). */
+export type Receiving = { intakeId: string; done: number; total: number; making?: string };
 
 let current: Receiving | null = null;
 const listeners = new Set<(r: Receiving | null) => void>();

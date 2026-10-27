@@ -17,7 +17,21 @@ import java.util.UUID
  * Never logs names, paths or contents.
  */
 class Importer(private val context: Context) {
-    data class Imported(val index: Int, val path: String, val type: SniffedType, val bytes: Long, val sha256: String)
+    /**
+     * One file as received. Round 9: [office] its kind ("word", "powerpoint", "excel", "office") and [format] for an
+     * Office file, [missed] parts not drawn on its pages; [text] a text file printed as a text message.
+     */
+    data class Imported(
+        val index: Int,
+        val path: String,
+        val type: SniffedType,
+        val bytes: Long,
+        val sha256: String,
+        val office: String? = null,
+        val format: String? = null,
+        val missed: Boolean = false,
+        val text: Boolean = false,
+    )
 
     private val root: File get() = File(context.noBackupFilesDir, "jobs").apply { mkdirs() }
     private val pendingFile: File get() = File(File(context.noBackupFilesDir, "inbox").apply { mkdirs() }, "pending.json")
@@ -36,6 +50,10 @@ class Importer(private val context: Context) {
         onProgress: (Int, Int) -> Unit = { _, _ -> },
         /** Cancel while receiving: stop after the file being copied; what arrived is kept (PLAN §D2). */
         cancelled: () -> Boolean = { false },
+        /** Round 9: the engine's converters (Office files into pages, text files into text messages). */
+        convert: Converters? = null,
+        /** Round 9: an Office file is being made into pages ("word", "powerpoint", "excel", or null when unsure). */
+        making: (String?) -> Unit = {},
     ): JSONObject {
         journal.begin(intakeId, uris.size, System.currentTimeMillis())
         val src = File(File(root, intakeId), "src").apply { mkdirs() }
@@ -91,7 +109,10 @@ class Importer(private val context: Context) {
                 val type = sniff(outcome.head)
                 val final = File(src, finalName(n, type.extension))
                 if (part.renameTo(final)) {
-                    files += Imported(n, final.absolutePath, type, outcome.bytes, outcome.sha256)
+                    val hint = if (type == SniffedType.OFFICE) officeHint(outcome.head) else null
+                    if (convert != null && type == SniffedType.OFFICE) making(hint)
+                    val placed = convert?.let { OfficeIntake.place(final, n, type, it, hint) }
+                    files += placed ?: Imported(n, final.absolutePath, type, outcome.bytes, outcome.sha256)
                     jobBytes += outcome.bytes
                     return@forEachIndexed
                 }
@@ -139,6 +160,13 @@ class Importer(private val context: Context) {
                         put("sniffedType", it.type.name.lowercase())
                         put("bytes", it.bytes)
                         put("sha256", it.sha256)
+                        if (it.office != null) {
+                            put("office", JSONObject().put("kind", it.office).apply {
+                                it.format?.let { f -> put("format", f) }
+                                if (it.missed) put("missed", true)
+                            })
+                        }
+                        if (it.text) put("text", JSONObject().put("size", 12))
                     })
                 }
             })

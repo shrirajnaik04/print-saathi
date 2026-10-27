@@ -1,0 +1,17 @@
+> Task :app:testDebugUnitTest FAILED
+SafeReadersTest > tooMuchTextIsRefused FAILED
+SafeReadersTest > aDoctypeAfterAMisleadingCommentIsRefused FAILED
+SafeReadersTest > aDoctypeAfterALongPrologIsRefused FAILED
+DocxReaderTest > aDifferentFirstPageHeaderIsKept FAILED
+DocxReaderTest > aHugeGridBeforeIsCapped FAILED
+DocxReaderTest > oldHindiFontsAreNotMadeIntoPages FAILED
+DocxReaderTest > symbolFontMarksSetMissed FAILED
+PptxReaderTest > aPlaceholderWithNoPlaceSetsMissed FAILED
+PptxReaderTest > aBrokenNumberIsZeroNotNaN FAILED
+PptxReaderTest > oldHindiFontsAreNotMadeIntoPages FAILED
+PptxReaderTest > mergedTableCellsKeepTheGrid FAILED
+XlsxReaderTest > aFormulaWithNoSavedResultSetsMissed FAILED
+XlsxReaderTest > dates1904 FAILED
+XlsxReaderTest > numbersTooWideForTheirCell FAILED
+XlsxReaderTest > literalsAndConditionsInsideNumberFormats FAILED
+70 tests completed, 15 failed

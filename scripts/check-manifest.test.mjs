@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
-import { checkManifest, isStale, isSyncedAsset, parseXmlTree } from './check-manifest.mjs';
+import { checkManifest, isStale, isSyncedAsset, parseXmlTree, SHARE_TYPES } from './check-manifest.mjs';
 
 // A real `aapt2 dump xmltree` of the release APK's binary manifest (no comments or entities can exist there).
 const good = readFileSync(new URL('./fixtures/apk-manifest-release.txt', import.meta.url), 'utf8').replaceAll(
@@ -38,6 +38,18 @@ test('parser nests elements by indentation and attaches attributes to the right 
 
 test('the real release manifest passes', () => {
   assert.deepEqual(checkManifest(good, 'release'), []);
+});
+
+// Round 9 (owner: "check other formats too"): every kind of file the engine names must reach PrintSaathi from the
+// share sheet, or the shopkeeper never sees it there.
+test('the share sheet accepts every Office, OpenDocument, RTF, CSV and text type (round 9)', () => {
+  for (const t of SHARE_TYPES) {
+    const without = good
+      .split('\n')
+      .filter((l) => !l.includes(`mimeType(0x01010026)="${t}"`))
+      .join('\n');
+    assert.ok(has(checkManifest(without, 'release'), t), t);
+  }
 });
 
 test('INTERNET is rejected in release and allowed in debug', () => {

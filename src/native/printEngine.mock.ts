@@ -72,6 +72,17 @@ function sampleIntake(
       sha256: i === 3 ? 'h1' : `h${i + 1}`,
     })),
   };
+  // Round 9, tests only: `?mockOfficeKind=word|powerpoint|excel|office` names the Office file at mockOfficeAt;
+  // `mockOfficeMade=1`: the engine made it into pages (a PDF item), `mockOfficeMissed=1`: some parts not drawn;
+  // `?mockTextFileAt=<index>`: a shared .txt file, made into a text message.
+  const q = new URLSearchParams(globalThis.location?.search ?? '');
+  whole.files = whole.files.map((f) => {
+    if (Number(q.get('mockTextFileAt')) === f.index) return { ...f, sniffedType: 'pdf', text: { size: 12 } };
+    if (Number(q.get('mockOfficeAt')) !== f.index) return f;
+    const kind = (q.get('mockOfficeKind') ?? 'office') as 'word' | 'powerpoint' | 'excel' | 'office';
+    const office = { kind, format: 'ooxml' as const, ...(q.has('mockOfficeMissed') ? { missed: true as const } : {}) };
+    return q.has('mockOfficeMade') ? { ...f, sniffedType: 'pdf', office } : { ...f, office };
+  });
   // Tests only: `?mockStorageFullAt=<k>`: the phone filled up at file k; the files before it arrived.
   const fullAt = Number(new URLSearchParams(globalThis.location?.search ?? '').get('mockStorageFullAt') ?? 0);
   if (fullAt > 0)
@@ -177,6 +188,10 @@ export class PrintEngineMock extends WebPlugin implements PrintEnginePlugin {
         this.notifyListeners('intakeReady', { intakeId, repeat: false });
       })();
     };
+    // Round 9, tests: an Office file being made into pages (Receiving says which), never finished.
+    const making = globalThis as { __mockMaking?: (kind: string) => void };
+    making.__mockMaking ??= (kind: string) =>
+      this.notifyListeners('intakeProgress', { intakeId: 'mock-making', done: 0, total: 1, making: kind });
     const fresh = this.later.filter((x) => !this.acked.has(x.intakeId));
     if (fresh.length) return { intakes: fresh };
     // Tests only: `?mockText=<text>`: a text message shared from WhatsApp (owner, round 8).
@@ -749,6 +764,20 @@ export class PrintEngineMock extends WebPlugin implements PrintEnginePlugin {
       corners: [0.1, 0.08, 0.9, 0.1, 0.88, 0.92, 0.12, 0.9],
       confidence: 0.9,
     };
+  }
+
+  /**
+   * Round 9, tests only: Print with WPS Office counts its hand-offs (`__officeOpened`); `?mockNoOfficeApp=1`: no app
+   * opens it; `?mockOfficeSlow=<ms>`: the hand-off takes that long.
+   */
+  async openInOffice(_: { jobId: string; index: number }) {
+    const q = new URLSearchParams(globalThis.location?.search ?? '');
+    const slow = Number(q.get('mockOfficeSlow') ?? 0);
+    if (slow > 0) await new Promise((r) => setTimeout(r, slow));
+    if (q.has('mockNoOfficeApp')) return { opened: false, noApp: true };
+    const g = globalThis as { __officeOpened?: number };
+    g.__officeOpened = (g.__officeOpened ?? 0) + 1;
+    return { opened: true };
   }
 
   /** Tests only: `?mockClipboard=<text>` is what was copied; none: nothing is copied. */

@@ -17,6 +17,9 @@ android {
     // Instrumentation tests read the committed synthetic fixtures straight from the repo (no copies).
     sourceSets {
         androidTest.assets.srcDirs += ['../../tests/fixtures']
+        // Round 9: synthetic Word / PowerPoint / Excel files built in code, for JVM and device tests alike.
+        test.java.srcDirs += ['src/sharedTest/java']
+        androidTest.java.srcDirs += ['src/sharedTest/java']
     }
     namespace = "in.printsaathi.app"
     compileSdk = rootProject.ext.compileSdkVersion

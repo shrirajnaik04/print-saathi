@@ -1,0 +1,77 @@
+{
+  "serial": "emulator-5580",
+  "checks": {
+    "docxNamedAndKept": true,
+    "printWithWpsAnswers": true,
+    "docNamedAndKept": true,
+    "odtNamedAndKept": true,
+    "pptxNamedAndKept": true,
+    "xlsxNamedAndKept": true,
+    "txtPrintsAsTextMessage": true
+  },
+  "files": {
+    "docx": {
+      "office": {
+        "kind": "word",
+        "format": "ooxml"
+      },
+      "type": "office",
+      "files": [
+        "0001.office"
+      ]
+    },
+    "doc": {
+      "office": {
+        "kind": "word",
+        "format": "ole"
+      },
+      "type": "office",
+      "files": [
+        "0001.office"
+      ]
+    },
+    "odt": {
+      "office": {
+        "kind": "word",
+        "format": "odf"
+      },
+      "type": "office",
+      "files": [
+        "0001.office"
+      ]
+    },
+    "pptx": {
+      "office": {
+        "kind": "powerpoint",
+        "format": "ooxml"
+      },
+      "type": "office",
+      "files": [
+        "0001.office"
+      ]
+    },
+    "xlsx": {
+      "office": {
+        "kind": "excel",
+        "format": "ooxml"
+      },
+      "type": "office",
+      "files": [
+        "0001.office"
+      ]
+    }
+  },
+  "wpsInstalled": [],
+  "handOff": {
+    "opened": "in.printsaathi.app",
+    "said": true
+  },
+  "txt": {
+    "line": "Text message · 1 page · A4 · Colour · 1 copy",
+    "pages": 1,
+    "files": [
+      "0001.pdf",
+      "0001.txt"
+    ]
+  }
+}

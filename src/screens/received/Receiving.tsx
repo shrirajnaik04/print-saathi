@@ -31,7 +31,15 @@ export function Receiving({ go }: ScreenProps) {
   return (
     <main class="screen">
       <TopBar title={t.title} onBack={() => go({ type: 'back' })} onHome={() => go({ type: 'home' })} />
-      <p role="status">{r ? fill(t.progress, { done: r.done, total: r.total }) : t.almost}</p>
+      <p role="status">
+        {r?.making
+          ? fill(t.making, {
+              kind: en.docs.office[r.making as keyof typeof en.docs.office] ?? en.docs.office.office,
+            })
+          : r
+            ? fill(t.progress, { done: r.done, total: r.total })
+            : t.almost}
+      </p>
       {r && <progress class="progress" max={r.total || 1} value={r.done} aria-label={t.title} />}
       <p class="muted">{t.help}</p>
       <ActionBar>

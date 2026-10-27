@@ -1,0 +1,84 @@
+{
+  "serial": "emulator-5580",
+  "checks": {
+    "docxBecomesPages": true,
+    "printWithWpsAnswers": true,
+    "pptxBecomesPages": true,
+    "pptxOnePagePerSlide": true,
+    "docNamedAndKept": true,
+    "odtNamedAndKept": true,
+    "xlsxNamedAndKept": true,
+    "txtPrintsAsTextMessage": true
+  },
+  "files": {
+    "doc": {
+      "office": {
+        "kind": "word",
+        "format": "ole"
+      },
+      "type": "office",
+      "files": [
+        "0001.office"
+      ]
+    },
+    "odt": {
+      "office": {
+        "kind": "word",
+        "format": "odf"
+      },
+      "type": "office",
+      "files": [
+        "0001.office"
+      ]
+    },
+    "xlsx": {
+      "office": {
+        "kind": "excel",
+        "format": "ooxml"
+      },
+      "type": "office",
+      "files": [
+        "0001.office"
+      ]
+    }
+  },
+  "wpsInstalled": [],
+  "docx": {
+    "line": "Word file · 1 page · A4 · Colour · 1 copy",
+    "pages": 1,
+    "office": {
+      "kind": "word",
+      "format": "ooxml"
+    },
+    "type": "pdf",
+    "files": [
+      "0001.office",
+      "0001.pdf"
+    ]
+  },
+  "handOff": {
+    "opened": "in.printsaathi.app",
+    "said": true
+  },
+  "pptx": {
+    "line": "PowerPoint file · 2 pages · A4 Landscape · Colour · 1 copy",
+    "pages": 2,
+    "office": {
+      "kind": "powerpoint",
+      "format": "ooxml"
+    },
+    "type": "pdf",
+    "files": [
+      "0001.office",
+      "0001.pdf"
+    ]
+  },
+  "txt": {
+    "line": "Text message · 1 page · A4 · Colour · 1 copy",
+    "pages": 1,
+    "files": [
+      "0001.pdf",
+      "0001.txt"
+    ]
+  }
+}

@@ -76,3 +76,13 @@ The owner's requests and their answers to the questions asked, in order. The spe
 | 54 | Scanning documents | "What if someone wants to scan documents? They got hardcopies" (DocScanner screenshots). Question: which camera? Answer: **the phone's own camera** | Home tile Scan pages and Scan with camera on a document's add screen: the phone's camera app (no permission), page edges found, straightened, multi-page |
 | 55 | Corners for scanned pages | Question: corner circles were removed everywhere in round 3; for scanned pages only, may they come back? Answer: **corners for scanned pages only** | Page n screen: corner circles and side bars, each with buttons; everything else keeps side bars only |
 | 56 | Round 8 build | Design approved in chat; "approved go ahead in autonomous loop mode, im going to sleep" + Requirement → plan → implement → real test → evidence → adversarial challenge → fix → re-test → regression check → self-audit → explicit closure | Spec docs/superpowers/specs/2026-10-26-round-8-photo-gap-text-scan-design.md; built to closure; APK, report, public commit |
+
+## Round 9 (after testing 1.0.286, 2026-10-27)
+
+| # | Topic | The owner's words or choice | Built as |
+|---|---|---|---|
+| 57 | Office files | "When doc file is shared through WhatsApp … we get this error, also what about .pptx … priority must be pdf, word, pptx, and low priority: excel." Question: how? Answer: **both, in stages** (open in an office app, and PrintSaathi making the pages) | Spec 2026-10-27 round 9, Phases 44–47 |
+| 58 | Office app on the shop phone | Answer: **WPS Office** | Print with WPS Office (44) |
+| 59 | How close the pages must be | Answer: **close is fine, the preview must be honest** (accepting the file goes to WPS through the button) | Ready's note; WPS as the fallback (45–47) |
+| 60 | Examples | "What will be the output? Please give a real example." | Worked examples in chat (the owner's own .docx, a 12-slide .pptx, a price-list .xlsx) |
+| 61 | Round 9 design | "approved" | Spec written; plan and stages follow |

@@ -1,4 +1,4 @@
-import type { Intake, SniffedType, TextSize } from '../../native/printEngine';
+import type { Intake, OfficeInfo, SniffedType, TextSize } from '../../native/printEngine';
 import { problemMessages } from '../intake/messages';
 import { type CropBox, isFull, validBox } from '../layout/crop';
 import type { Spot } from '../layout/free';
@@ -26,7 +26,22 @@ export type JobItem = {
   copyOf?: number;
   /** Owner, round 8: this PDF is a customer's text message printed by the engine, at this text size (pt). */
   text?: { size: TextSize };
+  /** Round 9: an Office file, or the pages the engine made of one: its kind (Print with WPS Office opens the original). */
+  office?: OfficeInfo;
 };
+
+const OFFICE_KINDS = ['word', 'powerpoint', 'excel', 'office'];
+const OFFICE_FORMATS = ['ooxml', 'ole', 'odf', 'rtf'];
+/** A stored Office note as this version reads it: a kind never named reads as an Office file; not an object, none. */
+function officeOf(o: unknown): OfficeInfo | undefined {
+  if (!o || typeof o !== 'object') return undefined;
+  const { kind, format, missed } = o as Record<string, unknown>;
+  return {
+    kind: OFFICE_KINDS.includes(kind as string) ? (kind as OfficeInfo['kind']) : 'office',
+    ...(OFFICE_FORMATS.includes(format as string) ? { format: format as OfficeInfo['format'] } : {}),
+    ...(missed === true ? { missed: true as const } : {}),
+  };
+}
 
 /** Owner, round 8: the text sizes offered (Small, Normal, Large, Extra large). */
 export const TEXT_SIZES: readonly TextSize[] = [10, 12, 14, 18];
@@ -479,6 +494,7 @@ export function jobFromIntake(
     bytes: f.bytes,
     sha256: f.sha256,
     ...(f.text ? { text: { size: f.text.size } } : {}),
+    ...(f.office ? { office: officeOf(f.office) } : {}),
   }));
   return {
     id,
@@ -548,7 +564,9 @@ export function normalizeJob(o: unknown): Job | null {
   // A copy's note: a photo number (its original may have been removed since).
   const items = kept.map((i) => {
     // A text size the app never offers is dropped (the item prints as the PDF it is).
-    const t = i.text === undefined || TEXT_SIZES.includes(i.text?.size) ? i : (({ text: _, ...rest }) => rest)(i);
+    const read = (({ office, ...rest }) => (officeOf(office) ? { ...rest, office: officeOf(office) } : rest))(i);
+    const t =
+      read.text === undefined || TEXT_SIZES.includes(read.text?.size) ? read : (({ text: _, ...rest }) => rest)(read);
     if (t.copyOf === undefined || (Number.isInteger(t.copyOf) && t.copyOf > 0 && t.copyOf !== t.index)) return t;
     const { copyOf: _, ...rest } = t;
     return rest;

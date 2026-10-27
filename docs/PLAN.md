@@ -932,7 +932,7 @@ Variants:
 
 ## N. What should NOT be built yet
 
-- Office rendering in V1.
+- ~~Office rendering in V1.~~ **Built in round 9 (Phases 44–47, owner rows 57–61):** Word, PowerPoint and Excel files are named by kind and offer Print with WPS Office; .docx, .pptx and .xlsx are made into pages inside the isolated engine with an honest "check the preview" note; .txt files print as text messages. See `docs/qa/phase-44-47-rulings.md`.
 - Any server, cloud, database, accounts, login, RBAC or sync.
 - Analytics, crash SaaS or remote config.
 - Direct printer protocols.

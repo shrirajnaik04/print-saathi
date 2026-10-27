@@ -17,6 +17,8 @@ android {
         targetCompatibility JavaVersion.VERSION_21
     }
     kotlinOptions { jvmTarget = '21' }
+    // Round 9: the Office file builders shared with the app's JVM and device tests (synthetic files only).
+    sourceSets { main.java.srcDirs += ['../app/src/sharedTest/java'] }
 }
 
 // Test tool only: there is no release variant to build or ship by mistake (Gate 2 minor 14).

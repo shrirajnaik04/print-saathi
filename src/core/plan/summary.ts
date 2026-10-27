@@ -26,13 +26,24 @@ export function documentLine(
   pdfItems: ReadonlySet<number>,
   textItems: ReadonlySet<number> = new Set(),
   scanned = false,
+  /** Round 9: PDFs the engine made of Office files, by item, with their kind: "Word file", "2 Excel files". */
+  officeKinds: ReadonlyMap<number, string> = new Map(),
 ): string {
   const t = en.ready;
   const items = new Set(plan.pages.flatMap((p) => p.placements.map((x) => x.itemIndex)));
   const texts = [...items].filter((i) => textItems.has(i)).length;
-  const pdfs = [...items].filter((i) => pdfItems.has(i) && !textItems.has(i)).length;
-  const photos = items.size - pdfs - texts;
+  const kinds = [...items].flatMap((i) =>
+    officeKinds.has(i) && !textItems.has(i) ? [officeKinds.get(i) as string] : [],
+  );
+  const office = [...new Set(kinds)].map((k) => {
+    const name = en.docs.office[k as keyof typeof en.docs.office] ?? en.docs.office.office;
+    const n = kinds.filter((x) => x === k).length;
+    return n === 1 ? name : `${n} ${name}s`;
+  });
+  const pdfs = [...items].filter((i) => pdfItems.has(i) && !textItems.has(i) && !officeKinds.has(i)).length;
+  const photos = items.size - pdfs - texts - kinds.length;
   return [
+    ...office,
     ...(scanned ? [en.docs.scanned] : photos > 0 ? [count(photos, t.photo, t.photos)] : []),
     ...(texts > 0 ? [texts === 1 ? en.docs.text : en.docs.texts.replace('{n}', String(texts))] : []),
     ...(pdfs > 0 ? [pdfs === 1 ? en.docs.pdf : en.docs.pdfs.replace('{n}', String(pdfs))] : []),

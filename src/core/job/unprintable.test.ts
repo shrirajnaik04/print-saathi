@@ -15,7 +15,7 @@ describe('files that cannot be printed are named, with what to do (PLAN §K1, §
         item(6, 'jpeg'),
       ]),
     ).toEqual([
-      "2 Office files (Word, Excel or PowerPoint) can't be printed yet. Ask the customer to send them as a PDF.",
+      // Round 9: Office files are not in this list; their own card offers Print with WPS Office.
       "1 video can't be printed.",
       "1 file can't be printed. Ask the customer to send it as a PDF or a photo.",
     ]);
@@ -24,7 +24,7 @@ describe('files that cannot be printed are named, with what to do (PLAN §K1, §
     expect(unprintableNotes([item(1, 'pdf'), item(2, 'png')])).toEqual([]);
   });
   it('the short note under a file on Received', () => {
-    expect(unprintableText('office')).toBe("Office file: can't be printed yet. Ask for a PDF.");
+    expect(unprintableText('office')).toBe('Office file'); // round 9: named by kind; the card says what to do
     expect(unprintableText('video')).toBe("A video: can't be printed.");
   });
 });

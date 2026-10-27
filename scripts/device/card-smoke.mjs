@@ -20,7 +20,12 @@ const xml = () => {
   } catch {
     // busy: the last dump
   }
-  return sh('cat', '/sdcard/ps-card.xml');
+  // Round 9: right after the app starts the first dump can find no window (and no older dump exists): not yet.
+  try {
+    return sh('cat', '/sdcard/ps-card.xml');
+  } catch {
+    return '';
+  }
 };
 const labels = () => [...xml().matchAll(/(?:text|content-desc)="([^"]+)"/g)].map((m) => m[1].replace(/&amp;/g, '&'));
 const has = (t) => labels().some((l) => l.startsWith(t));

@@ -182,6 +182,16 @@ open class EngineService : Service() {
         override fun detectPage(src: ParcelFileDescriptor, maxLongSidePx: Int): IntArray =
             engineCall { src.use { Cards.detectPage(it, maxLongSidePx) } }
 
+        override fun officeToPdf(src: ParcelFileDescriptor, dst: ParcelFileDescriptor, maxPages: Int): IntArray =
+            limitedCall(PDF_LIMIT_MS) {
+                src.use { s -> dst.use { d -> `in`.printsaathi.app.engine.office.OfficePdf.write(s, d, maxPages.coerceIn(1, 500)) } }
+            }
+
+        override fun textFileToPdf(src: ParcelFileDescriptor, txt: ParcelFileDescriptor, dst: ParcelFileDescriptor, sizeTenthsPt: Int): IntArray =
+            limitedCall(PDF_LIMIT_MS) {
+                src.use { s -> txt.use { t -> dst.use { d -> `in`.printsaathi.app.engine.office.OfficePdf.textFile(s, t, d, sizeTenthsPt) } } }
+            }
+
         override fun renderPageWarped(
             pdf: ParcelFileDescriptor,
             password: String,

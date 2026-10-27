@@ -92,4 +92,13 @@ interface IEngine {
      * detectCards' reply with n = 0 (none seen) or 1 (its corners, top left first, clockwise; face always 0).
      */
     int[] detectPage(in ParcelFileDescriptor src, int maxLongSidePx);
+
+    /**
+     * Round 9: a customer's Word / PowerPoint / Excel file ([src]) as pages in [dst] (at most [maxPages]):
+     * {kind, format, pages, missed} or {kind, format, -code} (7 not made into pages, 8 refused, 9 too many pages).
+     */
+    int[] officeToPdf(in ParcelFileDescriptor src, in ParcelFileDescriptor dst, int maxPages);
+
+    /** Round 9: a customer's .txt file ([src]) as a text message: its text as UTF-8 in [txt], its pages in [dst]. */
+    int[] textFileToPdf(in ParcelFileDescriptor src, in ParcelFileDescriptor txt, in ParcelFileDescriptor dst, int sizeTenthsPt);
 }

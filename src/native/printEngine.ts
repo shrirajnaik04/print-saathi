@@ -36,7 +36,13 @@ export interface IntakeFile {
   sha256: string;
   /** Owner, round 8: this PDF is a customer's text message the engine printed, at this text size (pt). */
   text?: { size: TextSize };
+  /** Round 9: an Office file (type 'office'), or the pages the engine made of one (type 'pdf'). */
+  office?: OfficeInfo;
 }
+
+/** Round 9: which kind of Office file, how it is stored, and whether some parts (charts…) were not drawn. */
+export type OfficeKind = 'word' | 'powerpoint' | 'excel' | 'office';
+export type OfficeInfo = { kind: OfficeKind; format?: 'ooxml' | 'ole' | 'odf' | 'rtf'; missed?: true };
 
 /** Owner, round 8: the text sizes a text message prints at (points). */
 export type TextSize = 10 | 12 | 14 | 18;
@@ -347,6 +353,11 @@ export interface PrintEnginePlugin {
    * the camera is open is answered {taken: 0} at once (review I4).
    */
   scanPhoto(o: { into?: string; retake?: number }): Promise<{ taken: 0 | 1; noCamera?: boolean; empty?: boolean }>;
+  /**
+   * Round 9: Print with WPS Office: job [jobId]'s original Office file [index] opened in WPS Office (or any app that
+   * opens it), read-only. noApp: nothing on this phone opens it; busy: a hand-off is already under way.
+   */
+  openInOffice(o: { jobId: string; index: number }): Promise<{ opened: boolean; noApp?: boolean; busy?: boolean }>;
   /** Owner, round 8: the paper page in photo [index]: its corners (8 fractions of the upright photo, TL first). */
   findPage(o: {
     jobId: string;
@@ -368,7 +379,8 @@ export interface PrintEnginePlugin {
   /** A share being copied: files done of files shared ("Receiving files… 12 of 60"). */
   addListener(
     event: 'intakeProgress',
-    cb: (e: { intakeId: string; done: number; total: number }) => void,
+    /** [making]: round 9, an Office file being made into pages ("word", "powerpoint", "excel", "office"). */
+    cb: (e: { intakeId: string; done: number; total: number; making?: string }) => void,
   ): Promise<PluginListenerHandle>;
   /** One more photo of the job is ready (Received says "12 of 60"). */
   addListener(

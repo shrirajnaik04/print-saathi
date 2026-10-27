@@ -104,6 +104,7 @@ class PrintEnginePlugin : Plugin() {
     /** Coming back to the app is also when old customer files are deleted (PLAN §E). */
     override fun handleOnResume() {
         super.handleOnResume()
+        officeGate.close() // back from the office app: the next Print with WPS may open
         sweepOldJobs()
     }
 
@@ -1621,13 +1622,32 @@ class PrintEnginePlugin : Plugin() {
                 notifyListeners("intakeFailed", JSObject().put("intakeId", intakeId).put("error", it), true)
             }) {
                 notifyListeners("intakeProgress", JSObject().put("intakeId", intakeId).put("done", 0).put("total", uris.size))
-                val result = importer.import(
-                    uris, ::isOwnAuthority, intakeId, pick = pick,
-                    onProgress = { done, total ->
-                        notifyListeners("intakeProgress", JSObject().put("intakeId", intakeId).put("done", done).put("total", total))
-                    },
-                    cancelled = { intakeId in intakesCancelled },
-                )
+                // Round 9: Office files are made into pages, and text files into text messages, while received.
+                val client = EngineClient(context)
+                var done = 0
+                val result = try {
+                    importer.import(
+                        uris, ::isOwnAuthority, intakeId, pick = pick,
+                        onProgress = { d, total ->
+                            done = d
+                            notifyListeners("intakeProgress", JSObject().put("intakeId", intakeId).put("done", d).put("total", total))
+                        },
+                        cancelled = { intakeId in intakesCancelled },
+                        convert = `in`.printsaathi.app.engine.intake.Converters(
+                            office = { s, p -> EngineClient.turn { client.officeToPdf(s, p) } },
+                            text = { s, t, p -> EngineClient.turn { client.textFileToPdf(s, t, p) } },
+                        ),
+                        making = { kind ->
+                            notifyListeners(
+                                "intakeProgress",
+                                JSObject().put("intakeId", intakeId).put("done", done).put("total", uris.size)
+                                    .put("making", kind ?: "office"),
+                            )
+                        },
+                    )
+                } finally {
+                    client.reset()
+                }
                 // Nothing arrived (stalled, permission ended, empty): "share it again" must work at once, not be
                 // taken for a repeat of this failed share (gate review #3).
                 if (result.optJSONArray("files")?.length() == 0) dedupe.release(intakeId)
@@ -1635,6 +1655,68 @@ class PrintEnginePlugin : Plugin() {
             }
             Background.intakesInProgress -= intakeId
             intakesCancelled.remove(intakeId) // also after a failed import (review M6)
+        }
+    }
+
+    private val officeGate = `in`.printsaathi.app.engine.intake.CameraGate()
+
+    /**
+     * Round 9: Print with WPS Office. Opens job [jobId]'s original Office file [index] (NNNN.office) in WPS Office, or
+     * any app that opens it, read-only through the app's own provider. {opened: true}, {opened: false, noApp: true}
+     * (nothing on this phone opens it), or {opened: false, busy: true} (a hand-off is already under way).
+     */
+    @PluginMethod
+    fun openInOffice(call: PluginCall) {
+        val jobId = call.getString("jobId") ?: return call.reject("no job")
+        val index = call.getInt("index") ?: return call.reject("no item")
+        if (!officeGate.open(System.currentTimeMillis())) return call.resolve(JSObject().put("opened", false).put("busy", true))
+        io.execute {
+            guarded({
+                officeGate.close()
+                call.reject("office", it)
+            }) {
+                val job = jobs.load(jobId) ?: run {
+                    officeGate.close()
+                    return@guarded call.reject("no such job")
+                }
+                val items = job.getJSONArray("items")
+                val item = (0 until items.length()).map { items.getJSONObject(it) }.firstOrNull { it.getInt("index") == index }
+                val office = item?.optJSONObject("office")
+                val (type, ext) = officeMime(office?.optString("kind"), office?.optString("format"))
+                val token = `in`.printsaathi.app.engine.intake.OfficeShareProvider.shares(context).grant(jobId, index)
+                val uri = `in`.printsaathi.app.engine.intake.OfficeShareProvider.uri(context, token, type, ext)
+                activity.runOnUiThread {
+                    val view = Intent(Intent.ACTION_VIEW).setDataAndType(uri, type).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    val pm = context.packageManager
+                    val wps = WPS_PACKAGES.firstOrNull { p -> runCatching { pm.getPackageInfo(p, 0) }.isSuccess }
+                    val intent = if (wps != null && Intent(view).setPackage(wps).resolveActivity(pm) != null) Intent(view).setPackage(wps) else view
+                    try {
+                        if (intent.resolveActivity(pm) == null) throw android.content.ActivityNotFoundException()
+                        activity.startActivity(intent)
+                        call.resolve(JSObject().put("opened", true))
+                    } catch (e: android.content.ActivityNotFoundException) {
+                        officeGate.close()
+                        call.resolve(JSObject().put("opened", false).put("noApp", true))
+                    }
+                }
+            }
+        }
+    }
+
+    /** The MIME type and extension an office app is told, from the kind and format the engine found. */
+    private fun officeMime(kind: String?, format: String?): Pair<String, String> = when (kind to format) {
+        "word" to "ole" -> "application/msword" to ".doc"
+        "word" to "odf" -> "application/vnd.oasis.opendocument.text" to ".odt"
+        "word" to "rtf" -> "application/rtf" to ".rtf"
+        "powerpoint" to "ole" -> "application/vnd.ms-powerpoint" to ".ppt"
+        "powerpoint" to "odf" -> "application/vnd.oasis.opendocument.presentation" to ".odp"
+        "excel" to "ole" -> "application/vnd.ms-excel" to ".xls"
+        "excel" to "odf" -> "application/vnd.oasis.opendocument.spreadsheet" to ".ods"
+        else -> when (kind) {
+            "word" -> "application/vnd.openxmlformats-officedocument.wordprocessingml.document" to ".docx"
+            "powerpoint" -> "application/vnd.openxmlformats-officedocument.presentationml.presentation" to ".pptx"
+            "excel" -> "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" to ".xlsx"
+            else -> "application/msword" to ".doc"
         }
     }
 
@@ -1704,6 +1786,9 @@ class PrintEnginePlugin : Plugin() {
             "bw" to Styles.BW, "sharp" to Styles.SHARP, "ocv" to Styles.OCV, "clean" to Styles.CLEAN,
         )
         private val THUMB_TYPES = setOf("jpeg", "png", "webp", "gif", "bmp")
+
+        /** Round 9: WPS Office's editions, tried in this order before any other app that opens the file. */
+        private val WPS_PACKAGES = listOf("cn.wps.moffice_eng", "cn.wps.moffice_eng.xiaomi.lite", "com.kingsoft.moffice_pro")
 
         /** The app's one background thread (shared with the daily retention job, so they never race). */
         private val io = Background.io

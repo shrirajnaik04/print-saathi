@@ -1,3 +1,4 @@
+import { en } from '../../i18n/en';
 import type { JobItem } from './job';
 
 /** What PrintSaathi can print: PDFs and photos (PLAN §K1). iPhone photos (HEIC) wait for ADR-003. */
@@ -11,15 +12,11 @@ const n = (k: number, one: string, many: string) => `${k} ${k === 1 ? one : many
  */
 export function unprintableNotes(items: readonly JobItem[]): string[] {
   const count = (type: string) => items.filter((i) => i.type === type).length;
-  const office = count('office');
+  // Round 9: Office files have their own card (Print with WPS Office), never "can't be printed".
   const video = count('video');
   const heif = count('heif');
   const other = items.filter((i) => !PRINTABLE.has(i.type) && !['office', 'video', 'heif'].includes(i.type)).length;
   const out: string[] = [];
-  if (office)
-    out.push(
-      `${n(office, 'Office file', 'Office files')} (Word, Excel or PowerPoint) can't be printed yet. Ask the customer to send ${office === 1 ? 'it' : 'them'} as a PDF.`,
-    );
   if (video) out.push(`${n(video, 'video', 'videos')} can't be printed.`);
   if (heif)
     out.push(
@@ -32,9 +29,10 @@ export function unprintableNotes(items: readonly JobItem[]): string[] {
   return out;
 }
 
-/** The short note under one such file on Received. */
-export function unprintableText(type: string): string {
-  if (type === 'office') return "Office file: can't be printed yet. Ask for a PDF.";
+/** The short note under one such file on Received; an Office file is named by its kind (round 9). */
+export function unprintableText(type: string, kind?: string): string {
+  if (type === 'office')
+    return en.docs.office[(kind ?? 'office') as keyof typeof en.docs.office] ?? en.docs.office.office;
   if (type === 'video') return "A video: can't be printed.";
   return "This file can't be printed. Ask for a PDF or a photo.";
 }

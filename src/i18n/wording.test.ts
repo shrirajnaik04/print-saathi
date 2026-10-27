@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { en } from './en';
+import { officeWords } from './office';
 import { scanWords } from './scan';
 
 // PLAN §H2.12: plain English for a reading age of 8–9 — short sentences and everyday words. Measured, not assumed.
@@ -23,7 +24,7 @@ const syllables = (w: string) => {
 const ALLOWED = new Set(['printsaathi', 'whatsapp']);
 
 describe('plain wording (PLAN §H2.12)', () => {
-  const all = strings({ en, scanWords });
+  const all = strings({ en, scanWords, officeWords });
   it('no sentence is longer than 20 words', () => {
     const long = all.flatMap(sentences).filter((s) => words(s).length > 20);
     expect(long).toEqual([]);

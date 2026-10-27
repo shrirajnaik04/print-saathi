@@ -23,7 +23,8 @@ import java.io.File
  * pushed-many (extra "names": several such files, comma-separated; extra "type", default image/jpeg);
  * hostile streams (HostileProvider): lying-length, unknown-length, stall, midstream-error, zero-bytes, endless.
  * Owner, round 8: text (a WhatsApp text message: EXTRA_TEXT, English and Devanagari with WhatsApp's marks, 80 lines;
- * extra "text" sends that instead; text-blank: a message with nothing in it); camera-ok / camera-cancel / camera-hold (FakeCameraActivity takes a photo, closes
+ * extra "text" sends that instead; text-blank: a message with nothing in it);
+ * Round 9: docx, pptx, xlsx, doc, odt, txt (OfficeSamples: synthetic Office and text files, shared as files). camera-ok / camera-cancel / camera-hold (FakeCameraActivity takes a photo, closes
  * without one, or takes it and stays open until Back; nothing is shared).
  * Optional extra "tag" changes file contents so a later re-share can carry different URIs.
  */
@@ -71,6 +72,13 @@ class SendActivity : Activity() {
             "eaadhaar" -> listOf(share(eaadhaar(out, tag))) to "application/pdf"
             "sideways-doc" -> listOf(share(sidewaysDoc(out, tag))) to "image/jpeg"
             "office" -> listOf(share(docx(out, tag))) to "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            // Round 9: real Office files (OfficeSamples), each with the type WhatsApp gives it.
+            "docx" -> listOf(share(OfficeSamples.docx(out, tag))) to "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            "pptx" -> listOf(share(OfficeSamples.pptx(out, tag))) to "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+            "xlsx" -> listOf(share(OfficeSamples.xlsx(out, tag))) to "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            "doc" -> listOf(share(OfficeSamples.doc(out, tag))) to "application/msword"
+            "odt" -> listOf(share(OfficeSamples.odt(out, tag))) to "application/vnd.oasis.opendocument.text"
+            "txt" -> listOf(share(OfficeSamples.txt(out, tag))) to "text/plain"
             "own-authority" -> listOf(Uri.parse("content://in.printsaathi.app.fileprovider/private/jobs/x")) to "image/jpeg"
             // "userId@" prefix: ContentResolver strips it, so a naive equality check would let this through.
             "own-authority-user" -> listOf(Uri.parse("content://0@in.printsaathi.app.androidx-startup/x")) to "image/jpeg"

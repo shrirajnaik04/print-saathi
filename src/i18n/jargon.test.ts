@@ -2,6 +2,7 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { en } from './en';
+import { officeWords } from './office';
 import { scanWords } from './scan';
 
 // PLAN §H2.12: words the shopkeeper would not use at the counter. The build fails if any user-facing string uses one.
@@ -16,7 +17,7 @@ const strings = (o: unknown): string[] =>
 
 describe('string catalogue', () => {
   it('has no jargon in any user-facing string', () => {
-    const offenders = strings({ en, scanWords }).filter(jargon);
+    const offenders = strings({ en, scanWords, officeWords }).filter(jargon);
     expect(offenders).toEqual([]);
   });
 
@@ -25,7 +26,7 @@ describe('string catalogue', () => {
   });
 
   it('has no empty strings', () => {
-    expect(strings({ en, scanWords }).filter((s) => s.trim() === '')).toEqual([]);
+    expect(strings({ en, scanWords, officeWords }).filter((s) => s.trim() === '')).toEqual([]);
   });
 });
 

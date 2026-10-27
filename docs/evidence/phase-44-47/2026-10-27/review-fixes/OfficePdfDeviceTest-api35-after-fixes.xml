@@ -1,0 +1,27 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<testsuite name="in.printsaathi.app.engine.OfficePdfDeviceTest" tests="19" failures="0" errors="0" skipped="0" time="49.659" timestamp="2026-10-27T18:35:52" hostname="localhost">
+  <properties>
+    <property name="device" value="Medium_Tablet(AVD) - 15" />
+    <property name="flavor" value="" />
+    <property name="project" value=":app" />
+  </properties>
+  <testcase name="aHeadingIsTallerThanBodyText" classname="in.printsaathi.app.engine.OfficePdfDeviceTest" time="3.175" />
+  <testcase name="gridLinesAreDrawn" classname="in.printsaathi.app.engine.OfficePdfDeviceTest" time="0.516" />
+  <testcase name="aLandscapeSectionGivesALandscapePage" classname="in.printsaathi.app.engine.OfficePdfDeviceTest" time="0.437" />
+  <testcase name="aSheetOf200RowsFillsSeveralPagesWithTheHeaderRepeated" classname="in.printsaathi.app.engine.OfficePdfDeviceTest" time="1.101" />
+  <testcase name="devanagariHasInk" classname="in.printsaathi.app.engine.OfficePdfDeviceTest" time="2.594" />
+  <testcase name="theBackgroundColourFillsTheSlide" classname="in.printsaathi.app.engine.OfficePdfDeviceTest" time="1.497" />
+  <testcase name="tableBordersAreWhereTheGridPutsThem" classname="in.printsaathi.app.engine.OfficePdfDeviceTest" time="0.617" />
+  <testcase name="anEmptyDocumentGivesOneBlankPageNotAFailure" classname="in.printsaathi.app.engine.OfficePdfDeviceTest" time="2.393" />
+  <testcase name="aDocWithEveryUnsupportedPartStillPrintsItsText" classname="in.printsaathi.app.engine.OfficePdfDeviceTest" time="2.443" />
+  <testcase name="oneLandscapePagePerSlide" classname="in.printsaathi.app.engine.OfficePdfDeviceTest" time="6.178" />
+  <testcase name="aTextBoxIsDrawnAtItsPlace" classname="in.printsaathi.app.engine.OfficePdfDeviceTest" time="1.563" />
+  <testcase name="aSlideWithBrokenNumbersStillPrintsAsPowerPoint" classname="in.printsaathi.app.engine.OfficePdfDeviceTest" time="0.469" />
+  <testcase name="aHostileDocxIsRefusedNotCrashed" classname="in.printsaathi.app.engine.OfficePdfDeviceTest" time="0.771" />
+  <testcase name="aWordFileWithTwentyPhonePhotosIsMadeInTime" classname="in.printsaathi.app.engine.OfficePdfDeviceTest" time="12.424" />
+  <testcase name="aOnePageLetterIsOneA4Page" classname="in.printsaathi.app.engine.OfficePdfDeviceTest" time="2.569" />
+  <testcase name="aNumberTooWideForItsCellShowsHashesAndSaysSo" classname="in.printsaathi.app.engine.OfficePdfDeviceTest" time="0.62" />
+  <testcase name="aPictureIsDrawnAtItsPlace" classname="in.printsaathi.app.engine.OfficePdfDeviceTest" time="1.434" />
+  <testcase name="aLongDocumentFlowsOverPagesAndStopsAt500" classname="in.printsaathi.app.engine.OfficePdfDeviceTest" time="3.922" />
+  <testcase name="aPictureLandsAtItsParagraph" classname="in.printsaathi.app.engine.OfficePdfDeviceTest" time="3.789" />
+</testsuite>

@@ -213,6 +213,35 @@ class EngineClient(context: Context, private val service: Class<out EngineServic
         r[0]
     }
 
+    /** Round 9: what the engine made of an Office file; [pages] 0 when it was not made into pages. */
+    data class OfficeResult(val kind: Int, val format: Int, val pages: Int, val missed: Boolean)
+
+    /** Round 9: a customer's Office file [src] as pages in [pdf]; the kind and format are known even when not made. */
+    fun officeToPdf(src: File, pdf: File, maxPages: Int = 500): Result<OfficeResult> = call { e ->
+        ParcelFileDescriptor.open(src, ParcelFileDescriptor.MODE_READ_ONLY).use { s ->
+            ParcelFileDescriptor.open(pdf, ParcelFileDescriptor.MODE_WRITE_ONLY or ParcelFileDescriptor.MODE_CREATE or ParcelFileDescriptor.MODE_TRUNCATE).use { d ->
+                e.officeToPdf(s, d, maxPages)
+            }
+        }
+    }.mapCatching { r ->
+        when {
+            r.size == 4 && r[2] > 0 -> OfficeResult(r[0], r[1], r[2], r[3] != 0)
+            r.size == 3 && r[2] < 0 -> OfficeResult(r[0], r[1], 0, false)
+            else -> throw EngineFileException(if (r.size == 1 && r[0] < 0) -r[0] else EngineErrors.FILE_UNREADABLE)
+        }
+    }
+
+    /** Round 9: a customer's .txt file [src] as a text message: its text in [txt] (UTF-8), its pages in [pdf]. */
+    fun textFileToPdf(src: File, txt: File, pdf: File, sizeTenthsPt: Int = 120): Result<Int> = call { e ->
+        val w = ParcelFileDescriptor.MODE_WRITE_ONLY or ParcelFileDescriptor.MODE_CREATE or ParcelFileDescriptor.MODE_TRUNCATE
+        ParcelFileDescriptor.open(src, ParcelFileDescriptor.MODE_READ_ONLY).use { s ->
+            ParcelFileDescriptor.open(txt, w).use { t -> ParcelFileDescriptor.open(pdf, w).use { d -> e.textFileToPdf(s, t, d, sizeTenthsPt) } }
+        }
+    }.mapCatching { r ->
+        if (r.size != 1 || r[0] <= 0) throw EngineFileException(if (r.size == 1 && r[0] < 0) -r[0] else EngineErrors.FILE_UNREADABLE)
+        r[0]
+    }
+
     /** Phase 15: faces in a photo; -code on failure. */
     fun faceCount(src: File, maxLongSidePx: Int): Result<Int> = call { e ->
         ParcelFileDescriptor.open(src, ParcelFileDescriptor.MODE_READ_ONLY).use { e.faceCount(it, maxLongSidePx) }

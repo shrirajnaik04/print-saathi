@@ -1,0 +1,20 @@
+round9 exit 0
+round8 exit 0
+round7 exit 0
+round6 exit 0
+round5 exit 0
+round4 exit 0
+round3 exit 0
+place exit 0
+adjust exit 0
+card exit 1
+rotate exit 1
+privacy exit 0
+card rerun exit 1
+rotate rerun exit 1
+card rerun after reinstall exit 1
+rotate rerun after reinstall exit 1
+card rerun with debug installed exit 1
+rotate rerun with debug installed exit 1
+card (dump read made tolerant) exit 0
+rotate (dump read made tolerant) exit 0

@@ -441,6 +441,21 @@ AD1 replaces AC1's "Undo and Redo are the 3rd and 4th tools" for photos.
 | AE9 | Scan pages, then press Back in the camera without taking a photo | Nothing changes | ☐ ☐ |
 | AE10 | A PDF job → Change → Page order → **Add files** → **Scan with camera** | The photographed page joins that job | ☐ ☐ |
 
+## §AF Word, PowerPoint and Excel files (Phases 44–47) — 20 min
+
+Install WPS Office from the Play Store on the shop phone first (AF2 needs it). Use your own files or ones customers allowed you to use.
+
+| # | What to do | What to check | Result |
+|---|---|---|---|
+| AF1 | Share a customer's Word file (.docx) from WhatsApp to PrintSaathi | "Getting the Word file ready…", then Ready shows **Word file · N pages** and "Made from a Word file. Check the preview…". Compare the preview with the file opened in WPS or Word: text, tables, pictures, page breaks, the letterhead on page 1 | ☐ ☐ |
+| AF2 | On that Ready screen tap **Print with WPS Office** | WPS opens the same file (named "Customer file.docx"); print it from WPS; back in PrintSaathi nothing changed. Tap it twice quickly: WPS opens once | ☐ ☐ |
+| AF3 | Share an old Word file (.doc) or a file typed in Kruti Dev / DevLys | The card says **This Word file prints from WPS Office.** with the button (PrintSaathi does not make pages of these) | ☐ ☐ |
+| AF4 | Share a PowerPoint file (.pptx) | **PowerPoint file · N pages**: one page per slide, the slide turned on the paper; titles, bullets, pictures and colours where they are on the slide. If it had charts: "Some parts (charts, diagrams) print only from WPS Office." | ☐ ☐ |
+| AF5 | Share an Excel file (.xlsx) with a fees or marks list | **Excel file · N pages**: the table with light grid lines, the first row at the top of every page, numbers as Excel shows them (₹, lakh commas, dates). A number too long for its column shows #### and the "check the preview" note | ☐ ☐ |
+| AF6 | Share a .txt file | Ready shows **Text message · N pages** | ☐ ☐ |
+| AF7 | Share a Word file with many phone photos (10 or more) | How long "Getting the Word file ready…" takes on the shop phone (write it down); it ends as pages or as the WPS card, never an error | ☐ ☐ |
+| AF8 | Share a PDF and some photos as before | Nothing changed for PDFs and photos | ☐ ☐ |
+
 ## Decisions only you can make
 
 | Topic | Choice | My recommendation |

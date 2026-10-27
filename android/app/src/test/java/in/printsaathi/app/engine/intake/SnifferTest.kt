@@ -56,4 +56,11 @@ class SnifferTest {
         assertEquals(SniffedType.OTHER, sniff(b(0x49, 0x49, 0x2A, 0x00) + ByteArray(8)))
         assertEquals(SniffedType.OTHER, sniff(b(0x4D, 0x4D, 0x00, 0x2A) + ByteArray(8)))
     }
+
+    // Round 9 review C1: an RTF file is a Word file (Print with WPS Office), never a text message of RTF code.
+    @Test fun rtfIsAWordFileNotText() {
+        val rtf = ascii("{\\rtf1\\ansi\\deff0{\\fonttbl{\\f0 Times;}}Hello}")
+        assertEquals(SniffedType.OFFICE, sniff(rtf))
+        assertEquals("word", officeHint(rtf))
+    }
 }
