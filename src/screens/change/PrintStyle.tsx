@@ -1,6 +1,6 @@
 import { Capacitor } from '@capacitor/core';
 import { useEffect, useMemo, useState } from 'preact/hooks';
-import { BW_STYLES, COLOUR_STYLES, type StyleId, styleOf } from '../../core/job/job';
+import { BW_STYLES, COLOUR_STYLES, hasPageColours, mixedStyles, type StyleId, styleOf } from '../../core/job/job';
 import { en } from '../../i18n/en';
 import { passwords } from '../../native/passwords';
 import { PrintEngine } from '../../native/printEngine';
@@ -63,6 +63,13 @@ export function PrintStyle({ go, params }: ScreenProps) {
   }, [first?.item, first?.page, first?.turns, first?.crop.x, first?.crop.y, first?.crop.w, first?.crop.h]);
   if (gone) return <JobGone go={go} title={s.title} />;
   const current = job ? styleOf(job) : null;
+  // A job whose pages have colours of their own has two styles: one for the colour pages, one for the grey ones.
+  const chosen = (id: StyleId) => {
+    if (!job) return false;
+    if (!hasPageColours(job)) return current === id;
+    const both = mixedStyles(job);
+    return id === both.colour || id === both.bw;
+  };
   const choose = async (style: StyleId) => {
     if (busy) return;
     if (current === style || (await change({ type: 'setStyle', style }))) go({ type: 'backTo', name: 'ready' });
@@ -75,7 +82,7 @@ export function PrintStyle({ go, params }: ScreenProps) {
           key={id}
           title={s.names[id]}
           helper={s.helpers[id]}
-          selected={current === id}
+          selected={chosen(id)}
           preview={
             samples?.get(id) ? (
               // Turned like the print; a square frame keeps a turned example inside its card.

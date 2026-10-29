@@ -1,0 +1,13 @@
+round10 exit 0
+round9 exit 0
+round8 exit 0
+round7 exit 0
+round6 exit 0
+round5 exit 0
+round4 exit 0
+round3 exit 0
+place exit 0
+adjust exit 0
+card exit 0
+rotate exit 0
+privacy exit 0

@@ -21,7 +21,6 @@ import { Home } from './screens/home/Home';
 import { forgetRemoved } from './screens/photos/undo';
 import { seenPrinted } from './screens/printedJobs';
 import { Problem } from './screens/problem/Problem';
-import { Ready } from './screens/ready/Ready';
 import { Received } from './screens/received/Received';
 import { Receiving } from './screens/received/Receiving';
 import type { ScreenProps } from './screens/types';
@@ -40,6 +39,8 @@ const CardsFound = lazyScreen(() => cards().then((m) => m.CardsFound));
 const FixCorners = lazyScreen(() => cards().then((m) => m.FixCorners));
 const CardSize = lazyScreen(() => cards().then((m) => m.CardSize));
 const CardSource = lazyScreen(() => import('./screens/cards/CardSource').then((m) => m.CardSource));
+// Round 10: Ready loads when first opened (startup JS budget, PLAN §C): it is the biggest screen after a share.
+const Ready = lazyScreen(() => import('./screens/ready/Ready').then((m) => m.Ready));
 const PrintStyle = lazyScreen(() => import('./screens/change/PrintStyle').then((m) => m.PrintStyle));
 const Unlock = lazyScreen(() => docs().then((m) => m.Unlock));
 const DocPages = lazyScreen(() => docs().then((m) => m.DocPages));
@@ -93,6 +94,7 @@ const TextSize = lazyScreen(() => text().then((m) => m.TextSize));
 const ScanPage = lazyScreen(() => import('./screens/scan/ScanPage').then((m) => m.ScanPage));
 const ScanPages = lazyScreen(() => import('./screens/scan/ScanPages').then((m) => m.ScanPages));
 const LAZY = [
+  Ready,
   CardsFound,
   Photos,
   PhotoTools,

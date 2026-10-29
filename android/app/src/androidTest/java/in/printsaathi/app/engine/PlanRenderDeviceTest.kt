@@ -456,6 +456,45 @@ stream
     }
 
     /**
+     * Round 10 (owner: some pages in colour, some in black & white): one print file in colour mode whose grey pages carry
+     * only grey data (R = G = B) while the colour page beside them keeps its colour, in page order.
+     */
+    @Test fun aColourPageBesideBlackAndWhitePagesKeepsItsColourAndTheOthersAreGrey() {
+        val items = (1..3).associateWith { RenderItem(it, photo("m$it.jpg", 1200, 1600), "sha-m$it") }
+        fun styled(index: Int, style: String) =
+            onePerPage(index, 0.75).also { it.getJSONArray("placements").getJSONObject(0).put("style", style) }
+        val plan = RenderPlan.parse(planJson(1, styled(1, "original"), styled(2, "bw"), styled(3, "sharp"), colour = "colour"))
+        assertFalse("the print itself is in colour mode", plan.grey)
+        val r = render(plan, items)
+        assertTrue("render outcome $r", r is RenderOutcome.Done)
+        val pdf = (r as RenderOutcome.Done).pdf
+        val images = jpegStreams(pdf.readBytes())
+        assertEquals(3, images.size)
+        val notGrey = images.map { jpeg ->
+            val bmp = android.graphics.BitmapFactory.decodeByteArray(jpeg, 0, jpeg.size)
+            val row = IntArray(bmp.width)
+            var n = 0
+            for (y in 0 until bmp.height) {
+                bmp.getPixels(row, 0, bmp.width, 0, y, bmp.width, 1)
+                n += row.count { Color.red(it) != Color.green(it) || Color.green(it) != Color.blue(it) }
+            }
+            bmp.recycle()
+            n
+        }
+        assertTrue("page 1 keeps its colour: ${notGrey[0]} coloured pixels", notGrey[0] > 100_000)
+        assertEquals("page 2 is grey only", 0, notGrey[1])
+        assertEquals("page 3 is grey only", 0, notGrey[2])
+        // As the platform's PDF engine draws them, in page order: the top half of each photo is red (grey: a mid grey).
+        val first = colourAt(pdf, 0, a4w / 2, a4h * 0.3)
+        assertTrue("page 1 red: ${Integer.toHexString(first)}", isRed(first))
+        for (n in 1..2) {
+            val c = colourAt(pdf, n, a4w / 2, a4h * 0.3)
+            assertTrue("page ${n + 1} grey: ${Integer.toHexString(c)}", Math.abs(Color.red(c) - Color.green(c)) <= 2 && Math.abs(Color.green(c) - Color.blue(c)) <= 2)
+            assertFalse("page ${n + 1} is not white", isWhite(c))
+        }
+    }
+
+    /**
      * PLAN §P per-page budget for photos: <= 3 MB; the grey photo is also held to the stricter 1.5 MB grey-text budget. Content
      * is SYNTHETIC (no real camera photos here; real ones: USER-CHECKLIST §H4): a 12 MP gradient with fine
      * noise, plus a much busier texture whose size is reported, not asserted. One per A4 page, 300 dpi, q92.

@@ -1,7 +1,7 @@
 import { App as NativeApp } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
-import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
-import { type Job, normalizeJob, textItemOf } from '../../core/job/job';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
+import { type Job, type JobAction, normalizeJob, textItemOf } from '../../core/job/job';
 import { unprintableNotes } from '../../core/job/unprintable';
 import { overlaps } from '../../core/layout/free';
 import { smallestSideMm, WARN_MM } from '../../core/layout/layouts';
@@ -21,7 +21,9 @@ import { Panel } from '../../ui/Panel';
 import { FilePage, PaperPreview } from '../../ui/PaperPreview';
 import { TopBar } from '../../ui/TopBar';
 import { usePinWhileSmall } from '../../ui/usePinWhileSmall';
+import { useStuck } from '../../ui/useStuck';
 import { pickAt, toPagePoints } from '../adjust/place';
+import type { ColourPage } from '../colour/ColourPages';
 import { withCopies } from '../copies';
 import { JobGone } from '../JobGone';
 import { noteJob } from '../printedJobs';
@@ -56,6 +58,30 @@ const AutoTurnNote = lazyPart<{ job: Job | null; onUndo: () => Promise<boolean>;
   import('../AutoTurnNote').then((m) => m.AutoTurnNote),
 );
 
+/** Round 10: pages in colour and in black & white: the switch under each page, and the page chooser (on demand). */
+const PageColour = lazyPart<{
+  n: number;
+  state: 'colour' | 'bw' | 'both';
+  busy: boolean;
+  onChange: (grey: boolean) => void;
+}>(() => import('../colour/ColourPages').then((m) => m.PageColour));
+const ColourChooser = lazyPart<{
+  job: Job;
+  pages: ColourPage[];
+  busy: boolean;
+  apply: (action: JobAction) => Promise<boolean>;
+  wantAll: () => void;
+}>(() => import('../colour/ColourPages').then((m) => m.ColourChooser));
+const GREY_STYLES = new Set(['bw', 'sharp', 'ocv']);
+type PlanPage = { placements: { itemIndex: number; pdfPage?: number; style: string }[] };
+const greyPage = (pg: PlanPage) => pg.placements.every((x) => GREY_STYLES.has(x.style));
+/** A page in colour, in black & white, or (photos of both on it) both. */
+const pageState = (pg: PlanPage): 'colour' | 'bw' | 'both' => {
+  const grey = pg.placements.filter((x) => GREY_STYLES.has(x.style)).length;
+  return grey === 0 ? 'colour' : grey === pg.placements.length ? 'bw' : 'both';
+};
+const keysOfPage = (pg: PlanPage) => [...new Set(pg.placements.map((x) => `${x.itemIndex}:${x.pdfPage ?? 0}`))];
+
 export function Ready({ go, params }: ScreenProps) {
   const jobId = String(params?.jobId ?? '');
   const [job, setJob] = useState<Job | null>(null);
@@ -74,6 +100,16 @@ export function Ready({ go, params }: ScreenProps) {
   // The page buttons stay at the top while paging, if they are small enough not to hide the sheets (gate review I8:
   // with the PRINT bar, at most about 40 % of the screen is ever covered).
   const [pagerRef, pagerPinned] = usePinWhileSmall(0.15, 'top');
+  // Stuck at the top (the page has scrolled up to it): its cover over the status-bar strip shows only then.
+  const [pagerEl, setPagerEl] = useState<HTMLElement | null>(null);
+  const pagerStuck = useStuck(pagerEl);
+  const pagerBoth = useCallback(
+    (el: HTMLElement | null) => {
+      pagerRef(el);
+      setPagerEl(el);
+    },
+    [pagerRef],
+  );
   // While Previous / Next scroll the list, the scrolling itself must not move the page number (a second quick tap
   // would step from a page passed on the way).
   const pagedAt = useRef(0);
@@ -419,6 +455,39 @@ export function Ready({ go, params }: ScreenProps) {
     return th?.state === 'ok' && th.thumb ? Capacitor.convertFileSrc(th.thumb) : undefined;
   };
 
+  // Round 10: pages of their own colour. Not for passport photos and ID cards, and only with two pages or more.
+  const canMix =
+    !!job && !!fullPlan && job.layout !== 'passport' && job.layout !== 'idCard' && fullPlan.pages.length > 1;
+  const mixed =
+    !!fullPlan && fullPlan.colour === 'colour' && fullPlan.pages.some(greyPage) && !fullPlan.pages.every(greyPage);
+  const [colourBusy, setColourBusy] = useState(false);
+  const applyColour = async (action: JobAction) => {
+    if (!job) return false;
+    setColourBusy(true);
+    const next = await saveJobChange(job, action).catch(() => null);
+    setColourBusy(false);
+    // Not saved: it says so (review M1); the pages stay as they print.
+    if (next) setJob(next);
+    else setNote(en.change.saveFailed);
+    return !!next;
+  };
+  const colourPages = (): ColourPage[] =>
+    (fullPlan?.pages ?? []).map((pg, i) => {
+      const first = pg.placements[0];
+      return {
+        grey: greyPage(pg),
+        both: pageState(pg) === 'both',
+        sources: pg.placements.map((x) => ({
+          key: `${x.itemIndex}:${x.pdfPage ?? 0}`,
+          src: srcOf(x.itemIndex, x.pdfPage),
+        })),
+        image:
+          plan === fullPlan && filePages?.hash === hash && filePages.pages[i]
+            ? Capacitor.convertFileSrc(filePages.pages[i] as string)
+            : first && srcOf(first.itemIndex, first.pdfPage),
+      };
+    });
+
   // Photos that can't be placed (damaged, iPhone files) are named, never silently dropped (gate review #11).
   const placed = new Set(fullPlan?.pages.flatMap((p) => p.placements.map((x) => x.itemIndex)) ?? []);
   // Only photos still in the job (an extra copy just removed is not "left out", review I3), and not the files the
@@ -483,14 +552,10 @@ export function Ready({ go, params }: ScreenProps) {
           job ? (
             <ColourSwitch
               compact
-              value={job.colour}
-              disabled={opening}
-              onChange={async (colour) => {
-                const next = await saveJobChange(job, { type: 'setColour', colour }).catch(() => null);
-                // Not saved: it says so (review M1); the switch stays on what will print.
-                if (next) setJob(next);
-                else setNote(en.change.saveFailed);
-              }}
+              // Pages of both colours: neither half is chosen; a tap sets every page (round 10).
+              value={mixed ? null : (fullPlan?.colour ?? job.colour)}
+              disabled={opening || colourBusy}
+              onChange={(colour) => void applyColour({ type: 'setColour', colour })}
             />
           ) : null
         }
@@ -644,6 +709,24 @@ export function Ready({ go, params }: ScreenProps) {
           <Button variant="secondary" onClick={() => go(push('change', { jobId }))}>
             {en.ui.change}
           </Button>
+          {/* Round 10 (owner): some pages in colour, some in black & white, one print, the pages in order. */}
+          {canMix && fullPlan && (
+            <ColourChooser
+              job={job}
+              pages={colourPages()}
+              busy={opening || colourBusy}
+              apply={applyColour}
+              wantAll={() =>
+                docs.want(
+                  fullPlan.pages.flatMap((pg) =>
+                    pg.placements
+                      .filter((x) => x.pdfPage !== undefined)
+                      .map((x) => ({ item: x.itemIndex, page: x.pdfPage as number })),
+                  ),
+                )
+              }
+            />
+          )}
           {/* Owner, round 8: a scan job's pages, to fix, add or reorder (also when opened from Recent jobs). */}
           {job.scan && job.layout === 'document' && (
             <Button variant="secondary" icon="scan" onClick={() => go(push('scanpages', { jobId }))}>
@@ -767,7 +850,10 @@ export function Ready({ go, params }: ScreenProps) {
             // Big buttons step through the pages (PLAN §I-5, §H2.4: never swipe-only paging).
             // Sticky: paging never scrolls the buttons away (gate review I8); a plan with fewer pages starts at its
             // last page (review M9).
-            <div ref={pagerRef} class={pagerPinned ? 'pager pager-pinned' : 'pager'}>
+            <div
+              ref={pagerBoth}
+              class={pagerPinned ? `pager pager-pinned${pagerStuck ? ' pager-stuck' : ''}` : 'pager'}
+            >
               <Button
                 variant="secondary"
                 icon="back"
@@ -822,8 +908,25 @@ export function Ready({ go, params }: ScreenProps) {
                       placements={p.placements}
                       srcOf={srcOf}
                       label={wide ? `${label}, ${t.sideways}` : label}
-                      grey={plan.colour === 'bw'}
+                      grey={greyPage(p)}
                     />
+                  )}
+                  {/* Round 10: this page's own colour, under its picture (a tap here does not open Adjust). */}
+                  {canMix && (
+                    // biome-ignore lint/a11y/useKeyWithClickEvents lint/a11y/noStaticElementInteractions: only stops the tap reaching the page behind it; the buttons inside are the controls
+                    <div class="sheet-colour" onClick={(e) => e.stopPropagation()}>
+                      <PageColour
+                        n={i + 1}
+                        state={pageState(p)}
+                        busy={opening || colourBusy}
+                        onChange={(grey) =>
+                          void applyColour({
+                            type: 'setPageColours',
+                            marks: Object.fromEntries(keysOfPage(p).map((k) => [k, grey ? 'bw' : 'colour'])),
+                          })
+                        }
+                      />
+                    </div>
                   )}
                 </li>
               );

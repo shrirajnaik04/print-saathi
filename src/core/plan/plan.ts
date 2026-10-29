@@ -1,4 +1,4 @@
-import { type Job, type StyleId, styleOf } from '../job/job';
+import { effectiveColour, type Job, type StyleId, styleOf, styleOfPage } from '../job/job';
 import { shownOf } from '../layout/crop';
 import { flowPages, onePerPageAt, sizeOf } from '../layout/flow';
 import { pinnedPages } from '../layout/free';
@@ -262,7 +262,7 @@ export function buildPlan(
         itemIndex: pl.itemIndex,
         ...cutOf(job, pl.itemIndex, turnsOf(pl.itemIndex)),
         turns: turnsOf(pl.itemIndex),
-        style: styleOf(job),
+        style: styleOfPage(job, `${pl.itemIndex}:0`),
         box: pl.box,
         ...(tiltOf(pl.itemIndex)
           ? {
@@ -277,13 +277,24 @@ export function buildPlan(
     jobId: job.id,
     rev: job.rev,
     paper: { id: sheet.id, wPt: sheet.wPt, hPt: sheet.hPt },
-    colour: job.colour,
+    colour: planColour(job, pages),
     copies: job.copies,
     // As a document (the printer's normal-speed mode, owner 2026-10-23), unless Best photo quality was chosen. On 4×6
     // photo paper always a document, like passport sheets: exact size, never borderless (gate review I4).
     contentType: job.quality === 'photo' && sheet.id !== 'PHOTO_4x6' ? 'photo' : 'document',
     pages,
   };
+}
+
+/**
+ * The print's colour mode (round 10): black & white only when every printed page is; a mix is printed in colour mode,
+ * its grey pages made grey (their placements carry a grey style), because Android has one colour setting per print.
+ */
+function planColour(job: Job, pages: { placements: { itemIndex: number; pdfPage?: number }[] }[]): 'colour' | 'bw' {
+  const grey = pages.every((pg) =>
+    pg.placements.every((x) => effectiveColour(job, `${x.itemIndex}:${x.pdfPage ?? 0}`) === 'bw'),
+  );
+  return pages.length > 0 ? (grey ? 'bw' : 'colour') : job.colour;
 }
 
 /** Every page of every file in received order: PDFs read so far (not locked), and photos as one page each. */
@@ -345,8 +356,9 @@ function documentPlan(
     !!f &&
     !f.locked &&
     !f.unlocked &&
-    job.colour === 'colour' &&
-    styleOf(job) === 'original' &&
+    // Every printed page in colour with the plain style (a job in black & white whose every page was set to colour
+    // is the customer's own file again, review M3).
+    chosen.every((p) => styleOfPage(job, `${p.item}:${p.page}`) === 'original') &&
     job.copies === 1 &&
     !job.docScale &&
     !job.direction &&
@@ -366,7 +378,7 @@ function documentPlan(
           ...(isPdf ? { pdfPage: p.page } : {}),
           ...(isPdf ? { crop: { x: 0, y: 0, w: 1, h: 1 } } : cutOf(job, p.item, turnsOf(p))),
           turns: turnsOf(p),
-          style: styleOf(job),
+          style: styleOfPage(job, `${p.item}:${p.page}`),
           // Its size on Adjust (a share of the size that fits), centred where it was.
           box: scaledBox((pg.placements[0] as { box: Box }).box, job.docScale?.[`${p.item}:${p.page}`] ?? 1),
         },
@@ -378,7 +390,7 @@ function documentPlan(
     jobId: job.id,
     rev: job.rev,
     paper: A4,
-    colour: job.colour,
+    colour: planColour(job, pages),
     copies: job.copies,
     contentType: 'document',
     ...(untouched && only ? { exact: { itemIndex: only.index } } : {}),

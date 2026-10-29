@@ -81,6 +81,12 @@ export type Job = {
    */
   paperType?: 'glossy';
   colour: 'colour' | 'bw';
+  /** Round 10: pages with a colour of their own, "item:page" (a photo is "item:0"); the others take [colour]. */
+  pageColour?: Record<string, 'colour' | 'bw'>;
+  /** Pages have been marked for this job (by hand or by the first guess): the guess is not made again. */
+  pagesMarked?: true;
+  /** The black & white print style of a job whose pages have colours of their own ([style] is then the colour one). */
+  bwStyle?: StyleId;
   /** Print style for the whole job (PLAN §F4); used only when it fits [colour] (see styleOf). */
   style?: StyleId;
   /** Crops per photo (PLAN §F1, §F5), on the photo as stored upright, so they survive Turn; printed as shown. */
@@ -321,6 +327,37 @@ export function styleOf(job: Pick<Job, 'colour' | 'style' | 'layout'>): StyleId 
   return job.style && group.includes(job.style) ? job.style : (group[0] as StyleId);
 }
 
+/** A page's colour: its own mark, else the job's (round 10). */
+export const effectiveColour = (job: Pick<Job, 'colour' | 'pageColour'>, key: string) =>
+  job.pageColour?.[key] ?? job.colour;
+
+/** Pages with colours of their own count only where there are pages to mark (not passport photos or ID cards). */
+export const hasPageColours = (job: Pick<Job, 'pageColour' | 'layout'>) =>
+  !!job.pageColour && job.layout !== 'passport' && job.layout !== 'idCard';
+
+/**
+ * The style a page prints in: the job's colour style on a colour page, its black & white style on a grey page (a job
+ * with marks keeps the two apart), else the plain one. A scan page set to colour in a black & white scan job gets Clean
+ * colour, as a scan job in colour does.
+ */
+export function styleOfPage(
+  job: Pick<Job, 'colour' | 'pageColour' | 'style' | 'bwStyle' | 'layout' | 'scan'>,
+  key: string,
+): StyleId {
+  const colour = effectiveColour(job, key);
+  if (job.layout === 'passport') return colour === 'bw' ? 'bw' : 'original';
+  const group = colour === 'bw' ? BW_STYLES : COLOUR_STYLES;
+  const own = colour === 'bw' ? (job.bwStyle ?? job.style) : job.style;
+  if (own && group.includes(own)) return own;
+  return colour === 'colour' && job.scan && job.pageColour?.[key] === 'colour' ? 'clean' : (group[0] as StyleId);
+}
+
+/** The two styles of a job with pages of both colours (Print style shows both as chosen). */
+export const mixedStyles = (job: Pick<Job, 'style' | 'bwStyle'>) => ({
+  colour: job.style && COLOUR_STYLES.includes(job.style) ? job.style : ('original' as StyleId),
+  bw: job.bwStyle ?? (job.style && BW_STYLES.includes(job.style) ? job.style : ('bw' as StyleId)),
+});
+
 /**
  * What Undo / Redo on Adjust takes back and puts back (owner, round 6): the shopkeeper's adjustable choices only. What
  * Change chose (colour, paper, layout, copies, style) and what happened outside Adjust (printed, parts) are never in it.
@@ -348,6 +385,9 @@ export type JobEdits = Partial<Pick<Job, (typeof EDIT_KEYS)[number]>>;
 export type JobAction =
   | { type: 'setLayout'; layout: JobLayout }
   | { type: 'setColour'; colour: 'colour' | 'bw' }
+  /** Round 10: pages with their own colour (null = the job's again); "Some in colour" starts from [marks] of every page. */
+  | { type: 'setPageColours'; marks: Record<string, 'colour' | 'bw' | null> }
+  | { type: 'someColour'; marks: Record<string, 'colour' | 'bw'> }
   | { type: 'setDirection'; direction: 'portrait' | 'landscape' }
   | { type: 'setQuality'; quality: 'normal' | 'photo' }
   | { type: 'setPaperType'; paperType: 'plain' | 'glossy' }
@@ -663,6 +703,10 @@ export function normalizeJob(o: unknown): Job | null {
             ...placedCards,
           }
       : undefined;
+  const pageColour: Record<string, 'colour' | 'bw'> = {};
+  for (const [k, v] of Object.entries(typeof j.pageColour === 'object' && j.pageColour ? j.pageColour : {}))
+    if (/^\d+:\d+$/.test(k) && indexes.includes(Number(k.split(':')[0])) && (v === 'bw' || v === 'colour'))
+      pageColour[k] = v;
   const docScale: Record<string, number> = {};
   for (const [k, v] of Object.entries(j.docScale ?? {}))
     if (/^\d+:\d+$/.test(k) && typeof v === 'number' && v >= 0.5 && v < 1) docScale[k] = v;
@@ -691,6 +735,9 @@ export function normalizeJob(o: unknown): Job | null {
     sizes: validSizes(j.sizes, indexes),
     spots: validSpots(j.spots, indexes),
     docScale: emptyToUndefined(docScale),
+    pageColour: emptyToUndefined(pageColour),
+    pagesMarked: j.pagesMarked === true ? true : undefined,
+    bwStyle: BW_STYLES.includes(j.bwStyle as StyleId) ? (j.bwStyle as StyleId) : undefined,
     duplicates: duplicateGroups(items),
     partsDone,
     partPrinting,
@@ -751,10 +798,45 @@ export function jobReducer(job: Job, action: JobAction, nowMs: number): Job {
       break;
     }
     case 'setColour':
-      // The plain style of the chosen colour (review focus 3: never "Vibrant in grey").
+      // The plain style of the chosen colour (review focus 3: never "Vibrant in grey"). Every page again (round 10).
       if (action.colour !== job.colour)
-        next = { colour: action.colour, style: action.colour === 'bw' ? 'bw' : job.scan ? 'clean' : 'original' };
+        next = {
+          colour: action.colour,
+          style: action.colour === 'bw' ? 'bw' : job.scan ? 'clean' : 'original',
+          pageColour: undefined,
+          bwStyle: undefined,
+        };
+      else if (job.pageColour) next = { pageColour: undefined, bwStyle: undefined };
       break;
+    case 'setPageColours': {
+      if (job.layout === 'passport' || job.layout === 'idCard') break;
+      const marks = { ...job.pageColour };
+      for (const [k, v] of Object.entries(action.marks))
+        if (/^\d+:\d+$/.test(k)) {
+          if (v === null || v === job.colour) delete marks[k];
+          else marks[k] = v;
+        }
+      if (JSON.stringify(marks) !== JSON.stringify(job.pageColour ?? {}))
+        next = { pageColour: emptyToUndefined(marks), pagesMarked: true };
+      break;
+    }
+    case 'someColour': {
+      // The first guess: once per job, only on a job in colour with no marks. A late answer never overwrites what the
+      // shopkeeper chose meanwhile (review I2), nor comes back after All colour (review I3).
+      if (
+        job.pagesMarked ||
+        job.pageColour ||
+        job.colour !== 'colour' ||
+        job.layout === 'passport' ||
+        job.layout === 'idCard'
+      )
+        break;
+      const grey = Object.fromEntries(
+        Object.entries(action.marks).filter(([k, v]) => v === 'bw' && /^\d+:\d+$/.test(k)),
+      );
+      next = { pageColour: emptyToUndefined(grey) as Job['pageColour'], pagesMarked: true };
+      break;
+    }
     case 'setSuggestions': {
       if (job.edges !== undefined) break; // answered: a late save never brings back the question's suggestions
       const crops = keepCrops(job, action.crops);
@@ -803,6 +885,20 @@ export function jobReducer(job: Job, action: JobAction, nowMs: number): Job {
     }
     case 'setStyle': {
       if (job.layout === 'passport' || ![...COLOUR_STYLES, ...BW_STYLES].includes(action.style)) break;
+      // A job with pages of its own colour keeps them: a colour style is for its colour pages, a black & white style
+      // for its grey pages (round 10; review I5).
+      if (hasPageColours(job)) {
+        if (BW_STYLES.includes(action.style)) {
+          if (action.style !== job.bwStyle) next = { bwStyle: action.style };
+        } else if (action.style !== job.style) {
+          // A black & white style kept in [style] before the marks moves to its own place.
+          next = {
+            style: action.style,
+            ...(job.style && BW_STYLES.includes(job.style) && !job.bwStyle ? { bwStyle: job.style } : {}),
+          };
+        }
+        break;
+      }
       const colour = BW_STYLES.includes(action.style) ? 'bw' : 'colour';
       if (action.style !== styleOf(job) || colour !== job.colour) next = { style: action.style, colour };
       break;
@@ -1126,6 +1222,10 @@ export function jobReducer(job: Job, action: JobAction, nowMs: number): Job {
             }
           : {}),
         spots: { ...(job.spots ?? {}), [n]: spot },
+        // The copy prints in the colour of the photo it was copied from (review I6).
+        ...(job.pageColour?.[`${c.item.index}:0`]
+          ? { pageColour: { ...job.pageColour, [`${n}:0`]: job.pageColour[`${c.item.index}:0`] as 'colour' | 'bw' } }
+          : {}),
       };
       break;
     }
@@ -1243,13 +1343,25 @@ export function jobReducer(job: Job, action: JobAction, nowMs: number): Job {
         ...((action.pages ?? job.docPages)
           ? { docPages: (action.pages ?? job.docPages ?? []).map((p) => (p.item === old ? { ...p, item: taken } : p)) }
           : {}),
+        // The retaken page keeps its colour (review I6).
+        ...(job.pageColour
+          ? {
+              pageColour: emptyToUndefined(
+                Object.fromEntries(
+                  Object.entries(job.pageColour).flatMap(([k, v]) =>
+                    k === `${old}:0` ? [[`${taken}:0`, v]] : k.startsWith(`${old}:`) ? [] : [[k, v]],
+                  ),
+                ),
+              ) as Job['pageColour'],
+            }
+          : {}),
       };
       break;
     }
     case 'setTextPdf': {
       // The new PDF may have other pages: the page choices of that file start again.
       if (!TEXT_SIZES.includes(action.size) || !action.path || !job.items.some((i) => i.index === action.index)) break;
-      const other = (r: Record<string, number> | undefined) =>
+      const other = <T>(r: Record<string, T> | undefined) =>
         r && emptyToUndefined(Object.fromEntries(Object.entries(r).filter(([k]) => !k.startsWith(`${action.index}:`))));
       next = {
         items: job.items.map((i) =>
@@ -1260,6 +1372,7 @@ export function jobReducer(job: Job, action: JobAction, nowMs: number): Job {
         docPages: undefined,
         docTurns: other(job.docTurns) as Job['docTurns'],
         docScale: other(job.docScale),
+        pageColour: other(job.pageColour) as Job['pageColour'],
         partsDone: undefined,
         partPrinting: undefined,
       };

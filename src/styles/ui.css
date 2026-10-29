@@ -818,6 +818,84 @@ main h2 {
   background: var(--primary);
   color: #fff;
 }
+/* Round 10: some pages in colour, some in black & white. The switch under each page's picture, and the page chooser. */
+.sheet-colour {
+  margin-top: var(--space-1);
+}
+.colour-chooser {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: var(--space-2) 0;
+}
+.colour-title {
+  margin: 0;
+  font-size: 1.25rem;
+}
+.colour-all {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 10rem), 1fr));
+  gap: var(--space-2);
+}
+.colour-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(6.25rem, 1fr));
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.colour-grid > li {
+  display: flex; /* the cards of a row are as tall as the tallest */
+}
+.colour-card {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-1);
+  width: 100%;
+  min-height: 3.5rem;
+  padding: var(--space-1);
+  border: 0;
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--ring);
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+.colour-card img,
+.colour-card-blank {
+  display: block;
+  width: 100%;
+  aspect-ratio: 595 / 842;
+  object-fit: contain;
+  background: #fff;
+}
+.colour-card-grey img {
+  filter: url(#rec601);
+}
+.colour-card-label {
+  font-weight: 700;
+}
+.colour-card-mark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  min-height: 2.5rem;
+  border-radius: var(--radius);
+  background: var(--primary);
+  color: #fff;
+  font-weight: 700;
+}
+.colour-card-grey .colour-card-mark {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--ring);
+}
+
 /* Beside the title: the halves side by side, just wide enough for their words. */
 .colour-switch-compact {
   display: flex;
@@ -1115,6 +1193,7 @@ main h2 {
 }
 
 /* Black & white preview: drawn grey, as the print will be (the print file itself is grey data, PLAN §G2). */
+.paper-photo-grey,
 .paper-grey img {
   /* The same Rec.601 grey the print uses (CSS grayscale() uses other weights: red would look darker than it prints). */
   filter: url(#rec601);
@@ -1140,6 +1219,12 @@ main h2 {
   z-index: 1;
   background: var(--bg);
   padding-block: var(--space-1, 4px);
+}
+/* Stuck at the top: a band of the page colour over the status-bar strip above it. The sheets scroll under that strip
+   and showed through between the clock and these buttons (owner screenshot, round 10). Only while stuck: in the flow
+   the band would paint over the button above the bar (review I1). */
+.pager-stuck {
+  box-shadow: 0 calc(-1 * var(--safe-area-inset-top, env(safe-area-inset-top, 0px))) 0 0 var(--bg);
 }
 .pager-status {
   flex: 1 0 100%;

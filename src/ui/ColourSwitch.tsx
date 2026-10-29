@@ -14,14 +14,18 @@ export function ColourSwitch({
   onChange,
   disabled,
   compact,
+  label,
 }: {
-  value: 'colour' | 'bw';
+  /** null: neither half is chosen (pages of both colours, round 10). */
+  value: 'colour' | 'bw' | null;
   onChange: (colour: 'colour' | 'bw') => void;
   disabled?: boolean;
   compact?: boolean;
+  /** The group's name for screen readers when it is not the job's (a page's own switch, round 10). */
+  label?: string;
 }) {
   return (
-    <fieldset class={compact ? 'colour-switch colour-switch-compact' : 'colour-switch'} aria-label={t.printIn}>
+    <fieldset class={compact ? 'colour-switch colour-switch-compact' : 'colour-switch'} aria-label={label ?? t.printIn}>
       {(['colour', 'bw'] as const).map((c) => (
         <button
           key={c}

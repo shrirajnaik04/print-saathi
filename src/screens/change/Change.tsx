@@ -1,6 +1,7 @@
 import type { Job } from '../../core/job/job';
-import { styleOf, textItemOf } from '../../core/job/job';
+import { hasPageColours, styleOf, textItemOf } from '../../core/job/job';
 import { allDocPages, paperOf } from '../../core/plan/plan';
+import { colourWords } from '../../i18n/colour';
 import { en } from '../../i18n/en';
 import { fill } from '../../i18n/fill';
 import { ActionBar } from '../../ui/ActionBar';
@@ -28,6 +29,11 @@ export const LAYOUT_NAME = {
  * Only rows that work today are shown (paper, colour and print style arrive in later phases).
  */
 /** The paper direction as Change shows it: Portrait unless Landscape was chosen (spec Part 4). */
+/** The Colour row: pages with colours of their own say so (round 10). */
+function colourValue(job: Job): string {
+  return hasPageColours(job) ? colourWords.some : job.colour === 'bw' ? en.ready.bw : en.ready.colour;
+}
+
 function directionValue(job: Job): string {
   return job.direction === 'landscape' ? t.landscape : t.portrait;
 }
@@ -58,11 +64,7 @@ export function Change({ go, params }: ScreenProps) {
             <ChangeRow key={r.label} label={r.label} value={r.value} onClick={() => go(r.to)} />
           ))}
           <ChangeRow label={t.direction} value={directionValue(job)} onClick={() => go(push('direction', { jobId }))} />
-          <ChangeRow
-            label={t.colour}
-            value={job.colour === 'bw' ? en.ready.bw : en.ready.colour}
-            onClick={() => go(push('colour', { jobId }))}
-          />
+          <ChangeRow label={t.colour} value={colourValue(job)} onClick={() => go(push('colour', { jobId }))} />
         </div>
       )}
       {job?.layout === 'document' && (
@@ -103,11 +105,7 @@ export function Change({ go, params }: ScreenProps) {
             value={job.paperType === 'glossy' ? en.paperType.glossy : en.paperType.plain}
             onClick={() => go(push('papertype', { jobId }))}
           />
-          <ChangeRow
-            label={t.colour}
-            value={job.colour === 'bw' ? en.ready.bw : en.ready.colour}
-            onClick={() => go(push('colour', { jobId }))}
-          />
+          <ChangeRow label={t.colour} value={colourValue(job)} onClick={() => go(push('colour', { jobId }))} />
           <ChangeRow
             label={en.style.row}
             value={en.style.names[styleOf(job)]}
@@ -137,11 +135,7 @@ export function Change({ go, params }: ScreenProps) {
             value={job.paperType === 'glossy' ? en.paperType.glossy : en.paperType.plain}
             onClick={() => go(push('papertype', { jobId }))}
           />
-          <ChangeRow
-            label={t.colour}
-            value={job.colour === 'bw' ? en.ready.bw : en.ready.colour}
-            onClick={() => go(push('colour', { jobId }))}
-          />
+          <ChangeRow label={t.colour} value={colourValue(job)} onClick={() => go(push('colour', { jobId }))} />
           <ChangeRow
             label={t.copies}
             value={job.copies === 1 ? t.copy : fill(t.nCopies, { n: job.copies })}
@@ -182,11 +176,7 @@ export function Change({ go, params }: ScreenProps) {
           {job.layout === 'morePages' && (
             <ChangeRow label={t.pages} value={pagesValue()} onClick={() => go(push('pages', { jobId }))} />
           )}
-          <ChangeRow
-            label={t.colour}
-            value={job.colour === 'bw' ? en.ready.bw : en.ready.colour}
-            onClick={() => go(push('colour', { jobId }))}
-          />
+          <ChangeRow label={t.colour} value={colourValue(job)} onClick={() => go(push('colour', { jobId }))} />
           <ChangeRow
             label={en.style.row}
             value={en.style.names[styleOf(job)]}

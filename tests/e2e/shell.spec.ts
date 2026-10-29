@@ -1691,9 +1691,10 @@ test('a damaged PDF says so and what to do', async ({ page }) => {
 
 test('forms and stamps: a warning only on phones whose built-in engine may not draw them', async ({ page }) => {
   await page.goto('/?mockIntake=1&mockPdfAt=1&mockPdfForms=1&mockTier=NONE');
-  await expect(page.getByText('filled-in boxes or stamps', { exact: false })).toBeVisible();
+  // Ready's code loads when first opened (round 10): allow for that on a busy machine.
+  await expect(page.getByText('filled-in boxes or stamps', { exact: false })).toBeVisible({ timeout: 15_000 });
   await page.goto('/?mockIntake=1&mockPdfAt=1&mockPdfForms=1&mockTier=NATIVE_35');
-  await expect(page.getByText('1 PDF · 3 pages', { exact: false })).toBeVisible();
+  await expect(page.getByText('1 PDF · 3 pages', { exact: false })).toBeVisible({ timeout: 15_000 });
   await expect(page.getByText('filled-in boxes or stamps', { exact: false })).toHaveCount(0);
 });
 

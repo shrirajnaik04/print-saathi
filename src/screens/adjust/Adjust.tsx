@@ -1589,7 +1589,11 @@ export function Adjust({ go, params }: ScreenProps) {
                       srcOf={(item, pdfPage) => (pdfPage !== undefined ? docs.srcOfPage(item, pdfPage) : srcOf(item))}
                       srcOfPlacement={srcOfPlacement}
                       label={fill(en.ready.pageLabel, { n: n + 1, total: plan.pages.length })}
-                      grey={plan.colour === 'bw'}
+                      grey={
+                        !!plan.pages[n]?.placements.every(
+                          (x) => x.style === 'bw' || x.style === 'sharp' || x.style === 'ocv',
+                        )
+                      }
                     >
                       {(drawnPage(n) ? touchableOn(n) : []).map((p, i) => {
                         const k = keyOf(p, n);

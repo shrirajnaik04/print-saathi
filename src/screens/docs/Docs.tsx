@@ -2,7 +2,7 @@ import { Capacitor } from '@capacitor/core';
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { sendUnlocked, unlockPdf } from '../../core/docs/unlock';
 import type { DocPage } from '../../core/job/job';
-import { styleOf } from '../../core/job/job';
+import { effectiveColour, styleOfPage } from '../../core/job/job';
 import { FULL, shownOf } from '../../core/layout/crop';
 import { straightAspect } from '../../core/layout/quad';
 import { allDocPages } from '../../core/plan/plan';
@@ -404,13 +404,13 @@ export function DocTools({ go, params }: ScreenProps) {
                 itemIndex: p.item,
                 crop: quad ? FULL : shownOf(job?.crops?.[p.item] ?? FULL, turns),
                 turns: turns as 0 | 1 | 2 | 3,
-                style: job ? styleOf(job) : 'original',
+                style: job && p ? styleOfPage(job, `${p.item}:${p.page}`) : 'original',
                 box: { x: 0, y: 0, w: bw, h: bh },
               },
             ]}
             srcOf={() => src}
             label={v.name(p)}
-            grey={job?.colour === 'bw'}
+            grey={!!job && !!p && effectiveColour(job, `${p.item}:${p.page}`) === 'bw'}
           />
         </div>
       )}

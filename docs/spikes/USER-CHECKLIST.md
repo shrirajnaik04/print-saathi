@@ -456,6 +456,21 @@ Install WPS Office from the Play Store on the shop phone first (AF2 needs it). U
 | AF7 | Share a Word file with many phone photos (10 or more) | How long "Getting the Word file ready…" takes on the shop phone (write it down); it ends as pages or as the WPS card, never an error | ☐ ☐ |
 | AF8 | Share a PDF and some photos as before | Nothing changed for PDFs and photos | ☐ ☐ |
 
+## §AG Some pages in colour, some in black & white (Phase 48) — 15 min
+
+Use a PDF of at least 3 pages where one or two pages have colour (a photo, a stamp, a coloured chart) and the rest are plain text.
+
+| # | What to do | What to check | Result |
+|---|---|---|---|
+| AG1 | Share that PDF to PrintSaathi | Ready shows "… 4 pages · A4 · Colour · 1 copy". Scroll up and down: the page bar (Previous / Next) stays at the top and **no page picture shows through the strip above it** (the phone's clock line) | ☐ ☐ |
+| AG2 | Tap **Choose pages in colour** | "Looking at the pages…", then the pages with colour in them are **Colour**, the plain ones **Black & white** (a first guess). The summary says "2 colour, 2 black & white". Neither half of the Colour / B&W switch at the top is chosen | ☐ ☐ |
+| AG3 | Tap a page in the grid; then **All black & white**; then **All colour** | Each tap changes at once. All colour is the plain Colour print again | ☐ ☐ |
+| AG4 | Page by page: under each page's picture, use **Colour | Black & white** and **Next** | That page's picture turns grey or back; the summary follows | ☐ ☐ |
+| AG5 | Tap PRINT with some pages in each colour | **One print, the pages in order.** The black & white pages are grey on paper, the colour pages in colour | ☐ ☐ |
+| AG6 | Look at the black & white pages on paper: is there any colour tint? Does the printer use colour ink for them? | Write down what you see: Android sends the print in colour mode, so whether the printer uses only black ink for grey pages is the printer's choice (this is not promised) | ☐ ☐ |
+| AG7 | A photo job: share 3 photos → One on each page → set photo 2 to Black & white → PRINT | Photo 2 prints grey, the others in colour | ☐ ☐ |
+| AG8 | Change → Print style: choose **Vibrant**, then again **Sharp Black** | Both stay ticked; colour pages are vibrant, grey pages Sharp Black | ☐ ☐ |
+
 ## Decisions only you can make
 
 | Topic | Choice | My recommendation |

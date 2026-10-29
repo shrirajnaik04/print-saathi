@@ -38,6 +38,9 @@ export function turnedStyle(turns: number, w: number, h: number) {
  */
 export function PaperPreview({ wPt, hPt, placements, srcOf, label, mini, grey, children, srcOfPlacement }: Props) {
   const pct = (v: number, of: number) => `${(100 * v) / of}%`;
+  // Round 10: a photo whose own style is black & white is drawn grey, beside photos in colour (review I4).
+  const greyOwn = (p: { style: string }) =>
+    p.style === 'bw' || p.style === 'sharp' || p.style === 'ocv' ? ' paper-photo-grey' : '';
   return (
     <figure
       class={`paper${wPt > hPt ? ' paper-wide' : ''}${mini ? ' paper-mini' : ''}${grey ? ' paper-grey' : ''}`}
@@ -61,7 +64,7 @@ export function PaperPreview({ wPt, hPt, placements, srcOf, label, mini, grey, c
           const sw = box.w / p.crop.w;
           const sh = box.h / p.crop.h;
           return (
-            <span key={`${i}-${p.itemIndex}`} class="paper-photo paper-crop" style={style}>
+            <span key={`${i}-${p.itemIndex}`} class={`paper-photo paper-crop${greyOwn(p)}`} style={style}>
               <span
                 class="paper-photo paper-turned"
                 style={{
@@ -78,12 +81,12 @@ export function PaperPreview({ wPt, hPt, placements, srcOf, label, mini, grey, c
         }
         if (src && p.turns)
           return (
-            <span key={`${i}-${p.itemIndex}`} class="paper-photo paper-turned" style={style}>
+            <span key={`${i}-${p.itemIndex}`} class={`paper-photo paper-turned${greyOwn(p)}`} style={style}>
               <img src={src} alt="" style={turnedStyle(p.turns, box.w, box.h)} />
             </span>
           );
         return src ? (
-          <img key={`${i}-${p.itemIndex}`} class="paper-photo" src={src} alt="" style={style} />
+          <img key={`${i}-${p.itemIndex}`} class={`paper-photo${greyOwn(p)}`} src={src} alt="" style={style} />
         ) : (
           <span key={`${i}-${p.itemIndex}`} class="paper-photo paper-empty" style={style} />
         );

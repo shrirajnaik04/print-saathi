@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from 'preact/hooks';
-import type { JobLayout } from '../../core/job/job';
+import { hasPageColours, type JobLayout } from '../../core/job/job';
 import type { PrintPlan } from '../../core/plan/plan';
 import { en } from '../../i18n/en';
 import { fill } from '../../i18n/fill';
@@ -192,7 +192,10 @@ export function Colour({ go, params }: ScreenProps) {
     () =>
       new Map(
         job && paper.ready(job)
-          ? (['colour', 'bw'] as const).map((colour) => [colour, paper.draw({ ...job, colour }, aspects)])
+          ? (['colour', 'bw'] as const).map((colour) => [
+              colour,
+              paper.draw({ ...job, colour, pageColour: undefined }, aspects),
+            ])
           : [],
       ),
     [job, aspects, paper.key],
@@ -200,7 +203,8 @@ export function Colour({ go, params }: ScreenProps) {
   if (gone) return <JobGone go={go} title={t.colour} />;
   const choose = async (colour: 'colour' | 'bw') => {
     if (busy) return;
-    if (job?.colour === colour || (await change({ type: 'setColour', colour }))) go({ type: 'backTo', name: 'ready' });
+    if ((job?.colour === colour && !(job && hasPageColours(job))) || (await change({ type: 'setColour', colour })))
+      go({ type: 'backTo', name: 'ready' });
   };
   return (
     <Frame go={go} title={t.colour} failed={failed} retry={retry} saveFailed={saveFailed}>
@@ -211,7 +215,7 @@ export function Colour({ go, params }: ScreenProps) {
             <ChoiceCard
               key={colour}
               title={colour === 'bw' ? en.ready.bw : en.ready.colour}
-              selected={job.colour === colour}
+              selected={!hasPageColours(job) && job.colour === colour}
               preview={<MiniPage plan={plan} srcOf={srcOf} />}
               onClick={() => void choose(colour)}
               disabled={busy}

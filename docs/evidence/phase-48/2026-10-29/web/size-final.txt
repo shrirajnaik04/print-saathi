@@ -1,0 +1,2 @@
+ok   js: 47241 B gzip (budget 61440 B)
+ok   css: 7425 B gzip (budget 15360 B)

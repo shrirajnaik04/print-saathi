@@ -86,3 +86,12 @@ The owner's requests and their answers to the questions asked, in order. The spe
 | 59 | How close the pages must be | Answer: **close is fine, the preview must be honest** (accepting the file goes to WPS through the button) | Ready's note; WPS as the fallback (45–47) |
 | 60 | Examples | "What will be the output? Please give a real example." | Worked examples in chat (the owner's own .docx, a 12-slide .pptx, a price-list .xlsx) |
 | 61 | Round 9 design | "approved" | Spec written; plan and stages follow |
+
+## Round 10 (after testing 1.0.305, 2026-10-29)
+
+| # | Topic | The owner's words or choice | Built as |
+|---|---|---|---|
+| 62 | Some pages in colour, some in black & white | "What if some pages need to be printed in color and some pages need to be printed in black and white." Question: what matters most? Answer: **pages in order, one print** (not two prints to save colour ink) | Spec 2026-10-29 round 10, Phase 48 |
+| 63 | How pages are marked | Answer: **tap pages, with the app's first guess** (pages with colour start as Colour) | Choose pages in colour; the first guess from the page pictures |
+| 64 | Per page, while paging | "Also hope we will be able to change per pages as well, navigating through the pages." | "Colour of page N" under each page's picture |
+| 65 | Approval | "Go ahead, do what's best, recommended, extremely user friendly. Also fix this issue" (a screenshot: a page picture showing through the status-bar strip above the pinned Previous / Next bar) | Phase 48 and the status-bar cover |

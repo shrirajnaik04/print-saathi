@@ -319,6 +319,11 @@ export class PrintEngineMock extends WebPlugin implements PrintEnginePlugin {
     plan: PrintPlan;
   }): Promise<RenderResult> {
     this.planColour.set(planHash, plan.colour);
+    // Round 10: which pages print grey (their placements carry a grey style), so a preview page can say so.
+    this.planGrey.set(
+      planHash,
+      plan.pages.map((pg) => pg.placements.every((x) => x.style === 'bw' || x.style === 'sharp' || x.style === 'ocv')),
+    );
     (globalThis as { __lastPlan?: PrintPlan }).__lastPlan = plan; // tests: what was asked to print
     const total = plan.pages.length + 1;
     for (let done = 1; done <= total; done++) this.notifyListeners('renderProgress', { jobId, planHash, done, total });
@@ -469,13 +474,24 @@ export class PrintEngineMock extends WebPlugin implements PrintEnginePlugin {
     this.analysisCancelled.add(jobId);
   }
 
-  /** A small labelled page image ("PDF page n"). */
+  /**
+   * A small labelled page image ("PDF page n"). Tests only: `?mockColourPages=2,4` (from 1): those pages have a red
+   * stamp (colour in them, round 10); `?mockBrokenPageImage=<n>`: that page's picture cannot be read.
+   */
   async pdfPageThumb({ page }: { jobId: string; item: number; page: number; password?: string }) {
     const g = globalThis as { __pageImages?: number };
     g.__pageImages = (g.__pageImages ?? 0) + 1; // tests: how many page images were asked for
+    const q = new URLSearchParams(globalThis.location?.search ?? '');
+    if (Number(q.get('mockBrokenPageImage')) === page + 1) return { path: 'data:image/png;base64,broken' };
     const label = `PDF page ${page + 1}`;
+    const stamp = (q.get('mockColourPages') ?? '')
+      .split(',')
+      .map(Number)
+      .includes(page + 1)
+      ? "<rect x='60' y='60' width='200' height='120' fill='#d32f2f'/>"
+      : '';
     return {
-      path: `data:image/svg+xml,${encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' width='595' height='841'><rect width='100%' height='100%' fill='#fff'/><text x='50%' y='50%' font-size='60' text-anchor='middle'>${label}</text></svg>`)}`,
+      path: `data:image/svg+xml,${encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' width='595' height='841'><rect width='100%' height='100%' fill='#fff'/>${stamp}<text x='50%' y='50%' font-size='60' text-anchor='middle'>${label}</text></svg>`)}`,
     };
   }
 
@@ -498,6 +514,7 @@ export class PrintEngineMock extends WebPlugin implements PrintEnginePlugin {
 
   /** The colour of each plan the mock made a file for, so preview pages can say which plan they show. */
   private planColour = new Map<string, string>();
+  private planGrey = new Map<string, boolean[]>();
 
   /**
    * Stands in for the engine's page images: an A4 sheet labelled with its page, colour and plan. Tests only:
@@ -511,7 +528,8 @@ export class PrintEngineMock extends WebPlugin implements PrintEnginePlugin {
     if (q.has('mockNoPreview')) return { planHash, index, path: null };
     await new Promise((r) => setTimeout(r, Number(q.get('mockSlowPreview') ?? 30)));
     if (Number(q.get('mockNoPreviewAt')) === index + 1) return { planHash, index, path: null };
-    const label = `file ${index + 1} ${this.planColour.get(planHash) ?? ''} ${planHash}`;
+    const grey = this.planGrey.get(planHash)?.[index];
+    const label = `file ${index + 1} ${grey ? 'bw' : (this.planColour.get(planHash) ?? '')} ${planHash}`;
     const path = `data:image/svg+xml,${encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' width='595' height='842'><rect width='100%' height='100%' fill='#fff'/><text x='50%' y='50%' font-size='50' text-anchor='middle'>${label}</text></svg>`)}`;
     return { planHash, index, path };
   }

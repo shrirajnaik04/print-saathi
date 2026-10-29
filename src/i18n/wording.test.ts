@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { colourWords } from './colour';
 import { en } from './en';
 import { officeWords } from './office';
 import { scanWords } from './scan';
@@ -24,7 +25,7 @@ const syllables = (w: string) => {
 const ALLOWED = new Set(['printsaathi', 'whatsapp']);
 
 describe('plain wording (PLAN §H2.12)', () => {
-  const all = strings({ en, scanWords, officeWords });
+  const all = strings({ en, scanWords, officeWords, colourWords });
   it('no sentence is longer than 20 words', () => {
     const long = all.flatMap(sentences).filter((s) => words(s).length > 20);
     expect(long).toEqual([]);

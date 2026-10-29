@@ -22,6 +22,7 @@ import java.io.File
  * pushed (extra "name": a synthetic test file pushed into this app's cache/out folder; extra "type", default PDF);
  * pushed-many (extra "names": several such files, comma-separated; extra "type", default image/jpeg);
  * hostile streams (HostileProvider): lying-length, unknown-length, stall, midstream-error, zero-bytes, endless.
+ * Round 10: colour-pdf (four pages, pages 2 and 4 with colour in them).
  * Owner, round 8: text (a WhatsApp text message: EXTRA_TEXT, English and Devanagari with WhatsApp's marks, 80 lines;
  * extra "text" sends that instead; text-blank: a message with nothing in it);
  * Round 9: docx, pptx, xlsx, doc, odt, txt (OfficeSamples: synthetic Office and text files, shared as files). camera-ok / camera-cancel / camera-hold (FakeCameraActivity takes a photo, closes
@@ -70,6 +71,8 @@ class SendActivity : Activity() {
                 .map { share(File(out, it.substringAfterLast('/'))) } to (intent.getStringExtra("type") ?: "image/jpeg")
             "card-photos" -> listOf(share(cardPhoto(out, 1, tag)), share(cardPhoto(out, 2, tag))) to "image/jpeg"
             "eaadhaar" -> listOf(share(eaadhaar(out, tag))) to "application/pdf"
+            // Round 10: a four-page PDF of black lines; pages 2 and 4 also carry a red and a blue block (colour in them).
+            "colour-pdf" -> listOf(share(colourPdf(out, tag))) to "application/pdf"
             "sideways-doc" -> listOf(share(sidewaysDoc(out, tag))) to "image/jpeg"
             "office" -> listOf(share(docx(out, tag))) to "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
             // Round 9: real Office files (OfficeSamples), each with the type WhatsApp gives it.
@@ -191,6 +194,29 @@ class SendActivity : Activity() {
         }
         doc.finishPage(page)
         val f = File(dir, "eaadhaar-$tag.pdf")
+        f.outputStream().use { doc.writeTo(it) }
+        doc.close()
+        return f
+    }
+
+    private fun colourPdf(dir: File, tag: String): File {
+        val doc = android.graphics.pdf.PdfDocument()
+        for (n in 1..4) {
+            val page = doc.startPage(android.graphics.pdf.PdfDocument.PageInfo.Builder(595, 842, n).create())
+            val c = page.canvas
+            val p = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.rgb(30, 30, 30) }
+            for (k in 0 until 14) c.drawRect(60f, 100f + k * 22f, 535f, 108f + k * 22f, p)
+            p.textSize = 16f
+            c.drawText("Page $n ${tag.take(12)}", 60f, 70f, p)
+            if (n % 2 == 0) {
+                p.color = Color.rgb(200, 30, 30)
+                c.drawRect(60f, 450f, 300f, 620f, p)
+                p.color = Color.rgb(30, 90, 200)
+                c.drawRect(320f, 450f, 535f, 620f, p)
+            }
+            doc.finishPage(page)
+        }
+        val f = File(dir, "colour-$tag.pdf")
         f.outputStream().use { doc.writeTo(it) }
         doc.close()
         return f

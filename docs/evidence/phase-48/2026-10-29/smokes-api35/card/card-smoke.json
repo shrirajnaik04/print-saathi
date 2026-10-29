@@ -1,0 +1,78 @@
+{
+  "serial": "emulator-5580",
+  "steps": [
+    "photos: 2 ID cards found, 0 to check",
+    "photos print file: {\"bytes\":101402,\"pageSizePt\":[595.2756,841.8898],\"images\":[[1012,638],[1012,638]],\"placedPt\":[[242.6457,153.0709],[242.6457,153.0709]]}",
+    "e-Aadhaar: 2 ID cards found; sizes Real card size Front and back, exactly as big as the card | Big size Both sides twice as big | Many copies 4 sets on one sheet, with cut lines | Whole e-Aadhaar page The full letter, as it is; file {\"bytes\":38745,\"pageSizePt\":[595.2756,841.8898],\"images\":[[1012,638],[1012,638]],\"placedPt\":[[242.6457,153.0709],[242.6457,153.0709]]}"
+  ],
+  "photosFound": "2 ID cards found",
+  "photosChecked": 0,
+  "photosPrintFile": {
+    "bytes": 101402,
+    "pageSizePt": [
+      595.2756,
+      841.8898
+    ],
+    "images": [
+      [
+        1012,
+        638
+      ],
+      [
+        1012,
+        638
+      ]
+    ],
+    "placedPt": [
+      [
+        242.6457,
+        153.0709
+      ],
+      [
+        242.6457,
+        153.0709
+      ]
+    ]
+  },
+  "pdfFound": "2 ID cards found",
+  "pdfSizes": [
+    "Real card size Front and back, exactly as big as the card",
+    "Big size Both sides twice as big",
+    "Many copies 4 sets on one sheet, with cut lines",
+    "Whole e-Aadhaar page The full letter, as it is"
+  ],
+  "pdfPrintFile": {
+    "bytes": 38745,
+    "pageSizePt": [
+      595.2756,
+      841.8898
+    ],
+    "images": [
+      [
+        1012,
+        638
+      ],
+      [
+        1012,
+        638
+      ]
+    ],
+    "placedPt": [
+      [
+        242.6457,
+        153.0709
+      ],
+      [
+        242.6457,
+        153.0709
+      ]
+    ]
+  },
+  "checks": {
+    "photosBothFound": true,
+    "photosExactSize": true,
+    "pdfBothFound": true,
+    "pdfFourSizes": true,
+    "pdfExactSize": true
+  }
+}

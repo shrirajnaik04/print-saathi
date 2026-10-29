@@ -156,7 +156,12 @@ class RenderPlanContractTest {
         assertEquals("Black & white + Original = Black & White", `in`.printsaathi.app.engine.isolated.Styles.BW, with("bw", "original").getOrThrow().pages[0][0].style)
         // Owner, round 8: Clean colour is a colour style.
         assertEquals(`in`.printsaathi.app.engine.isolated.Styles.CLEAN, with("colour", "clean").getOrThrow().pages[0][0].style)
-        for ((colour, style) in listOf("colour" to "sharp", "colour" to "ocv", "colour" to "bw", "bw" to "vibrant", "bw" to "soft", "colour" to "sepia", "bw" to "clean")) {
+        // Round 10 (some pages in colour, some in black & white): a colour plan takes grey pages, named; the grey styles
+        // before this round were refused there.
+        assertEquals(`in`.printsaathi.app.engine.isolated.Styles.SHARP, with("colour", "sharp").getOrThrow().pages[0][0].style)
+        assertEquals(`in`.printsaathi.app.engine.isolated.Styles.OCV, with("colour", "ocv").getOrThrow().pages[0][0].style)
+        assertEquals(`in`.printsaathi.app.engine.isolated.Styles.BW, with("colour", "bw").getOrThrow().pages[0][0].style)
+        for ((colour, style) in listOf("bw" to "vibrant", "bw" to "soft", "colour" to "sepia", "bw" to "clean")) {
             assertTrue("$colour + $style refused", with(colour, style).exceptionOrNull() is PlanInvalid)
         }
     }

@@ -12,6 +12,19 @@ const paperWords = (plan: PrintPlan, name: string) =>
 /** "1 photo · 1 PDF · 4 pages · A4 · Black & white · 1 copy": a document job in counter words (PLAN §J5). */
 /** "Colour", or "Black & white · Sharp Black" when the job has a print style other than the plain one (PLAN §F4). */
 function colourWords(plan: PrintPlan): string[] {
+  // Round 10: pages of both colours: how many of each ("2 colour, 4 black & white"); a page that holds photos of both
+  // colours is counted apart ("1 with both").
+  const isGrey = (s: string) => s === 'bw' || s === 'sharp' || s === 'ocv';
+  const grey = plan.pages.filter((p) => p.placements.every((x) => isGrey(x.style))).length;
+  const some = plan.pages.filter((p) => p.placements.some((x) => isGrey(x.style))).length;
+  if (plan.colour === 'colour' && some > 0)
+    return [
+      [
+        ...(plan.pages.length - some > 0 ? [`${plan.pages.length - some} ${en.ready.colour.toLowerCase()}`] : []),
+        ...(grey > 0 ? [`${grey} ${en.ready.bw.toLowerCase()}`] : []),
+        ...(some - grey > 0 ? [`${some - grey} ${en.ready.both}`] : []),
+      ].join(', '),
+    ];
   const style = plan.pages[0]?.placements[0]?.style;
   const words = [plan.colour === 'bw' ? en.ready.bw : en.ready.colour];
   return style && style !== 'original' && style !== 'bw' ? [...words, en.style.names[style]] : words;
@@ -90,7 +103,7 @@ export function idCardLine(plan: PrintPlan, size: 'real' | 'big' | 'sets' | 'pag
 export function withPaperType(line: string, glossy: boolean): string {
   if (!glossy) return line;
   const parts = line.split(' · ');
-  const at = parts.findIndex((p) => p === en.ready.colour || p === en.ready.bw);
+  const at = parts.findIndex((p) => p === en.ready.colour || p === en.ready.bw || /^\d+ colour, \d+ /.test(p));
   if (at < 0) return line;
   return [...parts.slice(0, at), en.paperType.short, ...parts.slice(at)].join(' · ');
 }

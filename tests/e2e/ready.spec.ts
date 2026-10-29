@@ -8,6 +8,9 @@ const title = (page: Page) => page.locator('main h1');
 const colourOf = (page: Page) =>
   page.evaluate(() => (globalThis as { __lastPlan?: { colour: string } }).__lastPlan?.colour);
 const sw = (page: Page) => page.getByRole('group', { name: 'Print in' });
+// Round 10: pages with two or more pages also have a Colour | Black & white switch under each page: these tests are about the
+// one at the top.
+const top = (page: Page, name: RegExp) => sw(page).getByRole('button', { name });
 
 const reach: Record<string, (page: Page) => Promise<void>> = {
   photos: async (page) => {
@@ -39,13 +42,13 @@ for (const [kind, open] of Object.entries(reach))
     await open(page);
     await expect(title(page)).toHaveText('Ready to print');
     await expect(sw(page)).toBeVisible();
-    await expect(button(page, /Colour/)).toHaveAttribute('aria-pressed', 'true');
+    await expect(top(page, /Colour/)).toHaveAttribute('aria-pressed', 'true');
     await expect.poll(() => colourOf(page)).toBe('colour');
-    await button(page, /Black & white/).click();
-    await expect(button(page, /Black & white/)).toHaveAttribute('aria-pressed', 'true');
+    await top(page, /Black & white/).click();
+    await expect(top(page, /Black & white/)).toHaveAttribute('aria-pressed', 'true');
     await expect.poll(() => colourOf(page)).toBe('bw');
     await expect(page.locator('.summary')).toContainText('Black & white');
-    await button(page, /Colour/).click();
+    await top(page, /Colour/).click();
     await expect.poll(() => colourOf(page)).toBe('colour');
     await expect(page.locator('.summary')).toContainText('Colour');
   });

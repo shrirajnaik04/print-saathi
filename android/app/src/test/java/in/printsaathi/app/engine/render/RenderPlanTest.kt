@@ -1,5 +1,6 @@
 package `in`.printsaathi.app.engine.render
 
+import `in`.printsaathi.app.engine.isolated.Styles
 import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
@@ -143,6 +144,37 @@ class RenderPlanTest {
         assertEquals(0, q("landscape", 1)) // sideways page + one clockwise turn = upright on the sheet
         assertEquals(1, q("landscape", 0))
         assertEquals(2, q("landscape", 3))
+    }
+
+    /** Round 10: pages in colour and in black & white, one print: a colour plan whose grey pages carry a grey style. */
+    private fun styled(vararg styles: String) = JSONArray().also { pages ->
+        styles.forEachIndexed { n, st ->
+            pages.put(
+                JSONObject().put("orientation", "portrait")
+                    .put("placements", JSONArray().put(placement(1, 17.0, 17.0, 561.0, 808.0).put("style", st).put("pdfPage", n))),
+            )
+        }
+    }
+
+    @Test fun aColourPlanTakesGreyPagesBesideColourPages() {
+        val p = RenderPlan.parse(plan(styled("original", "bw", "sharp", "ocv", "vibrant")))
+        assertFalse("the print itself stays in colour", p.grey)
+        assertEquals(
+            listOf(Styles.ORIGINAL, Styles.BW, Styles.SHARP, Styles.OCV, Styles.VIBRANT),
+            p.pages.map { it.single().style },
+        )
+    }
+
+    @Test fun aBlackAndWhitePlanStillRefusesColourStyles() {
+        rejects(plan(styled("original", "vibrant"), colour = "bw").also { it.put("colour", "bw") }.let { j ->
+            // "original" on a grey plan is plain Black & white (plans before Phase 8); a colour style is not allowed.
+            JSONObject(j.toString()).also { it.getJSONArray("pages").getJSONObject(1).getJSONArray("placements").getJSONObject(0).put("style", "clean") }
+        }, "a colour style on a black & white plan")
+    }
+
+    @Test fun anUntouchedPlanRefusesAGreyPage() {
+        val pages = styled("original", "bw")
+        rejects(plan(pages).put("exact", JSONObject().put("itemIndex", 1)), "a grey page in the customer's own file")
     }
 
     /** Phase 4: Black & white plans are accepted and printed from grey data (PLAN §G2). */

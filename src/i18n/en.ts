@@ -215,6 +215,8 @@ export const en = {
     copies: 'copies',
     colour: 'Colour',
     bw: 'Black & white',
+    /** Round 10: a page that holds photos of both colours ("1 with both"). */
+    both: 'with both',
     /** The Colour | Black & white switch under the preview (owner, round 3). */
     printIn: 'Print in',
     /** Beside the title (owner, round 4): screen readers still hear "Black & white". */

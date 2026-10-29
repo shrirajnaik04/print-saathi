@@ -1,6 +1,7 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { colourWords } from './colour';
 import { en } from './en';
 import { officeWords } from './office';
 import { scanWords } from './scan';
@@ -17,7 +18,7 @@ const strings = (o: unknown): string[] =>
 
 describe('string catalogue', () => {
   it('has no jargon in any user-facing string', () => {
-    const offenders = strings({ en, scanWords, officeWords }).filter(jargon);
+    const offenders = strings({ en, scanWords, officeWords, colourWords }).filter(jargon);
     expect(offenders).toEqual([]);
   });
 
@@ -26,7 +27,7 @@ describe('string catalogue', () => {
   });
 
   it('has no empty strings', () => {
-    expect(strings({ en, scanWords, officeWords }).filter((s) => s.trim() === '')).toEqual([]);
+    expect(strings({ en, scanWords, officeWords, colourWords }).filter((s) => s.trim() === '')).toEqual([]);
   });
 });
 

@@ -159,6 +159,12 @@ class RenderPlan(
         )
         private val GREY_STYLES = mapOf("original" to Styles.BW, "bw" to Styles.BW, "sharp" to Styles.SHARP, "ocv" to Styles.OCV)
 
+        /**
+         * Round 10: a colour plan may hold pages in black & white (some pages in colour, some not, one print): their
+         * grey styles are named, and "original" there stays the colour original.
+         */
+        private val MIXED_STYLES = COLOUR_STYLES + mapOf("bw" to Styles.BW, "sharp" to Styles.SHARP, "ocv" to Styles.OCV)
+
         private fun placement(p: JSONObject, sideways: Boolean, pw: Double, ph: Double, sheetH: Double, grey: Boolean): RenderPlacement {
             val c = p.getJSONObject("crop")
             val shown = Crop(c.getDouble("x"), c.getDouble("y"), c.getDouble("w"), c.getDouble("h"))
@@ -170,7 +176,7 @@ class RenderPlan(
             )
             val turns = p.optInt("turns", -1)
             check(turns in 0..3, "turns out of range")
-            val style = (if (grey) GREY_STYLES else COLOUR_STYLES)[p.optString("style")] ?: throw PlanInvalid("style does not fit the colour")
+            val style = (if (grey) GREY_STYLES else MIXED_STYLES)[p.optString("style")] ?: throw PlanInvalid("style does not fit the colour")
             val b = p.getJSONObject("box")
             val box = RectD(b.getDouble("x"), b.getDouble("y"), b.getDouble("w"), b.getDouble("h"))
             check(box.w > 0 && box.h > 0, "empty box")
