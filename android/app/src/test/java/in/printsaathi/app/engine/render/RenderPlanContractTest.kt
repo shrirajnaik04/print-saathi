@@ -89,6 +89,9 @@ class RenderPlanContractTest {
             assertEquals(35.0, p.box.w * 25.4 / 72, 1e-6)
             assertEquals(45.0, p.box.h * 25.4 / 72, 1e-6)
             assertFalse("the passport frame, not the whole photo", p.crop.isFull)
+            // Round 11 (owner, "image as is"): made at 600 dpi of 35 x 45 mm: 45 mm = 1.7717 in -> 1063 px.
+            assertEquals(600, p.dpi)
+            assertEquals(1063, p.longSidePx)
         }
         // The 1½ pt border (owner, 2026-10-23) is drawn inside each photo, and replaces the grey cut lines.
         assertTrue("no cut lines beside a border", plan.guides.single().isEmpty())

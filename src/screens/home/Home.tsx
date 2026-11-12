@@ -18,8 +18,9 @@ import { useSettings } from '../useSettings';
 const t = en.home;
 type PickKind = 'photos' | 'passport' | 'documents' | 'cards';
 const JOBS: { key: PickKind | 'scan' | 'text'; icon: IconName; title: string; tone: TileTone; helper?: string }[] = [
-  { key: 'photos', icon: 'photos', title: t.photos, tone: 'photos' },
+  // Owner, round 11: Passport photos first, Photos beside it.
   { key: 'passport', icon: 'passport', title: t.passport, tone: 'passport' },
+  { key: 'photos', icon: 'photos', title: t.photos, tone: 'photos' },
   { key: 'documents', icon: 'document', title: t.documents, tone: 'documents' },
   { key: 'cards', icon: 'card', title: t.cards, tone: 'cards' },
   // Owner, round 8: paper pages photographed (as the DocScanner app); a customer's WhatsApp text message (rare, "but

@@ -1,0 +1,4 @@
+Browser suite (Playwright), final code (commit 9e699ac), npm run test:e2e:
+  24 skipped
+  1952 passed (4.3m)
+  0 failed

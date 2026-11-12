@@ -95,3 +95,14 @@ The owner's requests and their answers to the questions asked, in order. The spe
 | 63 | How pages are marked | Answer: **tap pages, with the app's first guess** (pages with colour start as Colour) | Choose pages in colour; the first guess from the page pictures |
 | 64 | Per page, while paging | "Also hope we will be able to change per pages as well, navigating through the pages." | "Colour of page N" under each page's picture |
 | 65 | Approval | "Go ahead, do what's best, recommended, extremely user friendly. Also fix this issue" (a screenshot: a page picture showing through the status-bar strip above the pinned Previous / Next bar) | Phase 48 and the status-bar cover |
+
+## Round 11 (after testing 1.0.310, 2026-11-08)
+
+| # | Topic | The owner's words or choice | Built as |
+|---|---|---|---|
+| 66 | Move photos across pages | "What if we want to manually move photos across pages? Eg: Move to page 2, move to page 1, etc. Think of every scenario." | Move to page: a list of pages, or a new page at the end; the photo keeps its size and, where free, its place (spec 2026-11-08 round 11, Phase 49) |
+| 67 | Home order | "Swap position of photos card with passport photos card." | Passport photos first, Photos second |
+| 68 | The resize handle | "Remove the round circle from the resize image blue circle on bottom right corner … replace with the stretching crop corner. Behaviour will remain the same … extremely user friendly." (a screenshot of another app's crop corners) | An L-shaped corner on the photo's corner, in the side handles' look; the touch area stays 56 px |
+| 69 | The turn handle | "This blue button doesn't look good, make it a rotate symbol for better UI/UX, make it look like the image can be rotated with that button. Just solid blue doesn't look good." (2026-11-12, a screenshot of the handle) | A white knob with the circular-arrow icon and the main colour's ring, on the same stick; behaviour unchanged |
+| 70 | Passport photo quality | "Also make sure passport size photos taken as best quality, also even with best quality the print must aim for fast printing." Asked what best quality means: "**best quality I meant image as is.**" | Passport photos are made from the photo's own pixels up to 600 dpi, JPEG quality 98, one image stored once, still in the printer's fast document mode (spec Part E) |
+| 71 | Approval | The standing "do what's best, recommended, extremely user friendly" | Phase 49 |

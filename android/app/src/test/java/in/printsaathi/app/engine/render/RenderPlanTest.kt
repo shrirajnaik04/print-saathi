@@ -100,6 +100,32 @@ class RenderPlanTest {
         rejects(plan(tooMany), "too many pages")
     }
 
+    /**
+     * Round 11 (owner, "image as is"): a passport photo asks for 600 dpi of its printed size; every other photo stays at
+     * 300. Only whole numbers from 300 to 600 are taken: less would lower the print resolution, more is not asked for.
+     */
+    @Test fun aPlacementMayAskForUpTo600DpiAndNeverLessThan300() {
+        fun withDpi(dpi: Any?) = plan(
+            JSONArray().put(
+                JSONObject().put("orientation", "portrait").put(
+                    "placements",
+                    JSONArray().put(placement(1, 17.0, 40.0, 99.2126, 127.559).also { if (dpi != null) it.put("dpi", dpi) }),
+                ),
+            ),
+        )
+        // 35 x 45 mm (99.2126 x 127.559 pt): the long side is 1063 px at 600 dpi (1.7717 in x 600), 532 at 300.
+        assertEquals(532, RenderPlan.parse(withDpi(null)).pages[0].single().longSidePx)
+        assertEquals(300, RenderPlan.parse(withDpi(null)).pages[0].single().dpi)
+        assertEquals(1063, RenderPlan.parse(withDpi(600)).pages[0].single().longSidePx)
+        assertEquals(600, RenderPlan.parse(withDpi(600)).pages[0].single().dpi)
+        assertEquals(450, RenderPlan.parse(withDpi(450)).pages[0].single().dpi)
+        rejects(withDpi(299), "less than 300 dpi would lower the print resolution")
+        rejects(withDpi(601), "more than 600 dpi")
+        rejects(withDpi(0), "no dpi")
+        rejects(withDpi(300.5), "a dpi that is not a whole number")
+        rejects(withDpi("fine"), "a dpi that is not a number")
+    }
+
     /** Passport border (owner, 2026-10-23): a black line of that width inside the photo, on the sheet; 0.25–6 pt only. */
     @Test fun aBorderIsDrawnInsideItsPhotoOnTheSheetAndKeptInRange() {
         fun withBorder(orientation: String, border: Any) = plan(

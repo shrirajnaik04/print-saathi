@@ -1,0 +1,4 @@
+npm run build && npm run size, final code:
+ok   js: 47544 B gzip (budget 61440 B)
+ok   css: 7605 B gzip (budget 15360 B)
+(Phase 48 closed at js 47,241 B and css 7,425 B.)

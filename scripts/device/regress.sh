@@ -10,7 +10,8 @@ S=emulator-$PORT
 mkdir -p "$OUT"
 # The phone must run today's web app, not whatever `npm run android:sync` copied last time (Phase 4 finding).
 node scripts/device/web-fresh.mjs || { echo "$LABEL: web app in the Android build is out of date"; exit 1; }
-("$EMU" -avd "$AVD" -port "$PORT" -no-window -no-audio -no-boot-anim -no-snapshot-save -gpu swiftshader_indirect > "$OUT/.emulator-$LABEL.log" 2>&1 &)
+# EMU_EXTRA: e.g. -read-only, to start a second copy of an AVD that is already running (the owner's own emulator).
+("$EMU" -avd "$AVD" -port "$PORT" ${EMU_EXTRA:-} -no-window -no-audio -no-boot-anim -no-snapshot-save -gpu swiftshader_indirect > "$OUT/.emulator-$LABEL.log" 2>&1 &)
 i=0
 until "$ADB" -s "$S" shell pm path android 2>/dev/null | grep -q '^package:'; do
   i=$((i + 1)); [ $i -gt 120 ] && { echo "$LABEL: boot timeout"; exit 1; }; sleep 5

@@ -25,6 +25,7 @@ import { Received } from './screens/received/Received';
 import { Receiving } from './screens/received/Receiving';
 import type { ScreenProps } from './screens/types';
 import { loadSettings } from './screens/useSettings';
+import { closeTopOnBack } from './ui/backClose';
 import { ConfirmSheet } from './ui/ConfirmSheet';
 import { lazyScreen } from './ui/lazyScreen';
 
@@ -325,6 +326,8 @@ export function App() {
   // The shopkeeper's own moves (screens, Android Back): Back while a question shows answers it safely; Back on Home asks
   // before closing the app; leaving an unprinted job's screens asks first (a printed or vanished job does not).
   const go = (action: NavAction) => {
+    // Back closes the question that is open on a screen (the page list on Adjust) before it leaves the screen.
+    if (action.type === 'back' && closeTopOnBack()) return;
     if (askNow.current) {
       // The question is modal: only Android Back reaches here from the shopkeeper, and answers Keep working. Any other
       // step is the screen's own, made when its work finished (a print sent → its result; a PDF looked at → Ready):

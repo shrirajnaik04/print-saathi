@@ -1,0 +1,7 @@
+Test Files  76 passed (76)
+Tests  649 passed (649)
+✔ test files are not part of the web app and never make it stale (10.9979ms)
+ℹ tests 96
+ℹ pass 96
+ℹ fail 0
+ℹ skipped 0

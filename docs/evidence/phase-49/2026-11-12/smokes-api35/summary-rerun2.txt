@@ -1,0 +1,3 @@
+place FAIL (see docs/evidence/phase-49/2026-11-12/smokes-api35/place-rerun2/run.log)
+round7 FAIL (see docs/evidence/phase-49/2026-11-12/smokes-api35/round7-rerun2/run.log)
+done

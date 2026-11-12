@@ -3,6 +3,7 @@ import { type DocPage, type Job, type JobAction, jobReducer, nextItemIndex } fro
 import { isFull, uprightOf } from '../../core/layout/crop';
 import { freezeSizes, MIN_LONG_MM } from '../../core/layout/flow';
 import { overlaps, type Side, sideCrop, sideCropQuad, spotsFromPlan, storedPage } from '../../core/layout/free';
+import { movePhotoToPage, pageChoices } from '../../core/layout/movePage';
 import type { Box } from '../../core/layout/onePerPage';
 import { passportSize } from '../../core/layout/passport';
 import { angleOf, ownBox, shownDegrees, snap } from '../../core/layout/tilt';
@@ -12,6 +13,7 @@ import { en } from '../../i18n/en';
 import { fill } from '../../i18n/fill';
 import { ActionBar } from '../../ui/ActionBar';
 import { Button } from '../../ui/Button';
+import { ConfirmSheet } from '../../ui/ConfirmSheet';
 import { Icon } from '../../ui/Icon';
 import { Panel } from '../../ui/Panel';
 import { PaperPreview } from '../../ui/PaperPreview';
@@ -503,6 +505,30 @@ export function Adjust({ go, params }: ScreenProps) {
     if (target === undefined) return;
     void change({ type: 'placeItem', item: sel, page: target, x: spotOf.x, y: spotOf.y });
   };
+  // Move to page (owner, round 11: "move photos across pages … Move to page 2, move to page 1"): the chosen photo goes to
+  // any page by its number, or to a new page at the end; it keeps its size and, where free, its place (movePage.ts).
+  const [moving, setMoving] = useState(false);
+  const pagesToMoveTo = kind === 'photos' && plan && sel !== null ? pageChoices(plan, sel) : [];
+  const moveTo = async (to: number | 'new') => {
+    setMoving(false);
+    // Not while a finger holds, resizes, crops or turns a photo: its drop would undo the move (as for Undo).
+    if (!job || !plan || sel === null || drag.current || sideDrag.current || turnDrag.current || byHand.lifted) return;
+    const moved = movePhotoToPage(plan, job.spots, sel, to, paper.photoEdgeMm(job));
+    if (!moved) return;
+    const sizes = { ...freezeSizes(plan), ...(job.sizes ?? {}) };
+    const next = await change({ type: 'setSpots', spots: moved.spots, sizes });
+    if (!next) return;
+    // The note belongs to this change: any other one (Undo, a drag, Automatic) takes it away (review I1).
+    moveNoteRev.current = next.rev;
+    const note = moved.clear ? t.movedTo : t.movedCovers;
+    setClipNote(fill(note, { n: numberOf(sel), page: moved.index + 1 }));
+  };
+  const moveNoteRev = useRef<number | null>(null);
+  useEffect(() => {
+    if (moveNoteRev.current === null || !job || job.rev === moveNoteRev.current) return;
+    moveNoteRev.current = null;
+    setClipNote(null);
+  }, [job?.rev]);
   const resizePhoto = (factor: number) => {
     if (!job || !plan || !where || sel === null) return;
     const sizes = { ...(job.sizes ?? freezeSizes(plan)), [sel]: ownLongMm(where.placement) * factor };
@@ -937,6 +963,10 @@ export function Adjust({ go, params }: ScreenProps) {
   // Side handles only where the photo is big enough on screen to hold them apart (96 px along that side).
   const pxPerPt = paperPx && plan && where ? paperPx / pageSize(plan, where.page).w : 0;
   const numberOf = (item: number) => keys.indexOf(item) + 1;
+  // The resize corner's arms (owner, round 11: a crop corner, an L on the photo's corner): about 40 % of the photo's
+  // short side on screen, between 20 and 36 px, so a small photo is never covered by its own corner.
+  const armOf = (b: { w: number; h: number }) =>
+    `${Math.round(Math.max(20, Math.min(36, 0.4 * Math.min(b.w, b.h) * pxPerPt)))}px`;
   // Handles on a side that reaches the page's edge sit just inside it: drawn outside, their touch area would reach past
   // the screen's edge (a whole document page, a photo at the margin, the page across the screen since round 3).
   const remPx =
@@ -1178,6 +1208,14 @@ export function Adjust({ go, params }: ScreenProps) {
               </Button>
             </>
           )}
+          <Button
+            variant="secondary"
+            icon="files"
+            disabled={busy || pagesToMoveTo.length === 0 || !!byHand.lifted}
+            onClick={() => setMoving(true)}
+          >
+            {t.moveToPage}
+          </Button>
           {/* Moving without dragging (PLAN §H2.4): 2 mm a tap; the first move places every photo by hand. */}
           {(['up', 'down', 'left', 'right'] as const).map((d) => (
             <Button
@@ -1452,6 +1490,25 @@ export function Adjust({ go, params }: ScreenProps) {
       {saveFailed && <Panel kind="error" title={en.change.saveFailed} />}
       {added && <Panel kind="warn" title={added} />}
       {cover && <Panel kind="info" title={fill(t.covers, { a: numberOf(cover[1]), b: numberOf(cover[0]) })} />}
+      {moving && kind === 'photos' && plan && sel !== null && (
+        <ConfirmSheet
+          grid
+          title={fill(t.moveTitle, { n: numberOf(sel) })}
+          onDismiss={() => setMoving(false)}
+          choices={[
+            ...pagesToMoveTo.map((to) => {
+              const k = to === 'new' ? 0 : (plan.pages[to]?.placements.length ?? 0);
+              return {
+                label: to === 'new' ? t.newPage : fill(k === 1 ? t.pageWithOne : t.pageWith, { n: to + 1, k }),
+                kind: 'secondary' as const,
+                ...(to === 'new' ? {} : { name: fill(k === 1 ? t.pageNameOne : t.pageName, { n: to + 1, k }) }),
+                onChoose: () => void moveTo(to),
+              };
+            }),
+            { label: t.moveCancel, kind: 'primary' as const, wide: true, onChoose: () => setMoving(false) },
+          ]}
+        />
+      )}
       {kind === 'photos' && undo && (
         <Panel
           kind="info"
@@ -1626,6 +1683,7 @@ export function Adjust({ go, params }: ScreenProps) {
                                 (kind === 'photos' && (cut?.item === k || turning?.item === k))) && (
                                 <span
                                   class={`adjust-handle${nearEdge(p).r || nearEdge(p).b ? ' adjust-in' : ''}`}
+                                  style={{ '--arm': armOf(own ?? p.box) }}
                                   onPointerDown={startDrag}
                                   onPointerMove={moveDrag}
                                   onPointerUp={endDrag}
@@ -1638,7 +1696,9 @@ export function Adjust({ go, params }: ScreenProps) {
                               !lifted &&
                               !cut &&
                               (p === where.placement || turning?.item === k) && (
-                                <span class="adjust-rotate" onPointerDown={startTurn} />
+                                <span class="adjust-rotate" onPointerDown={startTurn}>
+                                  <Icon name="turn" />
+                                </span>
                               )}
                           </>
                         );

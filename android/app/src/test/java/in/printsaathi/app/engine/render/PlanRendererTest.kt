@@ -179,6 +179,60 @@ class PlanRendererTest {
         assertEquals(setOf(2), (again as RenderOutcome.Done).lowRes)
     }
 
+    /**
+     * Round 11 (owner, "image as is", and "even with best quality the print must aim for fast printing"): a passport
+     * photo asks for 600 dpi and is made with the finer decode (nearly lossless JPEG); the others keep the usual one.
+     * Each image is still made once for all its copies, so the file stays small and fast to send.
+     */
+    @Test fun aPhotoThatAsksFor600DpiIsMadeWithTheFinerDecodeOnce() {
+        val usual = mutableListOf<Int>()
+        val fine = mutableListOf<Int>()
+        val both = object : PlacementDecoder {
+            override fun decode(item: RenderItem, dst: File, longSidePx: Int, style: Int, crop: Crop): DecodeOutcome {
+                usual += longSidePx
+                dst.writeBytes(jpeg)
+                return DecodeOutcome.Ok(longSidePx, longSidePx * 3 / 4)
+            }
+            override fun decodeFine(item: RenderItem, dst: File, longSidePx: Int, style: Int, crop: Crop): DecodeOutcome {
+                fine += longSidePx
+                dst.writeBytes(jpeg)
+                return DecodeOutcome.Ok(longSidePx, longSidePx * 3 / 4)
+            }
+        }
+        val passport = RenderPlacement(1, RectD(17.0, 17.0, 99.2126, 127.559), 0, 1063, dpi = 600)
+        val ordinary = RenderPlacement(2, RectD(17.0, 200.0, 200.0, 300.0), 0, 1250)
+        // Five copies of the passport photo on the sheet: one image, made once.
+        val sheet = listOf(passport, passport.copy(box = RectD(130.0, 17.0, 99.2126, 127.559)), passport.copy(box = RectD(240.0, 17.0, 99.2126, 127.559)))
+        val r = PlanRenderer(both, counter).render(plan(1, sheet + ordinary), items(1, 2), work, out, CancelToken())
+        assertTrue(r is RenderOutcome.Done)
+        assertEquals("the passport photo, once, finer", listOf(1063), fine)
+        assertEquals("the other photo as usual", listOf(1250), usual)
+    }
+
+    /** The photo's own detail is judged against what it was asked for: a passport photo that reached 413 px of 1063 is 233 dpi, not blurry. */
+    @Test fun aPassportPhotoIsLowResolutionOnlyUnder200DpiOfItsOwn() {
+        fun render(reachedPx: Int): RenderOutcome.Done {
+            val d = object : PlacementDecoder {
+                override fun decode(item: RenderItem, dst: File, longSidePx: Int, style: Int, crop: Crop): DecodeOutcome {
+                    dst.writeBytes(jpeg)
+                    return DecodeOutcome.Ok(reachedPx, reachedPx * 4 / 5)
+                }
+            }
+            val passport = RenderPlacement(1, RectD(17.0, 17.0, 99.2126, 127.559), 0, 1063, dpi = 600)
+            return PlanRenderer(d, counter).render(plan(1, listOf(passport)), items(1), work, out, CancelToken()) as RenderOutcome.Done
+        }
+        // 1063 px made = 600 dpi (reported as 300: "big enough"); 413 px = 233 dpi: fine; 300 px = 170 dpi: may print blurry.
+        assertEquals(mapOf(1 to 300), render(1063).dpi)
+        out.deleteRecursively()
+        val fineEnough = render(413)
+        assertEquals(emptySet<Int>(), fineEnough.lowRes)
+        assertEquals(mapOf(1 to 233), fineEnough.dpi)
+        out.deleteRecursively()
+        val blurry = render(300)
+        assertEquals(setOf(1), blurry.lowRes)
+        assertEquals(mapOf(1 to 169), blurry.dpi)
+    }
+
     /** Phase 10c: each photo's dpi at its box, so Ready can use PLAN §F6's thresholds (photos 100, documents 120). */
     @Test fun eachPhotosDpiAtItsBoxIsGivenAndKept() {
         val small = PlacementDecoder { item, dst, px, grey, crop ->

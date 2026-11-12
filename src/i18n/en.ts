@@ -560,6 +560,20 @@ export const en = {
     moveRight: 'Move right',
     toPrevious: 'To previous page',
     toNext: 'To next page',
+    /** Move to page (owner, round 11): any page by its number, or a new one at the end. */
+    moveToPage: 'Move to page',
+    moveTitle: 'Move photo {n} to which page?',
+    /** A page and how many photos it holds, on two lines (the sheet shows the line break). */
+    pageWith: 'Page {n}\n{k} photos',
+    pageWithOne: 'Page {n}\n1 photo',
+    /** What a screen reader says for the same two buttons. */
+    pageName: 'Page {n}, {k} photos',
+    pageNameOne: 'Page {n}, 1 photo',
+    newPage: 'A new page at the end',
+    moveCancel: 'Cancel',
+    movedTo: 'Photo {n} is now on page {page}.',
+    movedCovers:
+      'Photo {n} is now on page {page}. There was no free space, so it covers another photo. Move it or make it smaller.',
     covers: 'Photo {a} covers part of photo {b}.',
     done: 'Done',
     photos: 'Adjust photos',

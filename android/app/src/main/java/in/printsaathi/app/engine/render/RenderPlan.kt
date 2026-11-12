@@ -38,6 +38,11 @@ data class RenderPlacement(
      */
     val tiltCw: Double = 0.0,
     val inner: RectD? = null,
+    /**
+     * Owner, round 11 ("image as is"): the dots per inch of its printed size this photo is made at, 300 unless the plan
+     * asks for more (passport photos ask for 600): [longSidePx] is already counted at it.
+     */
+    val dpi: Int = RenderPlan.DPI,
 )
 
 /**
@@ -62,6 +67,9 @@ class RenderPlan(
 ) {
     companion object {
         const val DPI = 300
+
+        /** The most a placement may ask for (passport photos, round 11): never less than [DPI], so no print is made coarser. */
+        const val MAX_DPI = 600
         const val MAX_PAGES = 500
         const val MAX_COPIES = 99
         private const val A4_W = 595.2755905511812
@@ -204,8 +212,11 @@ class RenderPlan(
                 check(!p.has("border"), "a tilted passport photo")
                 Triple(deg, ow, oh)
             }
-            // 300 dpi of what is drawn: the photo's own long side when tilted, never its (bigger) outline's.
-            val px = ceil((tilt?.let { max(it.second, it.third) } ?: max(box.w, box.h)) * DPI / 72.0 - 1e-9).toInt()
+            // The dpi the plan asks for (passport photos: 600, round 11; else 300): whole numbers from 300 to 600 only.
+            val dpi = if (p.has("dpi")) (p.opt("dpi") as? Int)?.also { check(it in DPI..MAX_DPI, "dpi out of range") }
+                ?: throw PlanInvalid("dpi is not a whole number") else DPI
+            // That many dpi of what is drawn: the photo's own long side when tilted, never its (bigger) outline's.
+            val px = ceil((tilt?.let { max(it.second, it.third) } ?: max(box.w, box.h)) * dpi / 72.0 - 1e-9).toInt()
             // Sideways page (x along its long side) onto the portrait sheet, turned anticlockwise: its top edge
             // becomes the sheet's left edge.
             val onSheet = if (sideways) RectD(box.y, sheetH - box.x - box.w, box.h, box.w) else box
@@ -232,6 +243,7 @@ class RenderPlan(
                 quad,
                 tilt?.first ?: 0.0,
                 inner,
+                dpi,
             )
         }
 

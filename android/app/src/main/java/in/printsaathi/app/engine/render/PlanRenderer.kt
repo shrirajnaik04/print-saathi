@@ -44,6 +44,13 @@ sealed class DecodeOutcome {
 /** [style]: a print style (Styles.*): colour styles give a JPEG, Black & White / Sharp Black a grey JPEG, OCV Black 1-bit rows. */
 fun interface PlacementDecoder {
     fun decode(item: RenderItem, dst: File, longSidePx: Int, style: Int, crop: Crop): DecodeOutcome
+
+    /**
+     * Round 11 (passport photos, "image as is"): the same, with the JPEG kept almost lossless. A decoder with no finer
+     * way makes the usual image.
+     */
+    fun decodeFine(item: RenderItem, dst: File, longSidePx: Int, style: Int, crop: Crop): DecodeOutcome =
+        decode(item, dst, longSidePx, style, crop)
 }
 
 /**
@@ -68,8 +75,10 @@ private data class ImageKey(
     /** A card's output size (px, as the image stands before turning onto the sheet). */
     val outW: Int = 0,
     val outH: Int = 0,
+    /** The detail it was asked for (round 11): above [RenderPlan.DPI] it is made with the finer decode. */
+    val dpi: Int = RenderPlan.DPI,
 ) {
-    val name get() = "$itemIndex-$longSidePx${if (crop.isFull) "" else "-" + crop.key}${pdfPage?.let { "-p$it" } ?: ""}-s$style" +
+    val name get() = "$itemIndex-$longSidePx${if (dpi == RenderPlan.DPI) "" else "-d$dpi"}${if (crop.isFull) "" else "-" + crop.key}${pdfPage?.let { "-p$it" } ?: ""}-s$style" +
         (quad?.let { q -> "-q" + Integer.toHexString(q.hashCode()) + "-${outW}x$outH" } ?: "")
 }
 
@@ -171,7 +180,8 @@ class PlanRenderer(
                     val p = pages ?: return RenderOutcome.Failed("no page decoder")
                     documentPage(p, item, key, tmp)
                 } else {
-                    decoder.decode(item, tmp, key.longSidePx, key.style, key.crop).let {
+                    (if (key.dpi > RenderPlan.DPI) decoder.decodeFine(item, tmp, key.longSidePx, key.style, key.crop)
+                    else decoder.decode(item, tmp, key.longSidePx, key.style, key.crop)).let {
                         if (it is DecodeOutcome.Ok) it to (if (it.mode == PageMode.ONE_BIT_RAW) ImageKind.GREY1_RAW else ImageKind.JPEG_RGB) else it to null
                     }
                 }
@@ -185,7 +195,7 @@ class PlanRenderer(
             // Under 200 dpi (2/3 of the 300 dpi target): Ready says the photo may print blurry (gate M1).
             // A straightened card is made at its box's size; what counts is how many photo pixels it had (Phase 14).
             fun reached(key: ImageKey, v: DecodeOutcome.Ok) =
-                if (key.quad != null) 300.0 * (v.sourcePx ?: key.outW) / key.outW else 300.0 * maxOf(v.width, v.height) / key.longSidePx
+                if (key.quad != null) 300.0 * (v.sourcePx ?: key.outW) / key.outW else key.dpi * maxOf(v.width, v.height).toDouble() / key.longSidePx
             val lowRes = decoded.filter { (key, v) -> (key.pdfPage == null || key.quad != null) && reached(key, v.second) * 3 < 300 * 2 }
                 .keys.map { it.itemIndex }.toSet()
             // Dots per inch each photo reached at its box (300 when the photo was big enough), the lowest over its places.
@@ -245,7 +255,7 @@ class PlanRenderer(
 
     /** One image per photo, size, cut, page, style and card corners; a card is made at its box's size at 300 dpi. */
     private fun keyOf(plan: RenderPlan, p: RenderPlacement): ImageKey {
-        if (p.quad == null) return ImageKey(p.itemIndex, p.longSidePx, p.crop, p.pdfPage, styleOf(plan, p))
+        if (p.quad == null) return ImageKey(p.itemIndex, p.longSidePx, p.crop, p.pdfPage, styleOf(plan, p), dpi = p.dpi)
         // A tilted photo is made at its own size, not its outline's.
         val drawn = p.inner ?: p.box
         val w = Math.ceil(drawn.w * RenderPlan.DPI / 72.0 - 1e-9).toInt()

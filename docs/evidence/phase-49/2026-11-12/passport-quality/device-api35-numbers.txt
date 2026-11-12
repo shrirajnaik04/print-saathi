@@ -1,0 +1,3 @@
+I PassportQuality: 12 photos, source 2400x3200: 600 dpi [(797, 1063)] 329317 bytes 1318 ms; 300 dpi [(399, 532)] 16941 bytes 274 ms
+I PassportQuality: source 600x800: 600 dpi [(600, 800)] 121608 bytes; 300 dpi [(399, 532)] 51915 bytes
+I PassportQuality: 30 photos, source 2400x3200: [(797, 1063)] 331289 bytes 1524 ms

@@ -193,9 +193,12 @@ await sleep(3000);
 try {
   sh('am', 'start', '-n', `${PKG}/.MainActivity`);
   await until('first start', () => has('Welcome') || has('PrintSaathi'));
-  if (has('Welcome')) {
-    for (let i = 0; i < 3; i++) await tap('Next');
-    await tap('Done');
+  // The Welcome tour: tap Next, then Done, as the cards come. A busy emulator misses taps and starts slowly, so the screen
+  // is looked at again each time instead of counting taps.
+  for (let end = Date.now() + 240_000; !has('Recent jobs') && Date.now() < end; ) {
+    if (has('Done')) await tap('Done');
+    else if (has('Next')) await tap('Next');
+    await sleep(1500);
   }
   await until('Home', () => has('Recent jobs'));
 

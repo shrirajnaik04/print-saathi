@@ -14,6 +14,12 @@ export function passportSize(choice: { preset: string; sizeMm?: { w: number; h: 
   return PASSPORT_PRESETS[choice.preset as keyof typeof PASSPORT_PRESETS] ?? PASSPORT_PRESETS['35x45'];
 }
 
+/**
+ * The detail a passport photo is made at (owner, round 11: "image as is"): up to 600 dots per inch of its printed size,
+ * from the customer's own pixels and never more than the photo has, instead of the 300 every other photo is shrunk to.
+ */
+export const PASSPORT_DPI = 600;
+
 const MM = 72 / 25.4;
 /** Space between photos, where the cut lines run (PLAN §G0: 2 mm for passport). */
 const GAP_MM = 2;

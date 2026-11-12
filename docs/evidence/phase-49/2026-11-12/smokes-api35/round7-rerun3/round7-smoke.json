@@ -1,0 +1,67 @@
+{
+  "serial": "emulator-5580",
+  "checks": {
+    "frontAndBack60mmApart": true,
+    "sideBarsOnTheEdges": true,
+    "pasteStartsAtTheBlinkingLine": true
+  },
+  "cards": {
+    "cards": [
+      {
+        "x": 62.20001388888888,
+        "y": 19.999995277777778,
+        "w": 85.60001083333333,
+        "h": 54.00001194444444
+      },
+      {
+        "x": 62.20001388888888,
+        "y": 133.99999305555554,
+        "w": 85.60001083333333,
+        "h": 54.00001194444444
+      }
+    ],
+    "gap": 59.99998583333331
+  },
+  "bars": {
+    "l": {
+      "inside": true,
+      "off": 0,
+      "touch": 56
+    },
+    "r": {
+      "inside": true,
+      "off": 0.0000152587890625,
+      "touch": 56
+    },
+    "t": {
+      "inside": true,
+      "off": 0,
+      "touch": 56
+    },
+    "b": {
+      "inside": false,
+      "off": -0.0000152587890625,
+      "touch": 56
+    }
+  },
+  "paste": {
+    "copiedNote": true,
+    "line": {
+      "w": 2,
+      "h": 28,
+      "anim": "adjust-blink"
+    },
+    "noted": true,
+    "at": {
+      "x": 12.650601828214262,
+      "y": 99.07686386984197
+    },
+    "copy": {
+      "x": 12.7,
+      "y": 98.20715972222222,
+      "w": 86.1172536111111,
+      "h": 64.58793138888888
+    },
+    "fits": true
+  }
+}

@@ -1,0 +1,15 @@
+round11 FAIL (see docs/evidence/phase-49/2026-11-12/smokes-api35/round11/run.log)
+place FAIL (see docs/evidence/phase-49/2026-11-12/smokes-api35/place/run.log)
+adjust PASS
+card PASS
+rotate PASS
+round3 PASS
+round4 PASS
+round5 PASS
+round6 PASS
+round7 FAIL (see docs/evidence/phase-49/2026-11-12/smokes-api35/round7/run.log)
+round8 PASS
+round9 PASS
+round10 PASS
+privacy PASS
+done

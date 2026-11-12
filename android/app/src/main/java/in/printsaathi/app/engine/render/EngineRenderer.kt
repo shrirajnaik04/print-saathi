@@ -65,12 +65,16 @@ class EngineRenderer(
     }
 
     override fun decode(item: RenderItem, dst: File, longSidePx: Int, style: Int, crop: Crop): DecodeOutcome =
-        EngineClient.turn { ownedDecode(item, dst, longSidePx, style, crop) }
+        EngineClient.turn { ownedDecode(item, dst, longSidePx, style, crop, JPEG_QUALITY) }
 
-    private fun ownedDecode(item: RenderItem, dst: File, longSidePx: Int, style: Int, crop: Crop): DecodeOutcome {
+    /** Passport photos (round 11, "image as is"): cut once from the customer's own pixels, the JPEG almost lossless. */
+    override fun decodeFine(item: RenderItem, dst: File, longSidePx: Int, style: Int, crop: Crop): DecodeOutcome =
+        EngineClient.turn { ownedDecode(item, dst, longSidePx, style, crop, FINE_JPEG_QUALITY) }
+
+    private fun ownedDecode(item: RenderItem, dst: File, longSidePx: Int, style: Int, crop: Crop, quality: Int): DecodeOutcome {
         if (poison.isPoisoned(item.sha256)) return DecodeOutcome.Damaged
         poison.begin(item.sha256)
-        val r = client.decodeStyled(item.file, dst, longSidePx, JPEG_QUALITY, style, crop)
+        val r = client.decodeStyled(item.file, dst, longSidePx, quality, style, crop)
         r.exceptionOrNull()?.let { e ->
             dst.delete()
             if (e is EngineUnavailableException || (e is EngineFileException && e.code == EngineErrors.BAD_REQUEST)) {
@@ -98,5 +102,8 @@ class EngineRenderer(
     companion object {
         /** Colour print quality (PLAN §G2). */
         const val JPEG_QUALITY = 92
+
+        /** Passport photos (round 11): one small image cut from the original, kept almost lossless. */
+        const val FINE_JPEG_QUALITY = 98
     }
 }

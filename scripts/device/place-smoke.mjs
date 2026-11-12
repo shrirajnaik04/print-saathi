@@ -176,9 +176,12 @@ const result = { serial, checks: {} };
 sh('pm', 'clear', PKG);
 sh('am', 'start', '-n', `${PKG}/.MainActivity`);
 await until('first start', () => has('Welcome') || has('PrintSaathi'));
-if (has('Welcome')) {
-  for (let i = 0; i < 3; i++) await tap('Next');
-  await tap('Done');
+// The Welcome tour: tap Next, then Done, as the cards come. A busy emulator misses taps and starts slowly, so the screen
+// is looked at again each time instead of counting taps.
+for (let end = Date.now() + 240_000; !has('Recent jobs') && Date.now() < end; ) {
+  if (has('Done')) await tap('Done');
+  else if (has('Next')) await tap('Next');
+  await sleep(1500);
 }
 await until('Home', () => has('Recent jobs'));
 await shot('01-home-edges-and-bar');
@@ -302,8 +305,23 @@ await until('source', () => has('Where are the photos?'));
 await shot('08-where-are-the-photos');
 await tap('From the file manager');
 await sleep(3500);
+// The file manager lists the file once Android has scanned it: a busy PC takes longer, so wait for it to show (and ask
+// for the scan again) before judging; a file that never shows is still a failure below.
+let pick = boundsOf('ps-add-me.jpg');
+for (let i = 0; i < 20 && !pick; i++) {
+  if (i % 5 === 4)
+    sh(
+      'am',
+      'broadcast',
+      '-a',
+      'android.intent.action.MEDIA_SCANNER_SCAN_FILE',
+      '-d',
+      'file:///sdcard/Download/ps-add-me.jpg',
+    );
+  await sleep(1500);
+  pick = boundsOf('ps-add-me.jpg');
+}
 await shot('09-file-manager');
-const pick = boundsOf('ps-add-me.jpg');
 if (pick) sh('input', 'tap', String((pick[0] + pick[2]) >> 1), String((pick[1] + pick[3]) >> 1));
 await until('back on the list', () => has('Add photos'), 60_000).catch(() => {});
 await sleep(2500);

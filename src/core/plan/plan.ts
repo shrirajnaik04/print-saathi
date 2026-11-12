@@ -4,7 +4,7 @@ import { flowPages, onePerPageAt, sizeOf } from '../layout/flow';
 import { pinnedPages } from '../layout/free';
 import { allOnOne, bestPages, onPages } from '../layout/layouts';
 import { A4, type Box, EDGE_MM, onePerPage, type Paper } from '../layout/onePerPage';
-import { passportSheets, passportSize } from '../layout/passport';
+import { PASSPORT_DPI, passportSheets, passportSize } from '../layout/passport';
 import { straightAspect } from '../layout/quad';
 import { innerOf, outline as turnedOutline } from '../layout/tilt';
 import { MARGIN_MM, type Margins } from '../settings/settings';
@@ -27,6 +27,12 @@ export type Placement = {
   quad?: number[];
   /** A black border drawn inside the box, in points (passport photos, owner 2026-10-23). */
   border?: number;
+  /**
+   * The detail this photo is made at, in dots per inch of its printed size (300 when absent). Passport photos ask for
+   * 600 (owner, round 11, "image as is"): the renderer makes them from the photo's own pixels up to that, never from
+   * fewer than it has and never more than the photo holds, and keeps the JPEG almost lossless.
+   */
+  dpi?: number;
   /**
    * A photo turned to any angle (owner, round 3): [deg] degrees clockwise beyond its quarter turns (−45…45) and its own
    * size [w] × [h] (points, the turned shape), centred in [box], which is its turned outline. The engine makes the
@@ -442,6 +448,7 @@ function passportPlan(
           turns,
           style: styleOf(job),
           box,
+          dpi: PASSPORT_DPI,
           ...(border ? { border } : {}),
         }),
       ),

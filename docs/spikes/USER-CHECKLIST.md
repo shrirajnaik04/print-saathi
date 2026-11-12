@@ -471,6 +471,24 @@ Use a PDF of at least 3 pages where one or two pages have colour (a photo, a sta
 | AG7 | A photo job: share 3 photos → One on each page → set photo 2 to Black & white → PRINT | Photo 2 prints grey, the others in colour | ☐ ☐ |
 | AG8 | Change → Print style: choose **Vibrant**, then again **Sharp Black** | Both stay ticked; colour pages are vibrant, grey pages Sharp Black | ☐ ☐ |
 
+## §AH Move to page, Passport photos first, the crop corner (Phase 49) — 10 min
+
+Use a job of 6 photos on one page ("All on one page"), then a second job with "One on each page".
+
+| # | What to do | What to check | Result |
+|---|---|---|---|
+| AH1 | Open the app | Home shows **Passport photos** first and **Photos** next to it | ☐ ☐ |
+| AH2 | Photos → Adjust photos | The resize handle at the photo's bottom-right is an **L on the corner** (like a crop corner), not a round dot. Drag it out and in: the photo grows and shrinks as before. Bigger and Smaller do the same | ☐ ☐ |
+| AH3 | Try the L with your thumb on a small photo (6 on one page) and on a photo at the page edge | You can grab it every time, and it never hides the photo's picture | ☐ ☐ |
+| AH4 | Choose a photo, slide the tools, tap **Move to page**, then **A new page at the end** | The page list shows; the photo goes to page 2 **where it was**, and the note says "Photo 1 is now on page 2." | ☐ ☐ |
+| AH5 | Tap **Move to page** again | The list shows **Page 1** and how many photos it holds, and no "new page" (the photo is alone on the last page). Choose Page 1: it goes back to the place it had | ☐ ☐ |
+| AH6 | "One on each page", 4 photos: choose photo 1 → Move to page → Page 3 | Photo 1 sits on page 3 covering photo 3, and the note says so. Page 1 is gone, so it is "page 2" now. Move or shrink it | ☐ ☐ |
+| AH7 | Undo, then Redo | Each takes the whole move back or forward in one step | ☐ ☐ |
+| AH8 | PRINT after a move to a new page | Two pages come out, the moved photo alone on the second page, the others on the first, nothing cut off | ☐ ☐ |
+| AH10 | Look at the handle above a chosen photo (the one you turn the photo with) | It is a **white knob with a circular arrow** (a rotation symbol), not a solid blue dot. Press it and move your finger around the photo: the photo turns and shows the angle, as before | ☐ ☐ |
+| AH11 | Passport photos: share one WhatsApp photo and one photo from the phone's camera; make a sheet of 30 on A4 (and on 4×6 if the shop has it); PRINT both | The faces are sharp, not soft or blocky; the sheet comes out as quickly as before (write down the seconds from PRINT to paper, for each, and what the printer's display shows). If it is slower than before, say so: the only change is a bigger, finer picture, in the same fast mode | ☐ ☐ |
+| AH9 | Big text (Settings → Display → Font size → largest), open Move to page with many pages | Every page button is easy to tap, the list scrolls, **Cancel** is reachable | ☐ ☐ |
+
 ## Decisions only you can make
 
 | Topic | Choice | My recommendation |
