@@ -106,3 +106,13 @@ The owner's requests and their answers to the questions asked, in order. The spe
 | 69 | The turn handle | "This blue button doesn't look good, make it a rotate symbol for better UI/UX, make it look like the image can be rotated with that button. Just solid blue doesn't look good." (2026-11-12, a screenshot of the handle) | A white knob with the circular-arrow icon and the main colour's ring, on the same stick; behaviour unchanged |
 | 70 | Passport photo quality | "Also make sure passport size photos taken as best quality, also even with best quality the print must aim for fast printing." Asked what best quality means: "**best quality I meant image as is.**" | Passport photos are made from the photo's own pixels up to 600 dpi, JPEG quality 98, one image stored once, still in the printer's fast document mode (spec Part E) |
 | 71 | Approval | The standing "do what's best, recommended, extremely user friendly" | Phase 49 |
+
+## Round 12 (after testing 1.0.316, 2026-11-20)
+
+| # | Topic | The owner's words or choice | Built as |
+|---|---|---|---|
+| 72 | Documents fill the page | "Check the document when we select it doesn't consume full image as other doc scanner app." Question: answer **auto-crop to the paper** | Paper page found in a photo, cut to its corners (spec 2026-11-20, Phase 50) |
+| 73 | Ink | "Hope the prints are ink efficient ... without compromising print quality." Answer: **automatic for documents** | Job of paper pages: Clean colour / Sharp Black |
+| 74 | Sharpness | "No blurry images show anywhere ... even when we crop retain quality." | Screen pictures at 1536 px (was 640), page pictures 640 (was 320) |
+| 75 | One on each page | "Why not centred? ... ask crop mode for each image before sending to the page ... for multiple or just one" | Photos centred; corners screen for each photo in turn, Skip the rest |
+| 76 | ID cards | "Cannot be properly stretched ... selection area wrong direction"; "hope vertical cards (voter ID, driving licence) are handled and auto-detected" | Card-shape warning and Card shape button; face looked for at quarter turns so standing cards print standing |

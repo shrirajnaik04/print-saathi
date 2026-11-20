@@ -88,13 +88,13 @@ export function sizeOf(sizes: Record<number, number>): (index: number) => number
   return (index) => sizes[index] ?? median;
 }
 
-/** One on each page at the sizes chosen: each photo at its page's top-left, never larger than fits, never below 2 cm. */
+/** One on each page at the sizes chosen: each photo centred on its page (owner, round 12), never larger than fits, never below 2 cm. */
 export function onePerPageAt(
   items: { index: number; aspect: number; longMm: number }[],
   paper: Paper,
   direction: 'portrait' | 'landscape',
 ): LayoutPage[] {
-  return onePerPage(items, paper, direction, 'topLeft').map((p, k) => {
+  return onePerPage(items, paper, direction, 'centre').map((p, k) => {
     const pl = p.placements[0] as { itemIndex: number; box: Box };
     const b = pl.box;
     const fit = Math.max(b.w, b.h);
@@ -104,7 +104,7 @@ export function onePerPageAt(
     const h = b.h * s;
     return {
       ...p,
-      placements: [{ itemIndex: pl.itemIndex, box: { x: b.x, y: b.y, w, h } }],
+      placements: [{ itemIndex: pl.itemIndex, box: { x: b.x + (b.w - w) / 2, y: b.y + (b.h - h) / 2, w, h } }],
     };
   });
 }

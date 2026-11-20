@@ -141,7 +141,14 @@ export type PrintState =
   | 'notSent';
 
 /** [upsideDown]: the face on it reads only with the card turned over: it prints with a half turn (spec Part 2). */
-export type FoundCard = { quad: number[]; confidence: number; face: boolean; upsideDown?: boolean };
+export type FoundCard = {
+  quad: number[];
+  confidence: number;
+  face: boolean;
+  upsideDown?: boolean;
+  /** Round 12: the quarter turns that make its face read upright (1: standing, a vertical card), when one was seen. */
+  turns?: 0 | 1 | 2 | 3;
+};
 export type CardsInItem = { index: number; page?: number; state: 'ok' | 'damaged' | 'locked'; cards: FoundCard[] };
 
 export interface PrintEnginePlugin {
@@ -362,7 +369,16 @@ export interface PrintEnginePlugin {
   findPage(o: {
     jobId: string;
     index: number;
-  }): Promise<{ state: 'ok' | 'damaged'; found?: boolean; corners?: number[]; confidence?: number }>;
+    /** Round 12: asked for by the app on a layout choice, not by the scan screen (the mock answers differently). */
+    auto?: boolean;
+  }): Promise<{
+    state: 'ok' | 'damaged';
+    found?: boolean;
+    corners?: number[];
+    confidence?: number;
+    /** Round 12: how much of what is inside the corners looks like paper, 0..1 (a photograph or picture is low). */
+    paper?: number;
+  }>;
   addListener(
     event: 'intakeReady',
     cb: (e: { intakeId: string; repeat: boolean }) => void,

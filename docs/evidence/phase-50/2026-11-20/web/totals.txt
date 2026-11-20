@@ -1,0 +1,3 @@
+Browser suite (Playwright), final code (2b68af8): 24 skipped, 1959 passed, 0 failed
+Unit tests: 679 passed (79 files) + 96 script tests; Android JVM: 451 passed, 0 failed
+Startup size: js 48237 B gzip (budget 61440), css 7610 B (budget 15360)

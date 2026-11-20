@@ -1,0 +1,37 @@
+{
+  "serial": "emulator-5580",
+  "checks": {
+    "noCameraPermission": true,
+    "textPrintsAsA4Pages": true,
+    "failedTextCanBeSharedAgain": true,
+    "cornerCircles": true,
+    "noPageSaysSo": true,
+    "scannedPagePrints": true,
+    "scanStartsInCleanColour": true,
+    "cancelledCameraChangesNothing": true,
+    "photoKeptAfterAppStopped": true,
+    "photosAtLeast10mmApart": true
+  },
+  "camera": {
+    "sdk": 35,
+    "mode": "system"
+  },
+  "text": {
+    "line": "Text message · 2 pages · A4 · Colour · 1 copy",
+    "pages": 2,
+    "editText": true
+  },
+  "blankShares": [
+    true,
+    true
+  ],
+  "scan": {
+    "pages": 1,
+    "images": 1,
+    "line": "Scanned pages · 1 page · A4 · Colour · Clean colour · 1 copy"
+  },
+  "gap": {
+    "photos": 6,
+    "smallestMm": 10
+  }
+}

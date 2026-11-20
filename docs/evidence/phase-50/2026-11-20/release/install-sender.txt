@@ -1,0 +1,65 @@
+
+> Configure project :app
+WARNING: Using flatDir should be avoided because it doesn't support any meta-data formats.
+
+> Configure project :capacitor-cordova-android-plugins
+WARNING: Using flatDir should be avoided because it doesn't support any meta-data formats.
+
+> Task :sharesender:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :sharesender:preBuild UP-TO-DATE
+> Task :sharesender:preDebugBuild UP-TO-DATE
+> Task :sharesender:checkDebugAarMetadata UP-TO-DATE
+> Task :sharesender:processDebugNavigationResources UP-TO-DATE
+> Task :sharesender:compileDebugNavigationResources UP-TO-DATE
+> Task :sharesender:generateDebugResValues UP-TO-DATE
+> Task :sharesender:mapDebugSourceSetPaths UP-TO-DATE
+> Task :sharesender:generateDebugResources UP-TO-DATE
+> Task :sharesender:mergeDebugResources UP-TO-DATE
+> Task :sharesender:packageDebugResources UP-TO-DATE
+> Task :sharesender:parseDebugLocalResources UP-TO-DATE
+> Task :sharesender:createDebugCompatibleScreenManifests UP-TO-DATE
+> Task :sharesender:extractDeepLinksDebug UP-TO-DATE
+> Task :sharesender:processDebugMainManifest UP-TO-DATE
+> Task :sharesender:processDebugManifest UP-TO-DATE
+> Task :sharesender:processDebugManifestForPackage UP-TO-DATE
+> Task :sharesender:processDebugResources UP-TO-DATE
+> Task :sharesender:compileDebugKotlin UP-TO-DATE
+> Task :sharesender:javaPreCompileDebug UP-TO-DATE
+> Task :sharesender:compileDebugJavaWithJavac NO-SOURCE
+> Task :sharesender:mergeDebugShaders UP-TO-DATE
+> Task :sharesender:compileDebugShaders NO-SOURCE
+> Task :sharesender:generateDebugAssets UP-TO-DATE
+> Task :sharesender:mergeDebugAssets UP-TO-DATE
+> Task :sharesender:compressDebugAssets UP-TO-DATE
+> Task :sharesender:desugarDebugFileDependencies UP-TO-DATE
+> Task :sharesender:dexBuilderDebug UP-TO-DATE
+> Task :sharesender:mergeDebugGlobalSynthetics UP-TO-DATE
+> Task :sharesender:processDebugJavaRes UP-TO-DATE
+> Task :sharesender:mergeDebugJavaResource UP-TO-DATE
+> Task :sharesender:checkDebugDuplicateClasses UP-TO-DATE
+> Task :sharesender:mergeExtDexDebug UP-TO-DATE
+> Task :sharesender:mergeLibDexDebug UP-TO-DATE
+> Task :sharesender:mergeProjectDexDebug UP-TO-DATE
+> Task :sharesender:mergeDebugJniLibFolders UP-TO-DATE
+> Task :sharesender:mergeDebugNativeLibs NO-SOURCE
+> Task :sharesender:stripDebugDebugSymbols NO-SOURCE
+> Task :sharesender:validateSigningDebug UP-TO-DATE
+> Task :sharesender:writeDebugAppMetadata UP-TO-DATE
+> Task :sharesender:writeDebugSigningConfigVersions UP-TO-DATE
+> Task :sharesender:packageDebug UP-TO-DATE
+> Task :sharesender:createDebugApkListingFileRedirect UP-TO-DATE
+
+> Task :sharesender:installDebug
+Installing APK 'sharesender-debug.apk' on 'Medium_Tablet(AVD) - 15' for :sharesender:debug
+Installed on 1 device.
+
+[Incubating] Problems report is available at: file:///D:/Projects/PrintSaathi/android/build/reports/problems/problems-report.html
+
+Deprecated Gradle features were used in this build, making it incompatible with Gradle 9.0.
+
+You can use '--warning-mode all' to show the individual deprecation warnings and determine if they come from your own scripts or plugins.
+
+For more on this, please refer to https://docs.gradle.org/8.14.3/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
+
+BUILD SUCCESSFUL in 12s
+36 actionable tasks: 1 executed, 35 up-to-date

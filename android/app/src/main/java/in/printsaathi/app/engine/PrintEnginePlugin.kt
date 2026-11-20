@@ -401,7 +401,7 @@ class PrintEnginePlugin : Plugin() {
     }
 
     /**
-     * A small image of page [page] of a job's PDF, for choosing pages (≤ 320 px). Unlocked files: kept in thumbs/.
+     * A small image of page [page] of a job's PDF, for choosing pages (≤ 640 px, round 12). Unlocked files: kept in thumbs/.
      * Locked ones (a password, or an unlocked copy): in work/, deleted with the job's scratch, never kept for long.
      */
     @PluginMethod
@@ -424,7 +424,7 @@ class PrintEnginePlugin : Plugin() {
                 val sha = item.getString("sha256")
                 if (poison.isPoisoned(sha)) return@guarded call.resolve(reply.put("path", JSObject.NULL))
                 val dir = if (locked) File(context.noBackupFilesDir, "jobs/$id/work/page-thumbs") else File(context.noBackupFilesDir, "jobs/$id/thumbs")
-                val img = File(dir.apply { mkdirs() }, if (locked) "$index-$page.jpg" else "pdf-${item.getString("sha256")}-$page.jpg")
+                val img = File(dir.apply { mkdirs() }, if (locked) "$index-$page.jpg" else "pdf-${item.getString("sha256")}-$page-$PAGE_THUMB_PX.jpg")
                 if (!img.isFile) {
                     if (dir.usableSpace < PREVIEW_MIN_FREE_BYTES) return@guarded call.resolve(reply.put("path", JSObject.NULL))
                     val part = File(dir, img.name + ".part")
@@ -606,7 +606,7 @@ class PrintEnginePlugin : Plugin() {
                                     var damagedNow = false
                                     val r = EngineClient.turn {
                                         poison.begin(sha)
-                                        client.decodeToJpeg(File(item.getString("path")), part, THUMB_PX, 80).also { r ->
+                                        client.decodeToJpeg(File(item.getString("path")), part, THUMB_PX, 88).also { r ->
                                             // The mark is settled in the same turn (re-review I2); the rest follows.
                                             if (r.exceptionOrNull() is EngineDiedException) damagedNow = poison.recordDeath(sha) else poison.end(sha)
                                         }
@@ -705,7 +705,7 @@ class PrintEnginePlugin : Plugin() {
                             for (c in cards) {
                                 list.put(
                                     JSObject().put("quad", org.json.JSONArray(c.corners.toList())).put("confidence", c.confidence).put("face", c.face)
-                                        .put("upsideDown", c.upsideDown),
+                                        .put("upsideDown", c.upsideDown).put("turns", c.turns),
                                 )
                             }
                             out.put(r.put("state", "ok").put("cards", list))
@@ -1174,7 +1174,8 @@ class PrintEnginePlugin : Plugin() {
                     val cover = (0 until (items?.length() ?: 0)).asSequence()
                         .map { items!!.getJSONObject(it) }
                         .filter { it.optString("type") in THUMB_TYPES }
-                        .map { File(thumbs, "${it.optString("sha256")}-$THUMB_PX.jpg") }
+                        // The picture size changed in round 12 (640 -> 1536): an older job's cover is still its 640 px one.
+                        .flatMap { sequenceOf(File(thumbs, "${it.optString("sha256")}-$THUMB_PX.jpg"), File(thumbs, "${it.optString("sha256")}-640.jpg")) }
                         .firstOrNull { it.isFile }
                     covers.put(id, cover?.absolutePath ?: JSObject.NULL)
                 }
@@ -1451,6 +1452,7 @@ class PrintEnginePlugin : Plugin() {
                 if (page != null) {
                     out.put("corners", com.getcapacitor.JSArray().apply { page.corners.forEach { put(it) } })
                     out.put("confidence", page.confidence)
+                    out.put("paper", page.paper)
                 }
                 call.resolve(out)
             }
@@ -1754,11 +1756,15 @@ class PrintEnginePlugin : Plugin() {
         /** Long side of the real-file preview pages (PLAN §F3 "preview thumbnail ≤ 1280 px"). */
         private const val PREVIEW_PX = 1280
 
-        /** Long side of grid/preview thumbnails: crisp on a phone grid, small on disk (PLAN §F3). */
-        private const val THUMB_PX = 640
+        /**
+         * Long side of the photo pictures every screen shows (PLAN §F3). Round 12 (owner: "no blurry images anywhere"): 640
+         * px looked soft on Adjust and the crop screens (a phone shows a page about 1000 device px wide, and a cut photo
+         * shows only part of its picture); 1536 px keeps them sharp and a cut part readable. The WebView draws it scaled.
+         */
+        private const val THUMB_PX = 1536
 
-        /** Page images for choosing pages (PLAN §F3: PDF page thumbnail). */
-        private const val PAGE_THUMB_PX = 320
+        /** Page images for choosing pages (PLAN §F3: PDF page thumbnail); round 12: 640 px, a page's text stays readable. */
+        private const val PAGE_THUMB_PX = 640
 
         /** Jobs whose face check was stopped (the shopkeeper chose); cleared when a new check starts. */
         private val faceTurnsCancelled: MutableSet<String> = java.util.concurrent.ConcurrentHashMap.newKeySet()

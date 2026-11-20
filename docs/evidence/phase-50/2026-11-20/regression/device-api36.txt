@@ -1,0 +1,6 @@
+Android 16 (API 36)
+render check exit 0
+render check (placed by hand) exit 0
+render check (any angle) exit 0
+share matrix exit 0
+privacy hits in app log lines: 0

@@ -177,6 +177,14 @@ await until('Home', () => has('Recent jobs'));
 // 36a. Back from Android's print screen: PRINT works again at once, still on Ready.
 await share('single-photo');
 await tap('One on each page');
+// Round 12: one on each page asks each photo's corners first; this check is about Ready, so skip them.
+for (let i = 0; i < 8 && !has('Ready to print'); i++) {
+  if (has('Skip the rest')) {
+    await tap('Skip the rest');
+    break;
+  }
+  await sleep(1000);
+}
 await until('print file', () => has('Ready to print') && newestPrint() !== '', 90_000);
 await sleep(1500);
 await tap('PRINT');
@@ -218,6 +226,14 @@ try {
   await until('Home', () => has('Recent jobs'), 15_000);
   await share('six-photos');
   await tap('One on each page');
+  // Round 12: one on each page asks each photo's corners first; this check is about Ready, so skip them.
+  for (let i = 0; i < 8 && !has('Ready to print'); i++) {
+    if (has('Skip the rest')) {
+      await tap('Skip the rest');
+      break;
+    }
+    await sleep(1000);
+  }
   await until('print file', () => has('Ready to print') && newestPrint() !== '', 90_000);
   await tap('Adjust photos');
   await until('Adjust', () => has('Photo 1 of 6'));
@@ -259,7 +275,15 @@ try {
     `JSON.stringify((() => { const f = document.querySelector('.adjust-sheet[data-page="1"] figure').getBoundingClientRect(); return Math.max(...[...document.querySelectorAll('.adjust-sheet[data-page="1"] .adjust-pick')].map((e) => e.getBoundingClientRect().bottom)) - f.top; })())`,
   );
   const bar = await onScreen('.actionbar');
-  const markY = Math.round((paper.y + below * paper.dpr + Math.min(paper.y + paper.h, bar.y)) / 2);
+  // One on each page puts the photo in the middle (round 12): the empty space is above it as well as below.
+  const above = await evaluate(
+    `JSON.stringify((() => { const f = document.querySelector('.adjust-sheet[data-page="1"] figure').getBoundingClientRect(); return Math.min(...[...document.querySelectorAll('.adjust-sheet[data-page="1"] .adjust-pick')].map((e) => e.getBoundingClientRect().top)) - f.top; })())`,
+  );
+  const lowY = Math.round((paper.y + below * paper.dpr + Math.min(paper.y + paper.h, bar.y)) / 2);
+  const markY =
+    Math.min(paper.y + paper.h, bar.y) - (paper.y + below * paper.dpr) < above * paper.dpr
+      ? Math.round(paper.y + (above * paper.dpr) / 2)
+      : lowY;
   sh('input', 'tap', String(Math.round(paper.x + paper.w / 2)), String(markY));
   await sleep(1000);
   // Owner, round 7: the mark is a line ("Paste goes to the line.").

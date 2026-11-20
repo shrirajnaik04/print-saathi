@@ -2,7 +2,7 @@ import { Capacitor } from '@capacitor/core';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { type IdCardSide, type IdCardSize, validQuad } from '../../core/job/job';
 import { FULL } from '../../core/layout/crop';
-import { moveSideStraight, quadOfBox } from '../../core/layout/quad';
+import { moveSideStraight, quadOfBox, straightAspect } from '../../core/layout/quad';
 import { CARD_H_MM, CARD_W_MM, maxCardSets } from '../../core/plan/plan';
 import { en } from '../../i18n/en';
 import { fill } from '../../i18n/fill';
@@ -18,6 +18,7 @@ import { SideNudge } from '../../ui/SideNudge';
 import { Tile } from '../../ui/Tile';
 import { TopBar } from '../../ui/TopBar';
 import { JobGone } from '../JobGone';
+import { paperArea } from '../papers';
 import { push, type ScreenProps } from '../types';
 import { forgetAddedChoice, forgetCardSide, noteCardSide, peekAddedChoice, peekCardSide } from '../useAddNotice';
 import { useJob } from '../useJob';
@@ -50,6 +51,54 @@ export function cardFrame(aspect: number): number[] {
   return [x, y, x + w, y, x + w, y + h, x, y + h];
 }
 
+const CARD_SHAPE = CARD_W_MM / CARD_H_MM;
+
+/**
+ * Round 12: the card prints as a card (85.6 × 54 mm), so a frame whose shape on the photo is more than 15 % from that
+ * stretches it. [aspect]: the photo's width ÷ height.
+ */
+export const notCardShaped = (q: number[], aspect: number): boolean => {
+  const s = straightAspect(q, aspect);
+  // Lying or standing: a card seen standing has the same shape a quarter turned; a slanted view foreshortens a little.
+  return !(s > 0) || Math.abs(Math.log(Math.max(s, 1 / s) / CARD_SHAPE)) > Math.log(1.2);
+};
+
+/** The frame made card-shaped about its own middle at the same area (its corners kept on the photo). */
+export function cardShaped(q: number[], aspect: number): number[] {
+  if (!notCardShaped(q, aspect)) return q;
+  const xs = q.filter((_, i) => i % 2 === 0);
+  const ys = q.filter((_, i) => i % 2 === 1);
+  const cx = (Math.min(...xs) + Math.max(...xs)) / 2;
+  const cy = (Math.min(...ys) + Math.max(...ys)) / 2;
+  const bw = (Math.max(...xs) - Math.min(...xs)) * aspect;
+  const bh = Math.max(...ys) - Math.min(...ys);
+  const area = bw * bh;
+  // In photo-height units (the photo is [aspect] wide and 1 tall): the same way up as the frame, card-shaped, same area.
+  const lying = bw >= bh;
+  let long = Math.sqrt(area * CARD_SHAPE);
+  long = Math.min(long, lying ? Math.min(aspect, CARD_SHAPE) : Math.min(1, aspect * CARD_SHAPE));
+  const short = long / CARD_SHAPE;
+  const [w, h] = lying ? [long, short] : [short, long];
+  const hw = w / aspect / 2;
+  const x0 = Math.min(1 - 2 * hw, Math.max(0, cx - hw));
+  const y0 = Math.min(1 - h, Math.max(0, cy - h / 2));
+  return [x0, y0, x0 + 2 * hw, y0, x0 + 2 * hw, y0 + h, x0, y0 + h];
+}
+
+/** [small] lies inside [big] (its corners within big's outline, a little slack) and covers well under its area. */
+const partOf = (small: number[], big: number[]): boolean => {
+  const xs = big.filter((_, i) => i % 2 === 0);
+  const ys = big.filter((_, i) => i % 2 === 1);
+  const [x0, x1, y0, y1] = [
+    Math.min(...xs) - 0.02,
+    Math.max(...xs) + 0.02,
+    Math.min(...ys) - 0.02,
+    Math.max(...ys) + 0.02,
+  ];
+  const within = small.every((v, i) => (i % 2 === 0 ? v >= x0 && v <= x1 : v >= y0 && v <= y1));
+  return within && paperArea(small) < 0.7 * paperArea(big);
+};
+
 /** Corners just outside the photo (a card touching its edge) brought inside it (review m13). */
 const inside = (q: number[]) => q.map((v) => Math.min(1, Math.max(0, v)));
 
@@ -73,6 +122,8 @@ export function pickCards(found: CardsInItem[], aspectOf?: (item: number) => num
     const ok = it.cards
       .map((c) => ({ ...c, quad: inside(c.quad) }))
       .filter((c) => validQuad(c.quad))
+      // A card-shaped box inside a bigger card (the QR block of an Aadhaar back) is part of that card, not a card.
+      .filter((c, _, list) => !list.some((o) => o !== c && partOf(c.quad, o.quad)))
       .sort((x, y) => Number(y.confidence >= AUTO_ACCEPT) - Number(x.confidence >= AUTO_ACCEPT));
     const sure = ok.filter((c) => c.confidence >= AUTO_ACCEPT);
     const chosen = files.length === 1 ? ok : (sure.length ? sure : ok).slice(0, 1);
@@ -83,7 +134,7 @@ export function pickCards(found: CardsInItem[], aspectOf?: (item: number) => num
         item: it.index,
         ...at,
         quad: c.quad,
-        turns: c.upsideDown ? 2 : 0,
+        turns: c.turns ?? (c.upsideDown ? 2 : 0),
         sure: c.confidence >= AUTO_ACCEPT,
         face: c.face,
       });
@@ -101,6 +152,12 @@ export function pickCards(found: CardsInItem[], aspectOf?: (item: number) => num
   }
   const two = all.slice(0, 2);
   if (two.length === 2 && two.filter((c) => c.face).length === 1 && !two[0]?.face) two.reverse();
+  // A card seen standing (a voter ID, a driving licence) has its other side, with no face to read, standing too.
+  const [a, b] = two;
+  if (a && b && a.face !== b.face) {
+    const [own, other] = a.face ? [a, b] : [b, a];
+    if (own.turns % 2 === 1 && other.turns === 0) other.turns = own.turns;
+  }
   return two.map(({ face: _face, ...c }) => c);
 }
 
@@ -514,6 +571,8 @@ export function FixCorners({ go, params }: ScreenProps) {
   const src = card?.page !== undefined ? pageSrc : srcOf(card?.item ?? -1);
   const nudge = (d: number) => q && setQuad(moveSideStraight(q, side, d));
   const preSrc = card && shown ? preview({ ...card, quad: shown }) : undefined;
+  // Round 12: the card prints as a card, so a frame of another shape stretches it.
+  const stretched = !!q && !!aspect && notCardShaped(q, aspect);
   // Owner, round 4: the side it is, and (fitting each side from a photo in turn) the next side after Done.
   const title = at === 0 ? t.frontTitle : t.backSideTitle;
   const next = params?.chain && job?.idCard ? nextPhotoSide(job.idCard.cards, at) : -1;
@@ -522,6 +581,7 @@ export function FixCorners({ go, params }: ScreenProps) {
       <TopBar title={title} onBack={() => go({ type: 'back' })} onHome={() => go({ type: 'home' })} />
       {saveFailed && <Panel kind="error" title={en.change.saveFailed} />}
       <p>{t.cropHint}</p>
+      {stretched && <Panel kind="warn" title={t.notCard} />}
       {q && (
         <CropFrame
           src={src}
@@ -550,6 +610,7 @@ export function FixCorners({ go, params }: ScreenProps) {
         tools={[
           { label: c.cancel, icon: 'close', onClick: () => go({ type: 'back' }) },
           { label: c.whole, icon: 'whole', onClick: () => setQuad(quadOfBox(FULL)) },
+          { label: t.cardShape, icon: 'crop', disabled: !q, onClick: () => q && setQuad(cardShaped(q, aspect)) },
           // Any way round (owner, round 4): a quarter at a time; turned a quarter, the card prints standing.
           {
             label: t.turnLeft,

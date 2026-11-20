@@ -32,9 +32,18 @@ function broken(pages: LayoutPage[], aspects: number[], pageCount?: number): str
         if (!apart) return 'overlap or closer than the gap';
       }
     }
-    // Like a Word page (owner, 2026-10-24): the photos start at the top margin and at the left margin.
-    if (Math.abs(Math.min(...bs.map((b) => b.x)) - e) > 1e-6) return 'not from the left margin';
-    if (Math.abs(Math.min(...bs.map((b) => b.y)) - e) > 1e-6) return 'not from the top margin';
+    // Like a Word page (owner, 2026-10-24): photos sharing a page start at the top margin and at the left margin. A photo
+    // alone on its page is centred (owner, round 12: "one on each page, why not centred?").
+    if (bs.length > 1) {
+      if (Math.abs(Math.min(...bs.map((b) => b.x)) - e) > 1e-6) return 'not from the left margin';
+      if (Math.abs(Math.min(...bs.map((b) => b.y)) - e) > 1e-6) return 'not from the top margin';
+    } else if (bs[0]) {
+      // (a page of a grid that holds one photo stays at the margins; a one-per-page page is centred)
+      const b = bs[0];
+      const centred = Math.abs(b.x - (pw - b.w) / 2) <= 1e-6 && Math.abs(b.y - (ph - b.h) / 2) <= 1e-6;
+      const margins = Math.abs(b.x - e) <= 1e-6 && Math.abs(b.y - e) <= 1e-6;
+      if (!centred && !margins) return 'alone but neither centred nor at the margins';
+    }
     // Reading order: each next photo starts lower, or on the same row further right.
     for (let i = 1; i < bs.length; i++) {
       const a = bs[i - 1]!;

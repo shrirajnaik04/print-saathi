@@ -215,6 +215,14 @@ await shot('05-ready-after-adjust');
 await share('single-photo');
 await until('choices', () => has('One on each page'));
 await tap('One on each page');
+// Round 12: one on each page asks each photo's corners first; this check is about Ready, so skip them.
+for (let i = 0; i < 8 && !has('Ready to print'); i++) {
+  if (has('Skip the rest')) {
+    await tap('Skip the rest');
+    break;
+  }
+  await sleep(1000);
+}
 await waitFile();
 const one = printFile();
 const src = sourceBytes();
@@ -302,6 +310,14 @@ await sleep(800);
 await tap('Add');
 await until('choices', () => has('One on each page'));
 await tap('One on each page');
+// Round 12: one on each page asks each photo's corners first; this check is about Ready, so skip them.
+for (let i = 0; i < 8 && !has('Ready to print'); i++) {
+  if (has('Skip the rest')) {
+    await tap('Skip the rest');
+    break;
+  }
+  await sleep(1000);
+}
 await waitFile();
 await shot('12-ready-picked-photo-upright');
 const pickedJob = JSON.parse(runAs('cat', `no_backup/jobs/${newestJob()}/job.json`));

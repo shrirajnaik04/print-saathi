@@ -489,6 +489,19 @@ Use a job of 6 photos on one page ("All on one page"), then a second job with "O
 | AH11 | Passport photos: share one WhatsApp photo and one photo from the phone's camera; make a sheet of 30 on A4 (and on 4×6 if the shop has it); PRINT both | The faces are sharp, not soft or blocky; the sheet comes out as quickly as before (write down the seconds from PRINT to paper, for each, and what the printer's display shows). If it is slower than before, say so: the only change is a bigger, finer picture, in the same fast mode | ☐ ☐ |
 | AH9 | Big text (Settings → Display → Font size → largest), open Move to page with many pages | Every page button is easy to tap, the list scrolls, **Cancel** is reachable | ☐ ☐ |
 
+## §AI Documents, ink, sharpness, corners first, standing cards (Phase 50), 15 min
+
+| # | What to do | What to check | Result |
+|---|---|---|---|
+| AI1 | Share a photo of a paper letter taken on a table; choose All on one page, then Adjust photos | The letter is cut to the paper's edges and fills its place; the table is gone. Crop, then Whole photo brings the table back | ☐ ☐ |
+| AI2 | Print that letter in colour, then in B&W | The Ready line says Clean colour or Sharp Black; the paper's tint is white, the text sharp. Write down whether the print looks lighter or uses less ink than before | ☐ ☐ |
+| AI3 | Share 3 ordinary photos, choose One on each page | A corners screen opens for photo 1 of 3; Next, Next, Done goes to Ready. Skip the rest goes straight to Ready | ☐ ☐ |
+| AI4 | Look at each photo on its page | Each is in the **middle** of its page | ☐ ☐ |
+| AI5 | Adjust: look at a photo, zoom in, Crop a photo and look again | No soft or blurry pictures; a cut part is still sharp | ☐ ☐ |
+| AI6 | ID cards: a Voter ID or driving licence photo, lying on a table and standing up | It is found and prints **standing**; its back stands with it. Aadhaar (lying) still prints lying | ☐ ☐ |
+| AI7 | On the card edge screen drag a side bar so the frame is tall | A note says the card will look stretched; **Card shape** makes the frame card-shaped | ☐ ☐ |
+| AI8 | The photo where the card could not be stretched properly | Send me that photo (or a screenshot with the frame) if it still happens | ☐ ☐ |
+
 ## Decisions only you can make
 
 | Topic | Choice | My recommendation |

@@ -1,0 +1,30 @@
+{
+  "serial": "emulator-5580",
+  "checks": {
+    "backSideAddedFromTheGallery": true,
+    "startsInColourAndTheSwitchFlipsIt": true,
+    "typedCountFlowsOntoASecondSheet": true,
+    "roundHandleTurnsThePhotoInThePrintFile": true
+  },
+  "front": "1 ID card found",
+  "oneSideNote": true,
+  "afterBack": "2 ID cards found",
+  "colour": {
+    "startsIn": "colour",
+    "afterBlackAndWhite": "bw",
+    "afterColour": "colour"
+  },
+  "newFilesScreen": 2,
+  "passport": {
+    "count": 40,
+    "pages": 2
+  },
+  "turned": {
+    "tilt": 16,
+    "angle": 344,
+    "outline": {
+      "w": 523.2756,
+      "h": 446.4833
+    }
+  }
+}

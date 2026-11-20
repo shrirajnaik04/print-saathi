@@ -15,6 +15,7 @@ import { TopBar } from '../../ui/TopBar';
 import { findBlackEdges, prepareBlackEdges } from '../blackEdges';
 import { withCopies } from '../copies';
 import { JobGone } from '../JobGone';
+import { cropChain, paperActions } from '../papers';
 import { noteJob } from '../printedJobs';
 import { stopTurns, turnsFor } from '../rotate';
 import { push, type ScreenProps } from '../types';
@@ -229,10 +230,17 @@ export function Received({ go, params }: ScreenProps) {
         next = await turned(next, turns);
         found = Object.keys(next.suggested ?? {}).length;
       } else next = await turned(next, await turning);
+      // Photos of paper are cut to the paper (and then save ink), as a scanner app does (round 12).
+      const papers = await paperActions(next).catch(() => []);
+      if (papers.length > 0) next = await saveJobChange(next, { type: 'all', actions: papers }).catch(() => next);
       // The shopkeeper may have left meanwhile (Back, Home, a new share): never open a screen behind them (gate I-1).
       if (!mounted.current) return;
       setJob(next);
-      go(push(found > 0 ? 'blackedges' : 'ready', { jobId }));
+      // One on each page asks each photo's corners first, then Ready (round 12); Black edges? comes before it.
+      // Photos cut to their paper have no black edges to ask about.
+      const askEdges = found > 0 && !next.ink;
+      const chain = askEdges ? null : cropChain(next, 'ready', new Set(printable.map((i) => i.index)));
+      go(chain ? push(chain.name, chain.params) : push(askEdges ? 'blackedges' : 'ready', { jobId }));
     } catch {
       setSaveFailed(true); // gate review #3: say so, never a dead tap
     } finally {

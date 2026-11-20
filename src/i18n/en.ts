@@ -726,6 +726,10 @@ export const en = {
     frontTitle: 'Front of the card',
     backSideTitle: 'Back of the card',
     cropHint: "Move the side bars onto the card's edges, then tap Done.",
+    /** Round 12: the frame is not card-shaped, so the card would print stretched. */
+    notCard:
+      "This frame is not card-shaped, so the card will look stretched. Move the sides onto the card's edges, or tap Card shape.",
+    cardShape: 'Card shape',
     changePhoto: 'Change photo',
     changeTitle: 'Where is the new photo?',
     turnLeft: 'Turn left',

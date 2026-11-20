@@ -1,0 +1,7 @@
+start api24 00:05
+end api24 exit 0 00:10
+start api35 00:10
+end api35 exit 0 00:22
+start api36 (read-only copy) 00:22
+end api36 exit 0 00:35
+done

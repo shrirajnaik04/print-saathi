@@ -57,7 +57,10 @@ object Cards {
             val pixels = IntArray(w * h)
             bmp.getPixels(pixels, 0, w, 0, 0, w, h)
             val grey = ByteArray(w * h) { Grey.luma(pixels[it]).toByte() }
-            return encode(listOfNotNull(PageDetect.find(grey, w, h))) { 0 }
+            // The "face" slot of a page carries 10 + how paper-like it is (per mille): a card's is 0..4 (round 12).
+            return encode(listOfNotNull(PageDetect.find(grey, w, h))) { q ->
+                10 + (PageDetect.paperShare(grey, w, h, q) * 1000).toInt()
+            }
         } finally {
             bmp.recycle()
         }
@@ -233,8 +236,10 @@ object Cards {
     }
 
     /**
-     * A face on the card at [q] (fractions of the [w] × [h] image), the card straightened first: 1 upright, 2 only with
-     * the card turned over (Android's finder reads upright faces only), 0 none.
+     * A face on the card at [q] (fractions of the [w] × [h] image), the card straightened first (lying): 1 upright, 2 only
+     * with the card turned over (Android's finder reads upright faces only), 3 only with the card turned a quarter
+     * clockwise, 4 only with it turned a quarter anticlockwise (a card that stands: a voter ID, a driving licence,
+     * round 12), 0 none.
      */
     private fun faceOn(pixels: IntArray, w: Int, h: Int, q: DoubleArray): Int = runCatching {
         val px = DoubleArray(8) { q[it] * if (it % 2 == 0) w else h }
@@ -245,6 +250,8 @@ object Cards {
             when {
                 faceCount(bmp) > 0 -> 1
                 faceCount(Bitmap.createBitmap(bmp, 0, 0, FACE_W, outH, Matrix().apply { postRotate(180f) }, false)) > 0 -> 2
+                faceCount(Bitmap.createBitmap(bmp, 0, 0, FACE_W, outH, Matrix().apply { postRotate(90f) }, false)) > 0 -> 3
+                faceCount(Bitmap.createBitmap(bmp, 0, 0, FACE_W, outH, Matrix().apply { postRotate(270f) }, false)) > 0 -> 4
                 else -> 0
             }
         } finally {

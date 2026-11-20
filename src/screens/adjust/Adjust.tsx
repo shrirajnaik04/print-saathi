@@ -130,6 +130,8 @@ export function Adjust({ go, params }: ScreenProps) {
     x: number;
     y: number;
     scaled: (s: number) => JobAction;
+    /** 2 where the photo grows about its middle (the corner then moves half as far as the size changes). */
+    k: number;
     w: number;
     h: number;
     perPt: number;
@@ -228,7 +230,8 @@ export function Adjust({ go, params }: ScreenProps) {
       ),
     [plan],
   );
-  const straight = useStraightImages(jobId, straightParts, 480);
+  // Round 12: sharp (cut photos and cards were drawn from a 480 px picture and looked soft).
+  const straight = useStraightImages(jobId, straightParts, 1024);
   const keys = targets.map((x) => x.key);
   const sel = chosen !== null && keys.includes(chosen) ? chosen : (keys[0] ?? null);
   const at = sel === null ? -1 : keys.indexOf(sel);
@@ -806,6 +809,8 @@ export function Adjust({ go, params }: ScreenProps) {
       x: e.clientX,
       y: e.clientY,
       scaled,
+      // Centred on its page, or placed by hand: it grows about its middle, so the corner needs twice the size change.
+      k: kind === 'photos' && (job.layout === 'onePerPage' || !!job.spots?.[sel ?? -1]) ? 2 : 1,
       w: b.w,
       h: b.h,
       perPt: rect.width / pageSize(plan, where.page).w,
@@ -819,7 +824,7 @@ export function Adjust({ go, params }: ScreenProps) {
     const dy = e.clientY - d.y;
     const along = dx * Math.cos(d.tilt) + dy * Math.sin(d.tilt);
     const across = -dx * Math.sin(d.tilt) + dy * Math.cos(d.tilt);
-    const s = Math.max((d.w + along / d.perPt) / d.w, (d.h + across / d.perPt) / d.h);
+    const s = Math.max((d.w + (d.k * along) / d.perPt) / d.w, (d.h + (d.k * across) / d.perPt) / d.h);
     setDraft(d.scaled(s));
   };
   const endDrag = (e: PointerEvent) => {

@@ -258,7 +258,7 @@ export function buildPlan(
           ? bestPages(items, sheet, direction)
           : onPages(items, sheet, job.pages, direction);
       default:
-        return onePerPage(items, sheet, direction, 'topLeft');
+        return onePerPage(items, sheet, direction, 'centre');
     }
   })();
   const pages = layoutPages.map((p) => ({

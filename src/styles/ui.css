@@ -1868,9 +1868,11 @@ main h2 {
    look of the side handles and the crop corner. */
 .adjust-rotate {
   position: absolute;
-  z-index: 2;
+  /* Above the side bars. The square starts 14 px above the photo's edge, so it covers the whole knob but only the upper
+     part of the top bar's touch area (a centred photo has that bar's area across the old square, round 12). */
+  z-index: 4;
   left: 50%;
-  bottom: 100%;
+  bottom: calc(100% + 0.875rem);
   width: 3.5rem;
   height: 3.5rem;
   margin-left: -1.75rem;
@@ -1881,16 +1883,17 @@ main h2 {
   content: "";
   position: absolute;
   left: 50%;
-  bottom: 0;
+  bottom: -0.875rem;
   width: 0.1875rem;
   height: 0.875rem;
   margin-left: -0.09375rem;
   background: var(--primary);
+  pointer-events: none; /* the stick sits over the top bar's touch area: the bar takes that */
 }
 .adjust-rotate .icon {
   position: absolute;
   left: 50%;
-  bottom: 0.875rem;
+  bottom: 0;
   align-items: center;
   justify-content: center;
   width: 2.25rem;

@@ -771,7 +771,10 @@ export class PrintEngineMock extends WebPlugin implements PrintEnginePlugin {
    * Tests only: `?mockPage=none`: no page is seen; else a page a little in from the photo's edges; `?mockPageSlow=<ms>`:
    * the answer takes that long.
    */
-  async findPage(_: { jobId: string; index: number }) {
+  async findPage(o: { jobId: string; index: number; auto?: boolean }) {
+    // The app's own look on a layout choice (round 12) sees nothing unless a test asks for it (`?mockAutoPage=1`).
+    if (o.auto && !new URLSearchParams(globalThis.location?.search ?? '').has('mockAutoPage'))
+      return { state: 'ok' as const, found: false };
     const slow = Number(new URLSearchParams(globalThis.location?.search ?? '').get('mockPageSlow') ?? 0);
     if (slow > 0) await new Promise((r) => setTimeout(r, slow));
     if (new URLSearchParams(globalThis.location?.search ?? '').get('mockPage') === 'none')
@@ -781,6 +784,7 @@ export class PrintEngineMock extends WebPlugin implements PrintEnginePlugin {
       found: true,
       corners: [0.1, 0.08, 0.9, 0.1, 0.88, 0.92, 0.12, 0.9],
       confidence: 0.9,
+      paper: 0.9,
     };
   }
 

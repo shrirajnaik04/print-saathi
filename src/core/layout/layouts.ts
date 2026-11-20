@@ -168,7 +168,7 @@ function groupsOf<T>(list: T[], n: number): T[][] {
 export function onPages(items: Item[], paper: Paper, n: number, direction?: 'portrait' | 'landscape'): LayoutPage[] {
   if (items.length === 0) return [];
   // As many pages as photos: each photo on its own page, in its own direction (gate review #11).
-  if (n >= items.length) return onePerPage(items, paper, direction, 'topLeft');
+  if (n >= items.length) return onePerPage(items, paper, direction, 'centre');
   const groups = groupsOf(items, Math.max(1, n));
   const tryDirection = (orientation: 'portrait' | 'landscape') => {
     const [pw, ph] = orientation === 'landscape' ? [paper.hPt, paper.wPt] : [paper.wPt, paper.hPt];
@@ -237,7 +237,7 @@ export function smallestSideMm(pages: LayoutPage[]): number {
  */
 export function bestPages(items: Item[], paper: Paper, direction?: 'portrait' | 'landscape'): LayoutPage[] {
   const aloneMm = new Map(
-    onePerPage(items, paper, direction, 'topLeft').map((p) => [p.placements[0]?.itemIndex, smallestSideMm([p])]),
+    onePerPage(items, paper, direction, 'centre').map((p) => [p.placements[0]?.itemIndex, smallestSideMm([p])]),
   );
   const out: LayoutPage[] = [];
   let run: Item[] = [];
@@ -248,7 +248,7 @@ export function bestPages(items: Item[], paper: Paper, direction?: 'portrait' | 
   for (const it of items) {
     if ((aloneMm.get(it.index) ?? 0) < MIN_BEST_MM) {
       flush();
-      out.push(...onePerPage([it], paper, direction, 'topLeft'));
+      out.push(...onePerPage([it], paper, direction, 'centre'));
     } else run.push(it);
   }
   flush();
@@ -260,5 +260,5 @@ function bestRun(items: Item[], paper: Paper, direction?: 'portrait' | 'landscap
     const pages = onPages(items, paper, p, direction);
     if (smallestSideMm(pages) >= MIN_BEST_MM) return pages;
   }
-  return onePerPage(items, paper, direction, 'topLeft');
+  return onePerPage(items, paper, direction, 'centre');
 }

@@ -22,6 +22,11 @@ export const scanWords = {
   cornerLabel: 'The {name}',
   nextPoint: 'Next point',
   retake: 'Retake',
+  /** One on each page: each photo's corners are asked about in turn (round 12). */
+  next: 'Next',
+  skipRest: 'Skip the rest',
+  chainWhole: 'Move the corners to cut this photo, or tap Next to print all of it.',
+  photoLabel: 'The photo',
   getting: 'Getting the photo…',
   title: 'Scanned pages',
   shownLabel: 'Page {n} as it will print',

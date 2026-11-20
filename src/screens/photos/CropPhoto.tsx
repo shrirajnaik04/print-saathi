@@ -61,7 +61,7 @@ export function CropPhoto({ go, params }: ScreenProps) {
     return () => clearTimeout(timer);
   }, [upright.join(',')]);
   const slanted = settled && !boxOfSquareQuad(settled) ? settled : null;
-  const preview = useStraightImages(jobId, slanted ? [{ item: index, quad: slanted }] : undefined, 480);
+  const preview = useStraightImages(jobId, slanted ? [{ item: index, quad: slanted }] : undefined, 800);
   if (gone) return <JobGone go={go} title={t.crop} />;
   const turns = job?.turns[index] ?? 0;
   const a = aspects.get(index) ?? 0;

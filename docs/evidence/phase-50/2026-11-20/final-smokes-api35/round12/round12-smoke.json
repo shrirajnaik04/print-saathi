@@ -1,0 +1,16 @@
+{
+  "serial": "emulator-5580",
+  "checks": {
+    "askedEachPhotoInTurn": true,
+    "sixPages": true,
+    "everyPhotoCentredOnItsPage": true,
+    "picturesMadeAt1536": true,
+    "noCrash": true
+  },
+  "pages": 6,
+  "thumbs": [
+    "08cf4769c0ec8ed7634ba9bcae247f84d9ccd88d3db4a17ea17bd5f26f641881-1536.jpg",
+    "2011c2365eecf13af4733004a249cacee4ad4d3bc6663e2cf20a789c1f57e99b-1536.jpg",
+    "6442c7bc0e11bbad907672c0605f8ecc1a42bbb1a64757031610b49f40a14faf-1536.jpg"
+  ]
+}

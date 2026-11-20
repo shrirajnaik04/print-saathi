@@ -45,9 +45,12 @@ const looked = new Map<string, number[] | null>();
 export function ScanPage({ go, params }: ScreenProps) {
   const jobId = String(params?.jobId ?? '');
   const index = Number(params?.index ?? 0);
+  // Round 12: one on each page asks each photo's corners in turn. The photos were already looked at for paper when the
+  // layout was chosen, so this screen starts on what they have (a cut, or the whole photo) and does not look again.
+  const chain = typeof params?.after === 'string';
   const { job, aspects, srcOf, gone, failed, retry, change, busy, saveFailed } = useJob(jobId);
   const key = `${jobId}:${index}`;
-  const [found, setFound] = useState<number[] | null | undefined>(looked.get(key));
+  const [found, setFound] = useState<number[] | null | undefined>(chain ? null : looked.get(key));
   const [edited, setEdited] = useState<number[] | null>(null);
   const [point, setPoint] = useState(0);
   const [note, setNote] = useState<string | null>(null);
@@ -56,8 +59,11 @@ export function ScanPage({ go, params }: ScreenProps) {
   // One camera at a time: a quick second tap on Retake does nothing (review I4).
   const opening = useRef(false);
   const saved = job?.quads?.[index];
+  const cropBox = job?.crops?.[index];
+  // Where the frame starts: its corners, else a box cut it has (kept, never swapped for a finder's guess).
+  const start = saved ?? (chain && cropBox ? quadOfBox(cropBox) : undefined);
   useEffect(() => {
-    if (!job || saved || found !== undefined) return;
+    if (chain || !job || saved || found !== undefined) return;
     let live = true;
     const seen = (q: number[] | null) => {
       looked.set(key, q);
@@ -72,7 +78,7 @@ export function ScanPage({ go, params }: ScreenProps) {
     };
   }, [job?.id, key, !!saved]);
   if (gone) return <JobGone go={go} title={s.title} />;
-  const upright = edited ?? saved ?? found ?? WHOLE;
+  const upright = edited ?? start ?? found ?? WHOLE;
   const turns = job?.turns[index] ?? 0;
   const a = aspects.get(index) ?? 0;
   const shown = a > 0 ? (turns % 2 === 1 ? 1 / a : a) : 0;
@@ -87,17 +93,37 @@ export function ScanPage({ go, params }: ScreenProps) {
     }
   };
   const n = job ? Math.max(1, job.order.indexOf(index) + 1) : 1;
+  // Round 12: one on each page asks each photo's corners in turn, then Ready ([queue]: the photos still to ask).
+  const after = typeof params?.after === 'string' ? params.after : null;
+  const queue = Array.isArray(params?.queue) ? (params.queue as number[]) : [];
+  const total = Number(params?.total ?? 0);
+  const place = Number(params?.n ?? 1);
+  const goOn = () =>
+    go(
+      queue.length > 0
+        ? {
+            type: 'replace',
+            screen: {
+              name: 'scanpage',
+              params: { jobId, index: queue[0], queue: queue.slice(1), total, n: place + 1, after },
+            },
+          }
+        : { type: 'replace', screen: { name: after ?? 'ready', params: { jobId } } },
+    );
   const done = async () => {
     const whole = isWhole(upright);
     const action: JobAction | null = whole
       ? saved
         ? { type: 'setQuad', item: index, quad: null }
-        : null
-      : saved?.join(',') === upright.join(',')
+        : chain && cropBox
+          ? { type: 'setCrop', item: index, crop: null }
+          : null
+      : start?.join(',') === upright.join(',')
         ? null
         : { type: 'setQuad', item: index, quad: upright };
     if (action && !(await change(action))) return;
     shownPage.set(jobId, index);
+    if (after) return goOn();
     go(
       params?.next === 'back'
         ? { type: 'back' }
@@ -119,14 +145,20 @@ export function ScanPage({ go, params }: ScreenProps) {
   const looking = !saved && found === undefined;
   return (
     <main class="screen">
-      <TopBar title={fill(s.page, { n })} onBack={() => go({ type: 'back' })} onHome={() => go({ type: 'home' })} />
+      <TopBar
+        title={after ? fill(en.adjust.photoOf, { n: place, total }) : fill(s.page, { n })}
+        onBack={() => go({ type: 'back' })}
+        onHome={() => go({ type: 'home' })}
+      />
       {failed && (
         <Panel kind="error" title={en.ready.loadFailed} action={{ label: en.ready.tryAgain, onClick: retry }} />
       )}
       {saveFailed && <Panel kind="error" title={en.change.saveFailed} />}
       {note && <Panel kind="error" title={note} />}
       {taking && <p role="status">{s.getting}</p>}
-      {saved || edited || found ? (
+      {chain ? (
+        <p>{start || edited ? s.found : s.chainWhole}</p>
+      ) : saved || edited || found ? (
         <p>{s.found}</p>
       ) : found === null ? (
         <Panel kind="info" title={s.notFound} />
@@ -142,7 +174,7 @@ export function ScanPage({ go, params }: ScreenProps) {
           onChange={setShown}
           side={0}
           onSide={() => {}}
-          label={s.label}
+          label={chain ? s.photoLabel : s.label}
           sideLabel={c.sideLabel}
           sideNames={c.sideNames}
           corners={{ point, onPoint: setPoint, label: s.cornerLabel, names: s.pointNames }}
@@ -160,9 +192,20 @@ export function ScanPage({ go, params }: ScreenProps) {
           },
           { label: c.turnRight, icon: 'turn', disabled: busy, onClick: () => void change({ type: 'turnItem', index }) },
           { label: c.whole, icon: 'whole', onClick: () => setEdited(WHOLE) },
-          { label: s.retake, icon: 'scan', disabled: busy || taking, onClick: () => void retake() },
+          after
+            ? {
+                label: s.skipRest,
+                icon: 'next',
+                onClick: () => go({ type: 'replace', screen: { name: after, params: { jobId } } }),
+              }
+            : { label: s.retake, icon: 'scan', disabled: busy || taking, onClick: () => void retake() },
         ]}
-        done={{ label: c.done, icon: 'check', disabled: !(shown > 0) || taking || looking, onClick: () => void done() }}
+        done={{
+          label: queue.length > 0 ? s.next : c.done,
+          icon: 'check',
+          disabled: !(shown > 0) || taking || looking,
+          onClick: () => void done(),
+        }}
       />
     </main>
   );

@@ -5,6 +5,7 @@ import { Button } from '../../ui/Button';
 import { Panel } from '../../ui/Panel';
 import { TopBar } from '../../ui/TopBar';
 import { JobGone } from '../JobGone';
+import { cropChain } from '../papers';
 import type { ScreenProps } from '../types';
 import { useJob } from '../useJob';
 
@@ -16,7 +17,7 @@ const t = en.edges;
  */
 export function BlackEdges({ go, params }: ScreenProps) {
   const jobId = String(params?.jobId ?? '');
-  const { job, aspects, srcOf, gone, change, busy, saveFailed } = useJob(jobId);
+  const { job, thumbs, aspects, srcOf, gone, change, busy, saveFailed } = useJob(jobId);
   if (gone) return <JobGone go={go} title={t.title} />;
   const ids = Object.keys(job?.suggested ?? {}).map(Number);
   const example = ids[0];
@@ -27,8 +28,12 @@ export function BlackEdges({ go, params }: ScreenProps) {
   // White edges are looked for only in documents and screenshots (PNG): then the words say "black or white".
   const white = job?.layout === 'document' || ids.some((i) => job?.items.find((x) => x.index === i)?.type === 'png');
   const answer = async (remove: boolean) => {
-    if (await change({ type: 'answerEdges', remove }))
-      go({ type: 'replace', screen: { name: 'ready', params: { jobId } } });
+    const next = await change({ type: 'answerEdges', remove });
+    if (!next) return;
+    // One on each page asks each photo's corners before Ready (round 12).
+    const shown = new Set([...(thumbs?.entries() ?? [])].filter(([, th]) => th.state === 'ok').map(([i]) => i));
+    const chain = cropChain(next, 'ready', shown);
+    go({ type: 'replace', screen: chain ?? { name: 'ready', params: { jobId } } });
   };
   return (
     <main class="screen">

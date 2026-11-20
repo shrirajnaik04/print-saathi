@@ -30,7 +30,7 @@ class EngineFileException(val code: Int) : Exception("engine file error $code")
 class PdfLockedException : Exception("pdf locked")
 
 /** [upsideDown]: the face on it reads only with the card turned over (Phase 14 "card orientation"). */
-data class FoundCard(val corners: DoubleArray, val confidence: Double, val face: Boolean, val upsideDown: Boolean = false) {
+data class FoundCard(val corners: DoubleArray, val confidence: Double, val face: Boolean, val upsideDown: Boolean = false, val turns: Int = 0, val paper: Double = -1.0) {
     companion object {
         /** The engine's reply {n, (8 corners × 10000, confidence × 1000, face) × n}; a short negative reply is an error. */
         fun parse(r: IntArray): List<FoundCard> {
@@ -41,7 +41,11 @@ data class FoundCard(val corners: DoubleArray, val confidence: Double, val face:
             if (n < 0 || n > 2 || r.size != 1 + 10 * n) throw EngineFileException(EngineErrors.FILE_UNREADABLE)
             return (0 until n).map { k ->
                 val face = r[1 + 10 * k + 9]
-                FoundCard(DoubleArray(8) { r[1 + 10 * k + it] / 10_000.0 }, r[1 + 10 * k + 8] / 1000.0, face == 1 || face == 2, face == 2)
+                // 1 upright, 2 upside down, 3 and 4 a quarter turn (a standing card, round 12): the turns that read it upright.
+                val turns = when (face) { 2 -> 2; 3 -> 1; 4 -> 3; else -> 0 }
+                // A page's slot holds 10 + its paper-likeness in per mille (round 12); -1 for a card.
+                val paper = if (face >= 10) (face - 10) / 1000.0 else -1.0
+                FoundCard(DoubleArray(8) { r[1 + 10 * k + it] / 10_000.0 }, r[1 + 10 * k + 8] / 1000.0, face in 1..4, face == 2, turns, paper)
             }
         }
     }

@@ -1,0 +1,66 @@
+{
+  "serial": "emulator-5580",
+  "checks": {
+    "passportPhotosBeforePhotos": true,
+    "listHasNewPageOnly": true,
+    "noteSaysPage2": true,
+    "printFileHasTwoPages": true,
+    "movedPhotoAloneOnPage2AtItsOwnPlace": true,
+    "listHasPage1OnlyNoNewPage": true,
+    "backToOnePageWithSixPhotos": true,
+    "noCrash": true
+  },
+  "home": {
+    "passport": [
+      63,
+      378,
+      527,
+      735
+    ],
+    "photos": [
+      551,
+      378,
+      1018,
+      735
+    ]
+  },
+  "first": {
+    "pages": 1,
+    "images": [
+      6
+    ]
+  },
+  "moved": {
+    "pages": 2,
+    "images": [
+      5,
+      1
+    ],
+    "alone": {
+      "x": 36,
+      "y": 36.0001,
+      "w": 247.4646,
+      "h": 185.5984,
+      "turned": false,
+      "turns": 0,
+      "angle": 0,
+      "mirrored": false
+    },
+    "photo1": {
+      "x": 36,
+      "y": 36.0001,
+      "w": 247.4646,
+      "h": 185.5984,
+      "turned": false,
+      "turns": 0,
+      "angle": 0,
+      "mirrored": false
+    }
+  },
+  "again": {
+    "pages": 1,
+    "images": [
+      6
+    ]
+  }
+}

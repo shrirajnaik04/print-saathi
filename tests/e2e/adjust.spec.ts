@@ -504,8 +504,8 @@ test.describe('pages side by side (owner, round 4)', () => {
     if (!box) throw new Error('no turn handle');
     // The round dot's top half, where a finger presses it: the handle is there, not cut off by the strip.
     const hit = await page.evaluate(
-      ([x, y]) => (document.elementFromPoint(x, y) as HTMLElement | null)?.className ?? '',
-      [box.x + box.width / 2, box.y + 16],
+      ([x, y]) => (document.elementFromPoint(x, y) as HTMLElement | null)?.closest('.adjust-rotate')?.className ?? '',
+      [box.x + box.width / 2, box.y + 38],
     );
     expect(hit).toContain('adjust-rotate');
   });

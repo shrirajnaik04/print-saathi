@@ -1,0 +1,57 @@
+{
+  "serial": "emulator-5580",
+  "checks": {
+    "startsInColour": true,
+    "guessGreysPlainPages": true,
+    "printHoldsGreyAndColourPages": true,
+    "fourPagesInOrder": true,
+    "tapChangesThatPage": true,
+    "allBlackAndWhiteIsPlainGrey": true,
+    "allColourIsTheCustomersFile": true
+  },
+  "start": "1 PDF · 4 pages · A4 · Colour · 1 copy",
+  "untouched": {
+    "bytes": 13719,
+    "greyPictures": 0,
+    "colourPictures": []
+  },
+  "guess": {
+    "summary": "1 PDF · 4 pages · A4 · 2 colour, 2 black & white · 1 copy",
+    "print": {
+      "bytes": 314920,
+      "greyPictures": 2,
+      "colourPictures": [
+        0.155,
+        0.155
+      ]
+    }
+  },
+  "afterTap": {
+    "summary": "1 PDF · 4 pages · A4 · 3 colour, 1 black & white · 1 copy",
+    "print": {
+      "bytes": 415505,
+      "greyPictures": 1,
+      "colourPictures": [
+        0,
+        0.155,
+        0.155
+      ]
+    }
+  },
+  "allGrey": {
+    "summary": "1 PDF · 4 pages · A4 · Black & white · 1 copy",
+    "print": {
+      "bytes": 84947,
+      "greyPictures": 4,
+      "colourPictures": []
+    }
+  },
+  "allColour": {
+    "summary": "1 PDF · 4 pages · A4 · Colour · 1 copy",
+    "print": {
+      "bytes": 13719,
+      "greyPictures": 0,
+      "colourPictures": []
+    }
+  }
+}

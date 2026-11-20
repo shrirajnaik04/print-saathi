@@ -161,6 +161,13 @@ export type Job = {
   picked?: true;
   /** Owner, round 8: photographed paper pages (Scan pages): Scanned pages lists them, Retake and Look apply. */
   scan?: true;
+  /**
+   * Owner, round 12 ("ink efficient prints, without compromising quality"): every photo of this job is a photographed
+   * paper page, so it prints Clean colour (colour) or Sharp Black (black & white) unless a style was chosen.
+   */
+  ink?: true;
+  /** Round 12: the photos were looked at for paper once (a photo the shopkeeper un-cuts is not cut again on "Choose again"). */
+  looked?: true;
   createdAt: number;
   updatedAt: number;
 };
@@ -321,10 +328,12 @@ export const BW_STYLES: readonly StyleId[] = ['bw', 'sharp', 'ocv'];
  * The style the print uses: the job's own when it fits its colour, else the plain one (Original in colour, Black &
  * White in grey). Passport photos are never styled (PLAN §U: nothing changed except crop and scale).
  */
-export function styleOf(job: Pick<Job, 'colour' | 'style' | 'layout'>): StyleId {
+export function styleOf(job: Pick<Job, 'colour' | 'style' | 'layout'> & { ink?: true }): StyleId {
   const group = job.colour === 'bw' ? BW_STYLES : COLOUR_STYLES;
   if (job.layout === 'passport') return group[0] as StyleId;
-  return job.style && group.includes(job.style) ? job.style : (group[0] as StyleId);
+  if (job.style && group.includes(job.style)) return job.style;
+  // Never for ID cards (their own plan, never styled), whatever an earlier layout left behind.
+  return job.ink && job.layout !== 'idCard' ? (job.colour === 'bw' ? 'sharp' : 'clean') : (group[0] as StyleId);
 }
 
 /** A page's colour: its own mark, else the job's (round 10). */
@@ -341,7 +350,7 @@ export const hasPageColours = (job: Pick<Job, 'pageColour' | 'layout'>) =>
  * colour, as a scan job in colour does.
  */
 export function styleOfPage(
-  job: Pick<Job, 'colour' | 'pageColour' | 'style' | 'bwStyle' | 'layout' | 'scan'>,
+  job: Pick<Job, 'colour' | 'pageColour' | 'style' | 'bwStyle' | 'layout' | 'scan' | 'ink'>,
   key: string,
 ): StyleId {
   const colour = effectiveColour(job, key);
@@ -349,13 +358,14 @@ export function styleOfPage(
   const group = colour === 'bw' ? BW_STYLES : COLOUR_STYLES;
   const own = colour === 'bw' ? (job.bwStyle ?? job.style) : job.style;
   if (own && group.includes(own)) return own;
+  if (job.ink && job.layout !== 'idCard') return colour === 'bw' ? 'sharp' : 'clean';
   return colour === 'colour' && job.scan && job.pageColour?.[key] === 'colour' ? 'clean' : (group[0] as StyleId);
 }
 
 /** The two styles of a job with pages of both colours (Print style shows both as chosen). */
-export const mixedStyles = (job: Pick<Job, 'style' | 'bwStyle'>) => ({
-  colour: job.style && COLOUR_STYLES.includes(job.style) ? job.style : ('original' as StyleId),
-  bw: job.bwStyle ?? (job.style && BW_STYLES.includes(job.style) ? job.style : ('bw' as StyleId)),
+export const mixedStyles = (job: Pick<Job, 'style' | 'bwStyle'> & { ink?: true }) => ({
+  colour: job.style && COLOUR_STYLES.includes(job.style) ? job.style : ((job.ink ? 'clean' : 'original') as StyleId),
+  bw: job.bwStyle ?? (job.style && BW_STYLES.includes(job.style) ? job.style : ((job.ink ? 'sharp' : 'bw') as StyleId)),
 });
 
 /**
@@ -370,6 +380,7 @@ export const EDIT_KEYS = [
   'tilts',
   'crops',
   'quads',
+  'ink',
   'sizes',
   'spots',
   'pages',
@@ -400,6 +411,10 @@ export type JobAction =
   /** A4 or the shop printer's 4×6 photo paper for photo layouts (PLAN §K3; passport has its own paper rule). */
   | { type: 'setPaper'; paper: 'A4' | 'PHOTO_4x6' }
   | { type: 'setStyle'; style: StyleId }
+  /** Round 12: the job's photos are paper pages: print them saving ink (see [Job.ink]). */
+  | { type: 'setInk' }
+  /** Round 12: the photos have been looked at for paper (see [Job.looked]). */
+  | { type: 'setLooked' }
   | { type: 'setSuggestions'; crops: Record<number, CropBox> }
   | { type: 'answerEdges'; remove: boolean }
   | { type: 'setCrop'; item: number; crop: CropBox | null }
@@ -732,6 +747,8 @@ export function normalizeJob(o: unknown): Job | null {
     paperType: j.paperType === 'glossy' ? 'glossy' : undefined,
     picked: j.picked === true ? true : undefined,
     scan: j.scan === true ? true : undefined,
+    ink: j.ink === true ? true : undefined,
+    looked: j.looked === true ? true : undefined,
     sizes: validSizes(j.sizes, indexes),
     spots: validSpots(j.spots, indexes),
     docScale: emptyToUndefined(docScale),
@@ -802,7 +819,8 @@ export function jobReducer(job: Job, action: JobAction, nowMs: number): Job {
       if (action.colour !== job.colour)
         next = {
           colour: action.colour,
-          style: action.colour === 'bw' ? 'bw' : job.scan ? 'clean' : 'original',
+          // (a job that saves ink has no style of its own: its Clean colour / Sharp Black follow the colour)
+          style: job.ink ? undefined : action.colour === 'bw' ? 'bw' : job.scan ? 'clean' : 'original',
           pageColour: undefined,
           bwStyle: undefined,
         };
@@ -875,7 +893,8 @@ export function jobReducer(job: Job, action: JobAction, nowMs: number): Job {
       const quads = { ...(job.quads ?? {}) };
       delete quads[action.item];
       if (action.quad === null) {
-        if (job.quads?.[action.item]) next = { quads: emptyToUndefined(quads) };
+        // Whole photo: it is no longer a cut paper page, so the ink saving that came with the cut goes too.
+        if (job.quads?.[action.item]) next = { quads: emptyToUndefined(quads), ink: undefined };
       } else if (validFrame(action.quad)) {
         const crops = { ...(job.crops ?? {}) };
         delete crops[action.item];
@@ -883,6 +902,12 @@ export function jobReducer(job: Job, action: JobAction, nowMs: number): Job {
       }
       break;
     }
+    case 'setInk':
+      if (!job.ink && job.layout !== 'passport' && job.layout !== 'idCard') next = { ink: true };
+      break;
+    case 'setLooked':
+      if (!job.looked) next = { looked: true };
+      break;
     case 'setStyle': {
       if (job.layout === 'passport' || ![...COLOUR_STYLES, ...BW_STYLES].includes(action.style)) break;
       // A job with pages of its own colour keeps them: a colour style is for its colour pages, a black & white style
@@ -946,6 +971,7 @@ export function jobReducer(job: Job, action: JobAction, nowMs: number): Job {
       if (cards.length === 0) break;
       next = {
         layout: 'idCard',
+        ink: undefined,
         idCard: {
           size: action.size ?? job.idCard?.size ?? 'real',
           sets: job.idCard?.sets ?? 1,
@@ -1256,6 +1282,9 @@ export function jobReducer(job: Job, action: JobAction, nowMs: number): Job {
         docPages: undefined,
         edges: undefined,
         suggested: undefined,
+        // Photos added later are not known to be paper: looked at again, and no ink saving until they are (round 12).
+        ink: undefined,
+        looked: undefined,
         printedAt: undefined,
         partsDone: undefined,
         partPrinting: undefined,

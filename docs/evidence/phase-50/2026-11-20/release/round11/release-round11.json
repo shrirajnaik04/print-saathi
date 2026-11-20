@@ -1,0 +1,24 @@
+{
+  "serial": "emulator-5580",
+  "checks": {
+    "passportPhotosBeforePhotos": true,
+    "listOffersNewPage": true,
+    "noteSaysPage2": true,
+    "readyShowsTwoPages": true,
+    "noCrash": true
+  },
+  "home": {
+    "passport": [
+      63,
+      378,
+      527,
+      735
+    ],
+    "photos": [
+      551,
+      378,
+      1018,
+      735
+    ]
+  }
+}

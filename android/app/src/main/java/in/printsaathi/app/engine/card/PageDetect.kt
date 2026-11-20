@@ -16,6 +16,31 @@ object PageDetect {
         eitherWay = true,
     ) { 1.0 }
 
+    /**
+     * Round 12: how much of what is inside the corners looks like paper, 0..1: the share of sampled points within 35 grey
+     * levels of the inside's bright end (its 90th percentile, at least 100). A sheet of paper is mostly one pale tone with
+     * some print on it; a photograph, a framed picture or a screen has a wide spread. Used to decide, without asking, that
+     * a photo is a paper document ([corners]: 8 fractions of the photo).
+     */
+    fun paperShare(grey: ByteArray, w: Int, h: Int, corners: DoubleArray): Double {
+        if (w <= 0 || h <= 0 || grey.size != w * h || corners.size != 8) return 0.0
+        val n = 24
+        val values = ArrayList<Int>(n * n)
+        for (j in 0 until n) for (i in 0 until n) {
+            val u = (i + 0.5) / n
+            val v = (j + 0.5) / n
+            // Bilinear point of the four corners (TL, TR, BR, BL).
+            val x = ((1 - u) * (1 - v) * corners[0] + u * (1 - v) * corners[2] + u * v * corners[4] + (1 - u) * v * corners[6]) * w
+            val y = ((1 - u) * (1 - v) * corners[1] + u * (1 - v) * corners[3] + u * v * corners[5] + (1 - u) * v * corners[7]) * h
+            val px = x.toInt().coerceIn(0, w - 1)
+            val py = y.toInt().coerceIn(0, h - 1)
+            values += grey[py * w + px].toInt() and 0xFF
+        }
+        values.sort()
+        val top = maxOf(100, values[(values.size * 9) / 10])
+        return values.count { it >= top - 35 }.toDouble() / values.size
+    }
+
     /** The page's corners (fractions of the photo, top left first, clockwise) and how sure; null when none is seen. */
     fun find(grey: ByteArray, w: Int, h: Int): CardQuad? {
         if (w <= 0 || h <= 0 || grey.size != w * h) return null

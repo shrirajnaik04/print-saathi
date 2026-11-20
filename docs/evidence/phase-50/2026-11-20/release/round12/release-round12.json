@@ -1,0 +1,8 @@
+{
+  "serial": "emulator-5580",
+  "checks": {
+    "cornersAskedFirst": true,
+    "readyShowsSixPages": true,
+    "noCrash": true
+  }
+}

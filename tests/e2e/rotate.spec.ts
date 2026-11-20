@@ -43,7 +43,9 @@ const turnBy = async (page: Page, deg: number, release = true) => {
   const h = await handle(page).boundingBox();
   if (!h) throw new Error('no rotate handle');
   const c = await photoCentre(page);
-  const start = { x: h.x + h.width / 2, y: h.y + h.height / 2 };
+  // On the knob (the upper part of the touch square): a photo away from the page's edge has its top side bar's touch area
+  // across the square's lower half (centred photos, round 12).
+  const start = { x: h.x + h.width / 2, y: h.y + 38 };
   const r = Math.hypot(start.x - c.x, start.y - c.y);
   const from = Math.atan2(start.y - c.y, start.x - c.x);
   await page.mouse.move(start.x, start.y);

@@ -227,6 +227,14 @@ try {
   // 39c + 39b: six photos, one on each page; Adjust on photo 1 (alone on page 1, at its top-left).
   await share('six-photos');
   await tap('One on each page');
+  // Round 12: one on each page asks each photo's corners first; this check is about Ready, so skip them.
+  for (let i = 0; i < 8 && !has('Ready to print'); i++) {
+    if (has('Skip the rest')) {
+      await tap('Skip the rest');
+      break;
+    }
+    await sleep(1000);
+  }
   await until('print file', () => has('Ready to print') && newestPrint() !== '', 90_000);
   await sleep(1500);
   await tap('Adjust photos');

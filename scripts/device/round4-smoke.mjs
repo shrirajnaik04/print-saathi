@@ -324,6 +324,14 @@ if (W > H) [W, H] = [H, W];
 try {
   await share('six-photos');
   await tap('One on each page');
+  // Round 12: one on each page asks each photo's corners first; this check is about Ready, so skip them.
+  for (let i = 0; i < 8 && !has('Ready to print'); i++) {
+    if (has('Skip the rest')) {
+      await tap('Skip the rest');
+      break;
+    }
+    await sleep(1000);
+  }
   await until('print file', () => has('Ready to print') && newestPrint() !== '', 90_000);
   await tap('Adjust photos');
   await until('Adjust', () => has('Photo 1 of 6'));

@@ -326,13 +326,21 @@ result.checks.typedCountFlowsOntoASecondSheet = result.passport.count === 40 && 
 // 4. Item 6 (+7): the round handle above a photo on Adjust's big preview turns it; the print file draws it there.
 await share('single-photo');
 await tap('One on each page');
+// Round 12: one on each page asks each photo's corners first; this check is about Ready, so skip them.
+for (let i = 0; i < 8 && !has('Ready to print'); i++) {
+  if (has('Skip the rest')) {
+    await tap('Skip the rest');
+    break;
+  }
+  await sleep(1000);
+}
 await until('print file', () => has('Ready to print') && newestPrint() !== '', 90_000);
 await tap('Adjust photos');
 await until('Adjust', () => has('Photo 1 of 1'));
 await sleep(1500);
 await shot('08-adjust-big-preview');
 // The photo scrolled to the middle once; then the handle, measured without scrolling again (its place is current).
-const photo = await onScreen('.adjust-pick[data-item="1"]');
+const photo = await onScreen('.adjust-pick[data-item="1"]', false);
 const handle = await onScreen('.adjust-rotate', false);
 {
   const [hx, hy] = [handle.x + handle.w / 2, handle.y + handle.h / 2];
