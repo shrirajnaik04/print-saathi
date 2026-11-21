@@ -51,6 +51,7 @@ object CardDetect {
     private const val MIN_STEP = 10.0
     /** How far to either side of a line its surroundings are sampled (working-copy pixels). */
     private const val SHIFT = 4.0
+    private const val RIM = 2.0
     /** A step: on one side, its gradient falls under half at each of these distances (px). */
     private val SHARP_D = doubleArrayOf(4.0, 7.0)
 
@@ -448,14 +449,18 @@ object CardDetect {
             // plain, a grain line on a table has more grain beside it. (Corners run clockwise: the normal points in.)
             var hits = 0
             var inner = 0
+            var innerFar = 0
             for (k in 0 until SIDE_SAMPLES) {
                 val t = 0.06 + 0.88 * k / (SIDE_SAMPLES - 1)
                 val x = ax + (bx - ax) * t
                 val y = ay + (by - ay) * t
                 if (e.along(x, y, nx, ny, 2)) hits++
                 if (e.along(x + nx * SHIFT, y + ny * SHIFT, nx, ny, 1)) inner++
+                if (e.along(x + nx * (SHIFT + RIM), y + ny * (SHIFT + RIM), nx, ny, 1)) innerFar++
             }
-            sides[s] = max(0, hits - inner).toDouble() / SIDE_SAMPLES
+            // Grain beside the side shows at both distances; a card's own thick rim (a dark band along its edge, as on
+            // a real Aadhaar card) shows at one only, so the lesser of the two counts.
+            sides[s] = max(0, hits - min(inner, innerFar)).toDouble() / SIDE_SAMPLES
             // Past each end: a card's side stops at its corner; a line of text or a page's edge carries on. Measured
             // against the same stretch a little to either side, so a grained table's own lines don't count.
             for (end in 0..1) {

@@ -18,3 +18,6 @@ round12, round11, place, adjust, card, rotate, round4, round5, round6, round7, r
 
 ## Not proven here
 Real photographed documents (the paper finder and its 55 % paper threshold), real faces on vertical cards, the owner's stretched-card photo, ink savings and sharpness on paper, memory on a low-memory phone with many 1536 px pictures. These are in USER-CHECKLIST §AI.
+
+## Follow-up 2026-11-21 (rim-followup/)
+The owner's Aadhaar back reproduced and fixed (commit 05cf257, see phase-50-rulings.md). Release 1.0.323-05cf257 sha256 aea9c516...c8abf: release-cards smoke on API 35 passed (release-cards.json, two screenshots from the generated test cards). The owner photo itself is customer data and is not kept.

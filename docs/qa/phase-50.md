@@ -1,7 +1,7 @@
 # Phase 50: closure report (round 12: papers cut and saving ink, sharper pictures, centred pages, corners first, standing ID cards)
 
 **Spec:** `docs/superpowers/specs/2026-11-20-round-12-documents-ink-crop-first-design.md`. **Owner decisions:** `docs/decisions/owner-decisions-2026-10-24.md`, rows 72–76. **Rulings and findings:** `docs/qa/phase-50-rulings.md`. **Evidence:** `docs/evidence/phase-50/2026-11-20/` (SUMMARY.md lists every run).
-**Commits:** 3bb008d, ad3415e (review fixes), 7a7a86b (turn knob), 2b68af8 (device evidence). **Release APK:** 1.0.321 (2b68af8), `apk/PrintSaathi-1.0.321-2b68af8.apk`, 1.5 MB, sha256 `b6ab269fee8d7b70c2975ba1c993edc49a6351378cdf26b4cac5ac88e19ae8cf`.
+**Commits:** 3bb008d, ad3415e (review fixes), 7a7a86b (turn knob), 2b68af8 (device evidence), 05cf257 (follow-up: the owner's Aadhaar back, see phase-50-rulings.md). **Release APK:** 1.0.323 (05cf257), `apk/PrintSaathi-1.0.323-05cf257.apk`, 1.5 MB, sha256 `aea9c5166b1f4ed6c13aa2ffaacfff5af0463f30c0ca178724925026d00c8abf` (release-cards smoke on API 35 passed: `evidence/phase-50/2026-11-21/rim-followup/`). Before the follow-up: 1.0.321 (2b68af8), sha256 `b6ab269f…e8cf`.
 
 **Status: TECHNICALLY CLOSED, PENDING REAL-WORLD VALIDATION.** Still to check on the shop printer and the owner's phone: USER-CHECKLIST §AI.
 
@@ -35,7 +35,7 @@
 **Not proven here:**
 - **Real paper detection:** the finder and the paper measure were tested on synthetic pages and photos, never on real photographed letters; the 55 % threshold and the 30 % to 98.5 % area limits are my choice and may need tuning. A letter on a busy table, or a dark page, may not be cut (it prints as before).
 - **Vertical cards:** Android's face finder was never fed a real or synthetic face here; the quarter-turn face check is unproven on a real card. A card without a readable face stays lying; the pairing rule (the back stands with the front) is tested only as logic.
-- **Point 5, the owner's photo:** the frame in the screenshot was not reproduced; the nesting fix addresses the likely cause (the QR block taken as a card).
+- **Point 5, the owner's photo:** reproduced once the owner sent it (follow-up 05cf257): the true outline was rejected because of the card's thick rim, so the QR block was framed; fixed and proven on that photo (whole card found, 0.94 at 1024 px). The nesting fix from 3bb008d did not address the real cause. The right edge's top corner can still sit about 2 % in. Other photos are not proven.
 - **Ink savings:** not measured with a printer; Clean colour and Sharp Black are the existing styles.
 - **Memory and speed on a low-memory phone** with many 1536 px pictures, and the time the paper look adds to the layout choice (bounded to 8 s), were not measured on a real phone.
 - **Not built:** a separate "ink saver" switch; cutting to paper for PDFs; automatic standing/lying for a card with no face on either side.
